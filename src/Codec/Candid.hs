@@ -9,7 +9,15 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE BangPatterns #-}
-module Codec.Candid where
+module Codec.Candid
+    ( Type(..)
+    , Fields
+    , FieldName
+    , Val(..)
+    , Rec(..)
+    , Variant(..)
+    , encode
+    )where
 
 import Numeric.Natural
 import qualified Data.Vector as V
@@ -103,10 +111,6 @@ data Val (t :: Type) where
     VecV :: KnownType t => V.Vector (Val t) -> Val ('VecT t)
     RecV :: KnownFields fs => Rec fs -> Val ('RecT fs)
     VariantV :: KnownFields fs => Variant fs -> Val ('VariantT fs)
-
-
-data Null = Null
-data Reserved = Reserved
 
 data Rec (fs :: Fields) where
   EmptyRec :: Rec '[]
