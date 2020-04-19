@@ -56,38 +56,13 @@ data Type
 type Fields = [(FieldName, Type)]
 
 data FieldName
-   = Named Symbol
-   | Named' T.Text
+   = Named Symbol -- ^ Use this in types
+   | Named' T.Text -- ^ Use this in terms (usually not needed)
    {-
    | Hashed Word32
    -}
 
 -- The values
-
-{-
-type family Val (t :: Type) = r | r -> t where
-    Val ('NatT) = Natural
-    Val ('Nat8T) = Word8
-    Val ('Nat16T) = Word16
-    Val ('Nat32T) = Word32
-    Val ('Nat64T) = Word64
-    Val ('IntT) = Integer
-    Val ('Int8T) = Int8
-    Val ('Int16T) = Int16
-    Val ('Int32T) = Int32
-    Val ('Int64T) = Int64
-    Val ('Float32T) = Float
-    Val ('Float64T) = Double
-    Val ('BoolT) = Bool
-    Val ('TextT) = T.Text
-    Val ('NullT) = Null
-    Val ('ReservedT) = Reserved
-    Val ('EmptyT) = Void
-    Val (('OptT t)) = Maybe (Val t)
-    Val (('VecT t)) = V.Vector (Val t)
-    Val (('RecT fs)) = Rec fs
-    Val (('VariantT fs)) = Variant fs
--}
 
 data Val (t :: Type) where
     NatV :: Natural -> Val 'NatT
