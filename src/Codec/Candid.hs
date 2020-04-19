@@ -25,18 +25,12 @@ import Data.Int
 import Data.List
 import Control.Monad.RWS.Lazy
 import GHC.TypeLits
--- import Data.Singletons
--- import Data.Singletons.TypeLits
--- import Data.Singletons.TH hiding (Null)
 
 -- |
 -- The type of candid values
 -- (coinductively, without named types, i.e. after name resolution)
 data Type
-    = PrimType Prim
-    | ConsType Cons
-
-data Prim
+    -- prim types
     = NatT | Nat8T | Nat16T | Nat32T | Nat64T
     | IntT | Int8T | Int16T | Int32T | Int64T
     | Float32T | Float64T
@@ -45,9 +39,8 @@ data Prim
     | NullT
     | ReservedT
     | EmptyT
-
-data Cons
-    = OptT Type
+    -- constructors
+    | OptT Type
     | VecT Type
     | RecT Fields
     | VariantT Fields
@@ -61,60 +54,55 @@ data FieldName
    | Hashed Word32
    -}
 
-data FieldNameTerm
-    = NamedTerm T.Text
-
--- genSingletons [''Type, ''Prim, ''Cons] -- singletons do not work well with strings
-
 -- The values
 
 {-
 type family Val (t :: Type) = r | r -> t where
-    Val ('PrimType 'NatT) = Natural
-    Val ('PrimType 'Nat8T) = Word8
-    Val ('PrimType 'Nat16T) = Word16
-    Val ('PrimType 'Nat32T) = Word32
-    Val ('PrimType 'Nat64T) = Word64
-    Val ('PrimType 'IntT) = Integer
-    Val ('PrimType 'Int8T) = Int8
-    Val ('PrimType 'Int16T) = Int16
-    Val ('PrimType 'Int32T) = Int32
-    Val ('PrimType 'Int64T) = Int64
-    Val ('PrimType 'Float32T) = Float
-    Val ('PrimType 'Float64T) = Double
-    Val ('PrimType 'BoolT) = Bool
-    Val ('PrimType 'TextT) = T.Text
-    Val ('PrimType 'NullT) = Null
-    Val ('PrimType 'ReservedT) = Reserved
-    Val ('PrimType 'EmptyT) = Void
-    Val ('ConsType ('OptT t)) = Maybe (Val t)
-    Val ('ConsType ('VecT t)) = V.Vector (Val t)
-    Val ('ConsType ('RecT fs)) = Rec fs
-    Val ('ConsType ('VariantT fs)) = Variant fs
+    Val ('NatT) = Natural
+    Val ('Nat8T) = Word8
+    Val ('Nat16T) = Word16
+    Val ('Nat32T) = Word32
+    Val ('Nat64T) = Word64
+    Val ('IntT) = Integer
+    Val ('Int8T) = Int8
+    Val ('Int16T) = Int16
+    Val ('Int32T) = Int32
+    Val ('Int64T) = Int64
+    Val ('Float32T) = Float
+    Val ('Float64T) = Double
+    Val ('BoolT) = Bool
+    Val ('TextT) = T.Text
+    Val ('NullT) = Null
+    Val ('ReservedT) = Reserved
+    Val ('EmptyT) = Void
+    Val (('OptT t)) = Maybe (Val t)
+    Val (('VecT t)) = V.Vector (Val t)
+    Val (('RecT fs)) = Rec fs
+    Val (('VariantT fs)) = Variant fs
 -}
 
 data Val (t :: Type) where
-    NatV :: Natural -> Val ('PrimType 'NatT)
-    Nat8V :: Word8 -> Val ('PrimType 'Nat8T)
-    Nat16V :: Word16 -> Val ('PrimType 'Nat16T)
-    Nat32V :: Word32 -> Val ('PrimType 'Nat32T)
-    Nat64V :: Word64 -> Val ('PrimType 'Nat64T)
-    IntV :: Integer -> Val ('PrimType 'IntT)
-    Int8V :: Int8 -> Val ('PrimType 'Int8T)
-    Int16V :: Int16 -> Val ('PrimType 'Int16T)
-    Int32V :: Int32 -> Val ('PrimType 'Int32T)
-    Int64V :: Int64 -> Val ('PrimType 'Int64T)
-    Float32V :: Float -> Val ('PrimType 'Float32T)
-    Float64V :: Double -> Val ('PrimType 'Float64T)
-    BoolV :: Bool -> Val ('PrimType 'BoolT)
-    TextV :: T.Text -> Val ('PrimType 'TextT)
-    NullV :: Val ('PrimType 'NullT)
-    ReservedV :: Val ('PrimType 'ReservedT)
+    NatV :: Natural -> Val 'NatT
+    Nat8V :: Word8 -> Val 'Nat8T
+    Nat16V :: Word16 -> Val 'Nat16T
+    Nat32V :: Word32 -> Val 'Nat32T
+    Nat64V :: Word64 -> Val 'Nat64T
+    IntV :: Integer -> Val 'IntT
+    Int8V :: Int8 -> Val 'Int8T
+    Int16V :: Int16 -> Val 'Int16T
+    Int32V :: Int32 -> Val 'Int32T
+    Int64V :: Int64 -> Val 'Int64T
+    Float32V :: Float -> Val 'Float32T
+    Float64V :: Double -> Val 'Float64T
+    BoolV :: Bool -> Val 'BoolT
+    TextV :: T.Text -> Val 'TextT
+    NullV :: Val 'NullT
+    ReservedV :: Val 'ReservedT
     -- NB: No EmptyV
-    OptV :: KnownType t => Maybe (Val t) -> Val ('ConsType ('OptT t))
-    VecV :: KnownType t => V.Vector (Val t) -> Val ('ConsType ('VecT t))
-    RecV :: KnownFields fs => Rec fs -> Val ('ConsType ('RecT fs))
-    VariantV :: KnownFields fs => Variant fs -> Val ('ConsType ('VariantT fs))
+    OptV :: KnownType t => Maybe (Val t) -> Val ('OptT t)
+    VecV :: KnownType t => V.Vector (Val t) -> Val ('VecT t)
+    RecV :: KnownFields fs => Rec fs -> Val ('RecT fs)
+    VariantV :: KnownFields fs => Variant fs -> Val ('VariantT fs)
 
 
 data Null = Null
@@ -203,14 +191,31 @@ typTable ts = mconcat
     addTyp b = fmap fromIntegral $ tell b *> get <* modify' succ
 
     go :: Type -> TypTableBuilder Integer
-    go (PrimType p) = return $ prim p
-    go (ConsType (OptT t)) = do
+    go NullT     = return $ -1
+    go BoolT     = return $ -2
+    go NatT      = return $ -3
+    go IntT      = return $ -4
+    go Nat8T     = return $ -5
+    go Nat16T    = return $ -6
+    go Nat32T    = return $ -7
+    go Nat64T    = return $ -8
+    go Int8T     = return $ -9
+    go Int16T    = return $ -10
+    go Int32T    = return $ -11
+    go Int64T    = return $ -12
+    go Float32T  = return $ -13
+    go Float64T  = return $ -14
+    go TextT     = return $ -15
+    go ReservedT = return $ -16
+    go EmptyT    = return $ -17
+
+    go (OptT t) = do
         ti <- go t
         addTyp $ sleb128 (-18) <> sleb128 ti
-    go (ConsType (VecT t)) = do
+    go (VecT t) = do
         ti <- go t
         addTyp $ sleb128 (-19) <> sleb128 ti
-    go (ConsType (RecT fs)) = do
+    go (RecT fs) = do
         tis <- forM fs $ \(fn, t) -> do
             ti <- go t
             return (hashFieldName fn, ti)
@@ -220,7 +225,7 @@ typTable ts = mconcat
             , foldMap (\(n,ti) -> leb128 (fromIntegral n) <> sleb128 ti) $
               sortOn fst tis -- TODO: Check duplicates maybe?
             ]
-    go (ConsType (VariantT fs)) = do
+    go (VariantT fs) = do
         tis <- forM fs $ \(fn, t) -> do
             ti <- go t
             return (hashFieldName fn, ti)
@@ -231,24 +236,6 @@ typTable ts = mconcat
               sortOn fst tis -- TODO: Check duplicates maybe?
             ]
 
-    prim :: Prim -> Integer
-    prim NullT     = -1
-    prim BoolT     = -2
-    prim NatT      = -3
-    prim IntT      = -4
-    prim Nat8T     = -5
-    prim Nat16T    = -6
-    prim Nat32T    = -7
-    prim Nat64T    = -8
-    prim Int8T     = -9
-    prim Int16T    = -10
-    prim Int32T    = -11
-    prim Int64T    = -12
-    prim Float32T  = -13
-    prim Float64T  = -14
-    prim TextT     = -15
-    prim ReservedT = -16
-    prim EmptyT    = -17
 
 hashFieldName :: FieldName -> Word32
 -- hashFieldName (Hashed n) = n
@@ -290,26 +277,26 @@ sleb128 = go
 
 class KnownType (t :: Type) where typ :: Type
 
-instance KnownType ('PrimType 'NatT) where typ = PrimType NatT
-instance KnownType ('PrimType 'Nat8T) where typ = PrimType Nat8T
-instance KnownType ('PrimType 'Nat16T) where typ = PrimType Nat16T
-instance KnownType ('PrimType 'Nat32T) where typ = PrimType Nat32T
-instance KnownType ('PrimType 'Nat64T) where typ = PrimType Nat64T
-instance KnownType ('PrimType 'IntT) where typ = PrimType IntT
-instance KnownType ('PrimType 'Int8T) where typ = PrimType Int8T
-instance KnownType ('PrimType 'Int16T) where typ = PrimType Int16T
-instance KnownType ('PrimType 'Int32T) where typ = PrimType Int32T
-instance KnownType ('PrimType 'Int64T) where typ = PrimType Int64T
-instance KnownType ('PrimType 'Float32T) where typ = PrimType Float32T
-instance KnownType ('PrimType 'Float64T) where typ = PrimType Float64T
-instance KnownType ('PrimType 'TextT) where typ = PrimType TextT
-instance KnownType ('PrimType 'BoolT) where typ = PrimType BoolT
-instance KnownType ('PrimType 'NullT) where typ = PrimType NullT
-instance KnownType ('PrimType 'ReservedT) where typ = PrimType ReservedT
-instance KnownType ('PrimType 'EmptyT) where typ = PrimType EmptyT
-instance KnownType t => KnownType ('ConsType ('OptT t)) where typ = ConsType (OptT (typ @t))
-instance KnownType t => KnownType ('ConsType ('VecT t)) where typ = ConsType (VecT (typ @t))
-instance KnownFields fs => KnownType ('ConsType ('RecT fs)) where typ = ConsType (RecT (fields @fs))
+instance KnownType 'NatT where typ = NatT
+instance KnownType 'Nat8T where typ = Nat8T
+instance KnownType 'Nat16T where typ = Nat16T
+instance KnownType 'Nat32T where typ = Nat32T
+instance KnownType 'Nat64T where typ = Nat64T
+instance KnownType 'IntT where typ = IntT
+instance KnownType 'Int8T where typ = Int8T
+instance KnownType 'Int16T where typ = Int16T
+instance KnownType 'Int32T where typ = Int32T
+instance KnownType 'Int64T where typ = Int64T
+instance KnownType 'Float32T where typ = Float32T
+instance KnownType 'Float64T where typ = Float64T
+instance KnownType 'TextT where typ = TextT
+instance KnownType 'BoolT where typ = BoolT
+instance KnownType 'NullT where typ = NullT
+instance KnownType 'ReservedT where typ = ReservedT
+instance KnownType 'EmptyT where typ = EmptyT
+instance KnownType t => KnownType ('OptT t) where typ = OptT (typ @t)
+instance KnownType t => KnownType ('VecT t) where typ = VecT (typ @t)
+instance KnownFields fs => KnownType ('RecT fs) where typ = RecT (fields @fs)
 
 class KnownFields (t :: [(FieldName, Type)]) where fields :: [(FieldName, Type)]
 instance KnownFields '[] where fields = []
