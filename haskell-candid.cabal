@@ -1,0 +1,28 @@
+cabal-version:       >=1.10
+name:                haskell-candid
+version:             0.1
+-- synopsis:
+-- description:
+-- bug-reports:
+license:             MIT
+license-file:        LICENSE
+author:              Joachim Breitner
+maintainer:          mail@joachim-breitner.de
+-- copyright:
+-- category:
+build-type:          Simple
+extra-source-files:  CHANGELOG.md
+
+library
+  exposed-modules:     Codec.Candid
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base >=4.13 && <4.14
+  build-depends:       text
+  build-depends:       vector
+  build-depends:       bytestring
+  build-depends:       mtl
+  build-depends:       hex-text
+  hs-source-dirs: src
+  default-language:    Haskell2010
+  ghc-options:         -Wall -Wno-name-shadowing
