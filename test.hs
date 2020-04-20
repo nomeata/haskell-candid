@@ -11,14 +11,13 @@ import Codec.Candid
 main = defaultMain unitTests
 
 
-roundTripTest :: forall fs. DecodeParams fs => Rec fs -> Assertion
-roundTripTest v = do
-  let bytes1 = encode v
-  v2 <- case decode @fs bytes1 of
+roundTripTest :: forall ts. DecodeTypes ts => Seq ts -> Assertion
+roundTripTest v1 = do
+  let bytes1 = encode v1
+  v2 <- case decode @ts bytes1 of
     Left err -> assertFailure err
     Right v -> return v
-  let bytes2 = encode v2
-  assertEqual "serialized bytes" bytes1 bytes2
+  assertEqual "values" v1 v2
 
 
 unitTests = testGroup "Unit tests"
@@ -33,5 +32,7 @@ unitTests = testGroup "Unit tests"
     , testCase "bool" $ roundTripTest $ args1 (BoolV True)
     , testCase "simple record" $ roundTripTest $ args1
         (RecV (BoolV True :> EmptyRec) :: Val ('RecT '[ '( 'Named "foo", 'BoolT)]))
+    , testCase "simple variant" $ roundTripTest $ args1
+        (VariantV (This (BoolV True)) :: Val ('VariantT '[ '( 'Named "foo", 'BoolT)]))
     ]
   ]

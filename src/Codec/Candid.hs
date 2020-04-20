@@ -21,12 +21,13 @@ module Codec.Candid
     , KnownFields
     , Val(..)
     , Rec(..)
-    , args0, args1
     , Variant(..)
+    , Seq(..)
+    , args0, args1
     , encode
     , encodeBuilder
     , decode
-    , DecodeParams
+    , DecodeTypes
     ) where
 
 import Numeric.Natural
@@ -102,6 +103,13 @@ data Val (t :: Type) where
 deriving instance Show (Val a)
 deriving instance Eq (Val a)
 
+data Seq (ts :: [Type]) where
+  EmptySeq :: Seq '[]
+  (::>) :: (KnownType t, KnownTypes ts) => Val t -> Seq ts ->  Seq (t ': ts)
+infixr 5 ::>
+deriving instance Show (Seq fs)
+deriving instance Eq (Seq fs)
+
 data Rec (fs :: Fields) where
   EmptyRec :: Rec '[]
   (:>) :: (KnownFieldName f, KnownType t, KnownFields fs) =>
@@ -111,11 +119,11 @@ infixr 5 :>
 deriving instance Show (Rec fs)
 deriving instance Eq (Rec fs)
 
-args0 :: Rec '[]
-args0 = EmptyRec
+args0 :: Seq '[]
+args0 = EmptySeq
 
-args1 :: KnownType a => Val a -> Rec '[ '( 'Anonymous, a) ]
-args1 x = x :> EmptyRec
+args1 :: KnownType a => Val a -> Seq '[ a ]
+args1 x = x ::> EmptySeq
 
 data Variant (fs :: [(FieldName, Type)]) where
   This :: KnownType t => Val t -> Variant ('(f,t) ': fs)
@@ -124,21 +132,21 @@ data Variant (fs :: [(FieldName, Type)]) where
 deriving instance Show (Variant fs)
 deriving instance Eq (Variant fs)
 
-encode :: forall fs. KnownFields fs => Rec fs -> BS.ByteString
+encode :: forall ts. KnownTypes ts => Seq ts -> BS.ByteString
 encode = BSL.toStrict . B.toLazyByteString . encodeBuilder
 
-encodeBuilder :: forall fs. KnownFields fs => Rec fs -> B.Builder
+encodeBuilder :: forall ts. KnownTypes ts => Seq ts -> B.Builder
 encodeBuilder xs = mconcat
     [ B.stringUtf8 "DIDL"
-    , typTable (map snd (fields @fs))
+    , typTable (types @ts)
     , encodeSeq xs
     ]
 
 -- Argument sequences, although represented as records
 -- are always encoded in order
-encodeSeq :: forall fs. KnownFields fs => Rec fs -> B.Builder
-encodeSeq EmptyRec = mempty
-encodeSeq (x :> xs) = encodeVal x <> encodeSeq xs
+encodeSeq :: KnownTypes ts => Seq ts -> B.Builder
+encodeSeq EmptySeq = mempty
+encodeSeq (x ::> xs) = encodeVal x <> encodeSeq xs
 
 encodeVal :: forall t. KnownType t => Val t -> B.Builder
 encodeVal (BoolV False) = B.word8 0
@@ -166,8 +174,8 @@ encodeVal (RecV xs) = foldMap snd $ sortOn fst $ encodeRec xs
 encodeVal (VariantV (x :: Variant fs)) = leb128 (fromIntegral i) <> b
   where
     (pos, b) = encodeVar x
-    m = sortOn snd $ zip [0..] (map (hashFieldName . fst) (fields @fs))
-    Just i = lookup pos m
+    m = map fst $ sortOn snd $ zip [0..] (map (hashFieldName . fst) (fields @fs))
+    Just i = elemIndex pos m
 
 
 -- Encodes the fields, sorting happens later
@@ -246,25 +254,25 @@ typTable ts = mconcat
             ]
 
 
-decode :: forall fs. DecodeParams fs => BS.ByteString -> Either String (Rec fs)
+decode :: DecodeTypes ts => BS.ByteString -> Either String (Seq ts)
 decode = G.runGet $ do
     decodeMagic
     arg_tys <- decodeTypTable
     -- get the argument sequence
     decodeParams arg_tys
 
-class KnownFields fs => DecodeParams fs where
-    decodeParams :: [Type] -> G.Get (Rec fs)
+class KnownTypes ts => DecodeTypes ts where
+    decodeParams :: [Type] -> G.Get (Seq ts)
 
-instance DecodeParams '[] where
-    decodeParams _ = return EmptyRec -- NB: This is where we ignore extra arguments
+instance DecodeTypes '[] where
+    decodeParams _ = return EmptySeq -- NB: This is where we ignore extra arguments
 
-instance (DecodeParams fs, DecodeVal pt, KnownFieldName f) => DecodeParams ('(f, pt) ': fs) where
+instance (DecodeTypes ts, DecodeVal pt) => DecodeTypes (pt ': ts) where
     decodeParams [] = fail "Missing argument"
     decodeParams (t' : ts) = do
         v <- decodeVal t'
         vs <- decodeParams ts
-        return $ v :> vs
+        return $ v ::> vs
 
 class KnownType t => DecodeVal t where
     decodeVal :: Type -> G.Get (Val t)
@@ -370,6 +378,25 @@ instance (KnownFieldName f, DecodeVal t, DecodeFields fs) => DecodeFields ('(f,t
         | otherwise = decodeField h t $
             FieldDecoder (\(Proxy :: Proxy fs') -> k (Proxy @('(f,t) ': fs')))
     noFieldLeft = fail "missing fields"
+
+instance DecodeVariant fs => DecodeVal ('VariantT fs) where
+    decodeVal (VariantT fs) = do
+        i <- getLeb128
+        unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
+        let (fn, t) = fs !! fromIntegral i
+        VariantV <$> decodeVariant (hashFieldName fn) t
+    decodeVal _ = fail "unexpected type"
+
+class KnownFields fs => DecodeVariant fs where
+    decodeVariant :: Word32 -> Type -> G.Get (Variant fs)
+
+instance DecodeVariant '[] where
+    decodeVariant _ _ = fail "unexpected variant tag"
+
+instance (KnownFieldName f, DecodeVal t, DecodeVariant fs) => DecodeVariant ('(f,t) ': fs) where
+    decodeVariant h t
+        | h == hashFieldName (fieldName @f) = This <$> decodeVal t
+        | otherwise = Other <$> decodeVariant h t
 
 decodeMagic :: G.Get ()
 decodeMagic = do
@@ -534,11 +561,17 @@ instance KnownType 'EmptyT where typ = EmptyT
 instance KnownType t => KnownType ('OptT t) where typ = OptT (typ @t)
 instance KnownType t => KnownType ('VecT t) where typ = VecT (typ @t)
 instance KnownFields fs => KnownType ('RecT fs) where typ = RecT (fields @fs)
+instance KnownFields fs => KnownType ('VariantT fs) where typ = VariantT (fields @fs)
 
 class KnownFields (t :: [(FieldName, Type)]) where fields :: [(FieldName, Type)]
 instance KnownFields '[] where fields = []
 instance (KnownFieldName n, KnownType t, KnownFields fs) => KnownFields ('(n,t) ': fs) where
     fields = (fieldName @n, typ @t) : fields @fs
+
+class KnownTypes (t :: [Type]) where types :: [Type]
+instance KnownTypes '[] where types = []
+instance (KnownType t, KnownTypes ts) => KnownTypes (t ': ts) where
+    types = typ @t : types @ts
 
 class KnownFieldName (fn :: FieldName) where fieldName :: FieldName
 instance KnownSymbol s => KnownFieldName ('Named s) where
