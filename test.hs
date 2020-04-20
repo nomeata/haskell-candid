@@ -6,6 +6,8 @@
 import qualified Data.ByteString.Char8 as B
 import Test.Tasty
 import Test.Tasty.HUnit
+import Numeric.Natural
+
 
 import Codec.Candid
 
@@ -20,6 +22,14 @@ instance Candid a => Candid (ARecord a) where
     toCandid (ARecord x) = RecV (toCandid x :> EmptyRec)
     fromCandid (RecV (x :> EmptyRec)) = ARecord (fromCandid x)
 
+newtype JustRight a = JustRight a
+    deriving (Eq, Show)
+
+instance Candid a => Candid (JustRight a) where
+    type Rep (JustRight a) = 'VariantT '[ '( 'Named "Right", Rep a) ]
+    toCandid (JustRight x) = VariantV (This (toCandid x))
+    fromCandid (VariantV (This x)) = JustRight (fromCandid x)
+
 roundTripTest :: forall a. (CandidArgs a, Eq a, Show a) => a -> Assertion
 roundTripTest v1 = do
   let bytes1 = encode v1
@@ -27,6 +37,17 @@ roundTripTest v1 = do
     Left err -> assertFailure err
     Right v -> return v
   assertEqual "values" v1 v2
+
+subTypeTest :: forall a b.
+    (CandidArgs a, Eq a, Show a) =>
+    (CandidArgs b, Eq b, Show b) =>
+    a -> b -> Assertion
+subTypeTest v1 v2 = do
+  let bytes1 = encode v1
+  v2' <- case decode @b bytes1 of
+    Left err -> assertFailure err
+    Right v -> return v
+  v2 @=? v2'
 
 
 unitTests = testGroup "Unit tests"
@@ -42,5 +63,12 @@ unitTests = testGroup "Unit tests"
     , testCase "simple record" $ roundTripTest $ Unary (ARecord True)
     , testCase "simple variant" $ roundTripTest $ Unary (Left True :: Either Bool Bool)
     , testCase "simple variant" $ roundTripTest $ Unary (Right False :: Either Bool Bool)
+    ]
+  , testGroup "subtypes"
+    [ testCase "nat/int" $ subTypeTest (Unary (42 :: Natural)) (Unary (42 :: Integer))
+    , testCase "null/opt" $ subTypeTest (Unary NullV) (Unary (Nothing @Integer))
+    , testCase "rec" $ subTypeTest (ARecord True, True) (RecV EmptyRec, True)
+    , testCase "variant" $ subTypeTest (Right 42 :: Either Bool Natural, True) (JustRight (42 :: Natural), True)
+    , testCase "any" $ subTypeTest (ARecord True, True) (ReservedV, True)
     ]
   ]

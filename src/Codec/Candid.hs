@@ -463,7 +463,6 @@ primTyp (-17) = Just EmptyT
 primTyp _     = Nothing
 
 
-
 hashFieldName :: FieldName -> Word32
 hashFieldName (Hashed n) = n
 hashFieldName (Named _) = error "Symbol in value level computation"
@@ -575,6 +574,21 @@ instance Candid Bool where
     type Rep Bool = 'BoolT
     toCandid = BoolV
     fromCandid (BoolV b) = b
+
+instance Candid Natural where
+    type Rep Natural = 'NatT
+    toCandid = NatV
+    fromCandid (NatV b) = b
+
+instance Candid Integer where
+    type Rep Integer = 'IntT
+    toCandid = IntV
+    fromCandid (IntV b) = b
+
+instance Candid a => Candid (Maybe a) where
+    type Rep (Maybe a) = 'OptT (Rep a)
+    toCandid = OptV . fmap toCandid
+    fromCandid (OptV x) = fmap fromCandid x
 
 instance (Candid a, Candid b) => Candid (Either a b) where
     type Rep (Either a b) = 'VariantT '[ '( 'Named "Left", Rep a), '( 'Named "Right", Rep b) ]
