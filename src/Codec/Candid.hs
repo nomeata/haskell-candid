@@ -78,6 +78,13 @@ data FieldName
    | Hashed Nat -- ^ Use this in types
    | Hashed' Word32 -- ^ Use this in terms (mostly internal)
 
+prettyFieldName :: FieldName -> String
+prettyFieldName (Named _) = error "Named in term"
+prettyFieldName (Named' t) = T.unpack t
+prettyFieldName (Hashed _) = error "Nat in term"
+prettyFieldName (Hashed' n) = "id " <> show n
+
+
 -- The values
 
 data Val (t :: Type) where
@@ -279,45 +286,45 @@ instance DecodeVal 'BoolT where
         0 -> return $ BoolV False
         1 -> return $ BoolV True
         _ -> fail "Invalid boolean value"
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected BoolT"
 
 instance DecodeVal 'NatT where
     decodeVal NatT = NatV <$> getLeb128
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected NatT"
 instance DecodeVal 'Nat8T where
     decodeVal Nat8T = Nat8V <$> G.getWord8
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected Nat8T"
 instance DecodeVal 'Nat16T where
     decodeVal Nat16T = Nat16V <$> G.getWord16le
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected Nat16T"
 instance DecodeVal 'Nat32T where
     decodeVal Nat32T = Nat32V <$> G.getWord32le
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected Nat32T"
 instance DecodeVal 'Nat64T where
     decodeVal Nat64T = Nat64V <$> G.getWord64le
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected Nat64T"
 instance DecodeVal 'IntT where
     decodeVal NatT = IntV . fromIntegral <$> getLeb128
     decodeVal IntT = IntV <$> getSleb128
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected IntT (or NatT)"
 instance DecodeVal 'Int8T where
     decodeVal Int8T = Int8V <$> G.getInt8
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected Int8T"
 instance DecodeVal 'Int16T where
     decodeVal Int16T = Int16V <$> G.getInt16le
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected Int16T"
 instance DecodeVal 'Int32T where
     decodeVal Int32T = Int32V <$> G.getInt32le
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected Int32T"
 instance DecodeVal 'Int64T where
     decodeVal Int64T = Int64V <$> G.getInt64le
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected Int64T"
 instance DecodeVal 'Float32T where
     decodeVal Float32T = Float32V <$> G.getFloat32le
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected Float32T"
 instance DecodeVal 'Float64T where
     decodeVal Float64T = Float64V <$> G.getFloat64le
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected Float64T"
 instance DecodeVal 'TextT where
     decodeVal TextT = do
         n <- getLeb128
@@ -325,10 +332,10 @@ instance DecodeVal 'TextT where
         case T.decodeUtf8' bs of
             Left err -> fail (show err)
             Right t -> return $ TextV t
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected TextT"
 instance DecodeVal 'NullT where
     decodeVal NullT = return NullV
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected NullT"
 instance DecodeVal 'ReservedT where
     decodeVal t = skipVal t >> return ReservedV
 
@@ -338,43 +345,48 @@ instance DecodeVal t => DecodeVal ('OptT t) where
         0 -> return $ OptV Nothing
         1 -> OptV . Just <$> decodeVal t
         _ -> fail "Invalid optional value"
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected OptT"
 instance DecodeVal t => DecodeVal ('VecT t) where
     decodeVal (VecT t) = do
         n <- getLeb128
         VecV . V.fromList <$> replicateM (fromIntegral n) (decodeVal t)
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected VecT"
 instance DecodeFields fs => DecodeVal ('RecT fs) where
     decodeVal (RecT fs) = RecV <$> decodeRec fs
-    decodeVal _ = fail "unexpected type"
+    decodeVal _ = fail "unexpected type, expected RecT"
 
-decodeRec :: DecodeFields fs => Fields -> G.Get (Rec fs)
-decodeRec [] = noFieldLeft
-decodeRec ((n, t):dfs) =
-    decodeField (hashFieldName n) t $ FieldDecoder (decodeRec dfs)
-
-newtype FieldDecoder = FieldDecoder (forall fs. DecodeFields fs => G.Get (Rec fs))
+decodeRec :: forall fs. DecodeFields fs => Fields -> G.Get (Rec fs)
+decodeRec [] = noFields
+decodeRec ((h,t):dfs) = case findField @fs (hashFieldName h) of
+    Found (>:) -> do
+        x <- decodeVal t
+        xs <- decodeRec dfs
+        return (x >: xs)
+    NotFound -> do
+        skipVal t
+        decodeRec dfs
 
 class KnownFields fs => DecodeFields fs where
-    decodeField :: Word32 -> Type -> FieldDecoder -> G.Get (Rec fs)
-    noFieldLeft :: G.Get (Rec fs)
+    noFields ::G.Get (Rec fs)
+    findField :: Word32 -> FindFieldResult fs
 
 instance DecodeFields '[] where
-    noFieldLeft =
-        return EmptyRec
-    decodeField _ t (FieldDecoder k) = do
-        skipVal t
-        k
+    noFields = return EmptyRec
+    findField _ = NotFound
 
 instance (KnownFieldName f, DecodeVal t, DecodeFields fs) => DecodeFields ('(f,t) ': fs) where
-    decodeField h t fd@(FieldDecoder k)
-        | h == hashFieldName (fieldName @f) = do
-            x <- decodeVal t
-            xs <- k
-            return $ x :> xs
-        | otherwise =
-            decodeField h t fd
-    noFieldLeft = fail "missing fields"
+    noFields = fail $ "missing field " <> prettyFieldName (fieldName @f)
+    findField h
+        | h == hashFieldName (fieldName @f) = Found (:>)
+        | otherwise = case findField @fs h of
+            NotFound -> NotFound
+            Found ((>:) :: Val t' -> Rec fs' -> Rec fs) ->
+                Found @t' @('(f,t) ': fs') (\x (y :> ys) -> y :> (x >: ys))
+
+data FindFieldResult fs where
+    Found :: forall t' fs' fs. (DecodeVal t', DecodeFields fs') =>
+        (Val t' -> Rec fs' -> Rec fs) -> FindFieldResult fs
+    NotFound :: FindFieldResult fs
 
 instance DecodeVariant fs => DecodeVal ('VariantT fs) where
     decodeVal (VariantT fs) = do

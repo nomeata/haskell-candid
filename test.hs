@@ -85,5 +85,5 @@ unitTests = testGroup "Unit tests"
     , testCase "tuple/any" $ subTypeTest ((42::Integer, 42::Natural), True) (ReservedV, True)
     , testCase "tuple/tuple" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) ((42::Integer, -42::Integer), 100::Integer)
     ]
-    , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (SingleField (-42) :: SingleField 2 Integer, 100::Integer)
+    , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (SingleField (-42) :: SingleField 1 Integer, 100::Integer)
   ]
