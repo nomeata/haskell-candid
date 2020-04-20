@@ -366,13 +366,17 @@ decodeRec ((h,t):dfs) =
             return (x >: xs))
 
 class KnownFields fs => DecodeFields fs where
-    noFields ::G.Get (Rec fs)
-    findField ::
+    noFields :: G.Get (Rec fs)
+
+    -- findField, in CPS style, produces a function with a type
+    -- like :>, but one that inserts the value in the right slot
+    findField :: forall a.
         Word32 ->
         a ->
         (forall t' fs'.
             (DecodeVal t', DecodeFields fs') =>
-             (Val t' -> Rec fs' -> Rec fs) -> a) ->
+            (Val t' -> Rec fs' -> Rec fs) -> a
+        ) ->
         a
 
 instance DecodeFields '[] where
@@ -384,8 +388,8 @@ instance (KnownFieldName f, DecodeVal t, DecodeFields fs) => DecodeFields ('(f,t
     findField h k1 k2
         | h == hashFieldName (fieldName @f) = k2 (:>)
         | otherwise = findField @fs h k1 $
-            \ ((>:) :: Val t' -> Rec fs' -> Rec fs) ->
-                k2 @t' @('(f,t) ': fs') (\x (y :> ys) -> y :> (x >: ys))
+            \ ((>:) :: Val t' -> Rec fs' -> Rec fs) -> k2 $
+                \x (y :> ys :: Rec ('(f,t) ': fs')) -> y :> (x >: ys)
 
 instance DecodeVariant fs => DecodeVal ('VariantT fs) where
     decodeVal (VariantT fs) = do
