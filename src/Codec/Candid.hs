@@ -23,7 +23,7 @@ module Codec.Candid
     , Rec(..)
     , Variant(..)
     , Seq(..)
-    , args0, args1
+    , args0, args1, args2
     , encode
     , encodeBuilder
     , decode
@@ -70,8 +70,7 @@ data Type
 type Fields = [(FieldName, Type)]
 
 data FieldName
-   = Anonymous -- ^ only used in argument/result sequences
-   | Named Symbol -- ^ Use this in types
+   = Named Symbol -- ^ Use this in types
    | Named' T.Text -- ^ Use this in terms (usually not needed)
    | Hashed Word32
 
@@ -124,6 +123,9 @@ args0 = EmptySeq
 
 args1 :: KnownType a => Val a -> Seq '[ a ]
 args1 x = x ::> EmptySeq
+
+args2 :: (KnownType a, KnownType b) => Val a -> Val b -> Seq '[ a, b ]
+args2 x y = x ::> y ::> EmptySeq
 
 data Variant (fs :: [(FieldName, Type)]) where
   This :: KnownType t => Val t -> Variant ('(f,t) ': fs)
@@ -469,7 +471,6 @@ primTyp _     = Nothing
 
 
 hashFieldName :: FieldName -> Word32
-hashFieldName Anonymous = error "Anonymous record field"
 hashFieldName (Hashed n) = n
 hashFieldName (Named _) = error "Symbol in value level computation"
 hashFieldName (Named' s) =
@@ -576,5 +577,3 @@ instance (KnownType t, KnownTypes ts) => KnownTypes (t ': ts) where
 class KnownFieldName (fn :: FieldName) where fieldName :: FieldName
 instance KnownSymbol s => KnownFieldName ('Named s) where
     fieldName = Named' (T.pack (symbolVal @s @Proxy undefined))
-instance KnownFieldName 'Anonymous where
-    fieldName = Anonymous
