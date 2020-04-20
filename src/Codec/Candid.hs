@@ -627,9 +627,16 @@ instance Candid a => Candid (Maybe a) where
     fromCandid (OptV x) = fmap fromCandid x
 
 instance (Candid a, Candid b) => Candid (a, b) where
-    type Rep (a, b) = 'RecT '[ '( 'Hashed 0, Rep a), '( 'Hashed 1, Rep b)]
+    type Rep (a, b) = 'RecT '[ TupField 0 a, TupField 1 b]
     toCandid (x,y) = RecV $ toCandid x :> toCandid y :> EmptyRec
     fromCandid (RecV (x :> y :> EmptyRec)) = (fromCandid x, fromCandid y)
+
+instance (Candid a, Candid b, Candid c) => Candid (a, b, c) where
+    type Rep (a, b, c) = 'RecT '[ TupField 0 a, TupField 1 b, TupField 2 c]
+    toCandid (x,y,z) = RecV $ toCandid x :> toCandid y :> toCandid z :> EmptyRec
+    fromCandid (RecV (x :> y :> z :> EmptyRec)) = (fromCandid x, fromCandid y, fromCandid z)
+
+type TupField n a = '( 'Hashed n, Rep a)
 
 instance (Candid a, Candid b) => Candid (Either a b) where
     type Rep (Either a b) = 'VariantT '[ '( 'Named "Left", Rep a), '( 'Named "Right", Rep b) ]

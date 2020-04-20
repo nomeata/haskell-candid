@@ -7,6 +7,7 @@ import qualified Data.ByteString.Char8 as B
 import Test.Tasty
 import Test.Tasty.HUnit
 import Numeric.Natural
+import GHC.TypeLits
 
 
 import Codec.Candid
@@ -21,6 +22,14 @@ instance Candid a => Candid (ARecord a) where
     type Rep (ARecord a) = 'RecT '[ '( 'Named "foo", Rep a) ]
     toCandid (ARecord x) = RecV (toCandid x :> EmptyRec)
     fromCandid (RecV (x :> EmptyRec)) = ARecord (fromCandid x)
+
+newtype SingleField (n::Nat) a = SingleField a
+    deriving (Eq, Show)
+
+instance (KnownNat n, Candid a) => Candid (SingleField n a) where
+    type Rep (SingleField n a) = 'RecT '[ '( 'Hashed n, Rep a) ]
+    toCandid (SingleField x) = RecV (toCandid x :> EmptyRec)
+    fromCandid (RecV (x :> EmptyRec)) = SingleField (fromCandid x)
 
 newtype JustRight a = JustRight a
     deriving (Eq, Show)
@@ -74,5 +83,7 @@ unitTests = testGroup "Unit tests"
     , testCase "variant" $ subTypeTest (Right 42 :: Either Bool Natural, True) (JustRight (42 :: Natural), True)
     , testCase "rec/any" $ subTypeTest (ARecord True, True) (ReservedV, True)
     , testCase "tuple/any" $ subTypeTest ((42::Integer, 42::Natural), True) (ReservedV, True)
+    , testCase "tuple/tuple" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) ((42::Integer, -42::Integer), 100::Integer)
     ]
+    , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (SingleField (-42) :: SingleField 2 Integer, 100::Integer)
   ]
