@@ -357,36 +357,35 @@ instance DecodeFields fs => DecodeVal ('RecT fs) where
 
 decodeRec :: forall fs. DecodeFields fs => Fields -> G.Get (Rec fs)
 decodeRec [] = noFields
-decodeRec ((h,t):dfs) = case findField @fs (hashFieldName h) of
-    Found (>:) -> do
-        x <- decodeVal t
-        xs <- decodeRec dfs
-        return (x >: xs)
-    NotFound -> do
-        skipVal t
-        decodeRec dfs
+decodeRec ((h,t):dfs) =
+    findField @fs (hashFieldName h)
+        (skipVal t >> decodeRec dfs)
+        (\(>:) -> do
+            x <- decodeVal t
+            xs <- decodeRec dfs
+            return (x >: xs))
 
 class KnownFields fs => DecodeFields fs where
     noFields ::G.Get (Rec fs)
-    findField :: Word32 -> FindFieldResult fs
+    findField ::
+        Word32 ->
+        a ->
+        (forall t' fs'.
+            (DecodeVal t', DecodeFields fs') =>
+             (Val t' -> Rec fs' -> Rec fs) -> a) ->
+        a
 
 instance DecodeFields '[] where
     noFields = return EmptyRec
-    findField _ = NotFound
+    findField _ k1 _ = k1
 
 instance (KnownFieldName f, DecodeVal t, DecodeFields fs) => DecodeFields ('(f,t) ': fs) where
     noFields = fail $ "missing field " <> prettyFieldName (fieldName @f)
-    findField h
-        | h == hashFieldName (fieldName @f) = Found (:>)
-        | otherwise = case findField @fs h of
-            NotFound -> NotFound
-            Found ((>:) :: Val t' -> Rec fs' -> Rec fs) ->
-                Found @t' @('(f,t) ': fs') (\x (y :> ys) -> y :> (x >: ys))
-
-data FindFieldResult fs where
-    Found :: forall t' fs' fs. (DecodeVal t', DecodeFields fs') =>
-        (Val t' -> Rec fs' -> Rec fs) -> FindFieldResult fs
-    NotFound :: FindFieldResult fs
+    findField h k1 k2
+        | h == hashFieldName (fieldName @f) = k2 (:>)
+        | otherwise = findField @fs h k1 $
+            \ ((>:) :: Val t' -> Rec fs' -> Rec fs) ->
+                k2 @t' @('(f,t) ': fs') (\x (y :> ys) -> y :> (x >: ys))
 
 instance DecodeVariant fs => DecodeVal ('VariantT fs) where
     decodeVal (VariantT fs) = do
