@@ -14,6 +14,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE EmptyCase #-}
 module Codec.Candid
     ( Type(..)
     , Fields
@@ -81,6 +82,7 @@ prettyFieldName (Named' t) = T.unpack t
 prettyFieldName (Hashed _) = error "Nat in term"
 prettyFieldName (Hashed' n) = "id " <> show n
 
+type Args = [Type]
 
 -- The values
 
@@ -112,7 +114,7 @@ deriving instance Eq (Val a)
 
 data Seq (ts :: [Type]) where
   EmptySeq :: Seq '[]
-  (::>) :: (KnownType t, KnownTypes ts) => Val t -> Seq ts ->  Seq (t ': ts)
+  (::>) :: (KnownType t, KnownArgs ts) => Val t -> Seq ts ->  Seq (t ': ts)
 infixr 5 ::>
 deriving instance Show (Seq fs)
 deriving instance Eq (Seq fs)
@@ -139,56 +141,61 @@ encode = BSL.toStrict . B.toLazyByteString . encodeBuilder
 encodeBuilder :: forall a. CandidArgs a => a -> B.Builder
 encodeBuilder x = mconcat
     [ B.stringUtf8 "DIDL"
-    , typTable (types @(ArgRep a))
-    , encodeSeq (toSeq x)
+    , typTable (fromSArgs (args @(ArgRep a)))
+    , encodeSeq (args @(ArgRep a)) (toSeq x)
     ]
 
 -- Argument sequences, although represented as records
 -- are always encoded in order
-encodeSeq :: KnownTypes ts => Seq ts -> B.Builder
-encodeSeq EmptySeq = mempty
-encodeSeq (x ::> xs) = encodeVal x <> encodeSeq xs
+encodeSeq :: SArgs ts -> Seq ts -> B.Builder
+encodeSeq SArgsNil EmptySeq = mempty
+encodeSeq (SArgsCons t ts) (x ::> xs) = encodeVal t x <> encodeSeq ts xs
 
-encodeVal :: forall t. KnownType t => Val t -> B.Builder
-encodeVal (BoolV False) = B.word8 0
-encodeVal (BoolV True) = B.word8 1
-encodeVal (NatV n) = leb128 n
-encodeVal (Nat8V n) = B.word8 n
-encodeVal (Nat16V n) = B.word16LE n
-encodeVal (Nat32V n) = B.word32LE n
-encodeVal (Nat64V n) = B.word64LE n
-encodeVal (IntV n) = sleb128 n
-encodeVal (Int8V n) = B.int8 n
-encodeVal (Int16V n) = B.int16LE n
-encodeVal (Int32V n) = B.int32LE n
-encodeVal (Int64V n) = B.int64LE n
-encodeVal (Float32V n) = B.floatLE n
-encodeVal (Float64V n) = B.doubleLE n
-encodeVal (TextV t) = leb128 (fromIntegral (BS.length bytes)) <> B.byteString bytes
+encodeVal :: SType t -> Val t -> B.Builder
+encodeVal SEmptyT v = case v of {}
+encodeVal SBoolT (BoolV False) = B.word8 0
+encodeVal SBoolT (BoolV True) = B.word8 1
+encodeVal SNatT (NatV n) = leb128 n
+encodeVal SNat8T (Nat8V n) = B.word8 n
+encodeVal SNat16T (Nat16V n) = B.word16LE n
+encodeVal SNat32T (Nat32V n) = B.word32LE n
+encodeVal SNat64T (Nat64V n) = B.word64LE n
+encodeVal SIntT (IntV n) = sleb128 n
+encodeVal SInt8T (Int8V n) = B.int8 n
+encodeVal SInt16T (Int16V n) = B.int16LE n
+encodeVal SInt32T (Int32V n) = B.int32LE n
+encodeVal SInt64T (Int64V n) = B.int64LE n
+encodeVal SFloat32T (Float32V n) = B.floatLE n
+encodeVal SFloat64T (Float64V n) = B.doubleLE n
+encodeVal STextT (TextV t) = leb128 (fromIntegral (BS.length bytes)) <> B.byteString bytes
   where bytes = T.encodeUtf8 t
-encodeVal NullV = mempty
-encodeVal ReservedV = mempty
-encodeVal (OptV Nothing) = B.word8 0
-encodeVal (OptV (Just x)) = B.word8 1 <> encodeVal x
-encodeVal (VecV xs) = leb128 (fromIntegral (V.length xs)) <> foldMap encodeVal xs
-encodeVal (RecV xs) = foldMap snd $ sortOn fst $ encodeRec xs
-encodeVal (VariantV (x :: Variant fs)) = leb128 (fromIntegral i) <> b
+encodeVal SNullT NullV = mempty
+encodeVal SReservedT ReservedV = mempty
+encodeVal (SOptT _) (OptV Nothing) = B.word8 0
+encodeVal (SOptT t) (OptV (Just x)) = B.word8 1 <> encodeVal t x
+encodeVal (SVecT t) (VecV xs) =
+    leb128 (fromIntegral (V.length xs)) <>
+    foldMap (encodeVal t) xs
+encodeVal (SRecT fs) (RecV xs) =
+    foldMap snd $ sortOn fst $ encodeRec fs xs
+encodeVal (SVariantT fs) (VariantV (x :: Variant fs)) =
+    leb128 (fromIntegral i) <> b
   where
-    (pos, b) = encodeVar x
-    m = map fst $ sortOn snd $ zip [0..] (map (hashFieldName . fst) (fields @fs))
+    (pos, b) = encodeVariant fs x
+    m = map fst $ sortOn snd $ zip [0..] (map (hashFieldName . fst) (fromSFields fs))
     Just i = elemIndex pos m
 
-
 -- Encodes the fields, sorting happens later
-encodeRec :: forall fs. KnownFields fs => Rec fs -> [(Word32, B.Builder)]
-encodeRec EmptyRec = []
-encodeRec (x :> xs) =
-    (hashFieldName (fieldName @(FieldNameHead fs)), encodeVal x) : encodeRec xs
+encodeRec :: SFields fs -> Rec fs -> [(Word32, B.Builder)]
+encodeRec SFieldsNil EmptyRec = []
+encodeRec (SFieldsCons n t fs) (x :> xs) =
+    (hashFieldName (fromSFieldName n), encodeVal t x) : encodeRec fs xs
 
 -- Encodes the value, returns fields and index
-encodeVar :: forall fs. KnownFields fs => Variant fs -> (Natural, B.Builder)
-encodeVar (This x) = (0, encodeVal x)
-encodeVar (Other v) = first succ (encodeVar v)
+encodeVariant :: SFields fs -> Variant fs -> (Natural, B.Builder)
+encodeVariant SFieldsNil x = case x of {}
+encodeVariant (SFieldsCons _ t _) (This x) = (0, encodeVal t x)
+encodeVariant (SFieldsCons _ _ fs) (Other v) = first succ (encodeVariant fs v)
 
 type family FieldNameHead (fs :: Fields) :: FieldName where
     FieldNameHead ('(f,_)':_) = f
@@ -262,7 +269,7 @@ decode = G.runGet $ do
     -- get the argument sequence
     fromSeq <$> decodeParams arg_tys
 
-class KnownTypes ts => DecodeTypes ts where
+class KnownArgs ts => DecodeTypes ts where
     decodeParams :: [Type] -> G.Get (Seq ts)
 
 instance DecodeTypes '[] where
@@ -381,9 +388,9 @@ instance DecodeFields '[] where
     findField _ k1 _ = k1
 
 instance (KnownFieldName f, DecodeVal t, DecodeFields fs) => DecodeFields ('(f,t) ': fs) where
-    noFields = fail $ "missing field " <> prettyFieldName (fieldName @f)
+    noFields = fail $ "missing field " <> prettyFieldName (fromSFieldName (fieldName @f))
     findField h k1 k2
-        | h == hashFieldName (fieldName @f) = k2 (:>)
+        | h == hashFieldName (fromSFieldName (fieldName @f)) = k2 (:>)
         | otherwise = findField @fs h k1 $
             \ ((>:) :: Val t' -> Rec fs' -> Rec fs) -> k2 $
                 \x (y :> ys :: Rec ('(f,t) ': fs')) -> y :> (x >: ys)
@@ -404,7 +411,7 @@ instance DecodeVariant '[] where
 
 instance (KnownFieldName f, DecodeVal t, DecodeVariant fs) => DecodeVariant ('(f,t) ': fs) where
     decodeVariant h t
-        | h == hashFieldName (fieldName @f) = This <$> decodeVal t
+        | h == hashFieldName (fromSFieldName (fieldName @f)) = This <$> decodeVal t
         | otherwise = Other <$> decodeVariant h t
 
 skipVal :: Type -> G.Get ()
@@ -661,43 +668,116 @@ instance (Candid a, Candid b) => Candid (Either a b) where
 
 -- Repetitive stuff for dependently typed programming
 
-class KnownType (t :: Type) where typ :: Type
+-- | Corresponding singleton family
 
-instance KnownType 'NatT where typ = NatT
-instance KnownType 'Nat8T where typ = Nat8T
-instance KnownType 'Nat16T where typ = Nat16T
-instance KnownType 'Nat32T where typ = Nat32T
-instance KnownType 'Nat64T where typ = Nat64T
-instance KnownType 'IntT where typ = IntT
-instance KnownType 'Int8T where typ = Int8T
-instance KnownType 'Int16T where typ = Int16T
-instance KnownType 'Int32T where typ = Int32T
-instance KnownType 'Int64T where typ = Int64T
-instance KnownType 'Float32T where typ = Float32T
-instance KnownType 'Float64T where typ = Float64T
-instance KnownType 'TextT where typ = TextT
-instance KnownType 'BoolT where typ = BoolT
-instance KnownType 'NullT where typ = NullT
-instance KnownType 'ReservedT where typ = ReservedT
-instance KnownType 'EmptyT where typ = EmptyT
-instance KnownType t => KnownType ('OptT t) where typ = OptT (typ @t)
-instance KnownType t => KnownType ('VecT t) where typ = VecT (typ @t)
-instance KnownFields fs => KnownType ('RecT fs) where typ = RecT (fields @fs)
-instance KnownFields fs => KnownType ('VariantT fs) where typ = VariantT (fields @fs)
+data SType (t :: Type) where
+    SNatT :: SType 'NatT
+    SNat8T :: SType 'Nat8T
+    SNat16T :: SType 'Nat16T
+    SNat32T :: SType 'Nat32T
+    SNat64T :: SType 'Nat64T
+    SIntT :: SType 'IntT
+    SInt8T :: SType 'Int8T
+    SInt16T :: SType 'Int16T
+    SInt32T :: SType 'Int32T
+    SInt64T :: SType 'Int64T
+    SFloat32T :: SType 'Float32T
+    SFloat64T :: SType 'Float64T
+    SBoolT :: SType 'BoolT
+    STextT :: SType 'TextT
+    SNullT :: SType 'NullT
+    SReservedT :: SType 'ReservedT
+    SEmptyT :: SType 'EmptyT
+    SOptT :: SType t -> SType ('OptT t)
+    SVecT :: SType t -> SType ('VecT t)
+    SRecT :: SFields fs -> SType ('RecT fs)
+    SVariantT :: SFields fs -> SType ('VariantT fs)
 
-class KnownFields (t :: [(FieldName, Type)]) where fields :: [(FieldName, Type)]
-instance KnownFields '[] where fields = []
+data SFields (fs :: Fields) where
+    SFieldsNil :: SFields '[]
+    SFieldsCons :: SFieldName n -> SType t -> SFields fs -> SFields ('(n, t) ': fs)
+
+data SArgs (t :: Args) where
+    SArgsNil :: SArgs '[]
+    SArgsCons :: SType t -> SArgs fs -> SArgs (t ': fs)
+
+data SFieldName (n :: FieldName) where
+    SNamed :: KnownSymbol s => Proxy s -> SFieldName ('Named s)
+    SHashed :: KnownNat n => Proxy n -> SFieldName ('Hashed n)
+
+fromSType :: SType t -> Type
+fromSType SNatT = NatT
+fromSType SNat8T = Nat8T
+fromSType SNat16T = Nat16T
+fromSType SNat32T = Nat32T
+fromSType SNat64T = Nat64T
+fromSType SIntT = IntT
+fromSType SInt8T = Int8T
+fromSType SInt16T = Int16T
+fromSType SInt32T = Int32T
+fromSType SInt64T = Int64T
+fromSType SFloat32T = Float32T
+fromSType SFloat64T = Float64T
+fromSType SBoolT = BoolT
+fromSType STextT = TextT
+fromSType SNullT = NullT
+fromSType SReservedT = ReservedT
+fromSType SEmptyT = EmptyT
+fromSType (SOptT t) = OptT (fromSType t)
+fromSType (SVecT t) = VecT (fromSType t)
+fromSType (SRecT fs) = RecT (fromSFields fs)
+fromSType (SVariantT fs) = VariantT (fromSFields fs)
+
+fromSFields :: SFields fs -> Fields
+fromSFields SFieldsNil = []
+fromSFields (SFieldsCons n t fs) = (fromSFieldName n, fromSType t) : fromSFields fs
+
+fromSArgs :: SArgs fs -> Args
+fromSArgs SArgsNil = []
+fromSArgs (SArgsCons t fs) = fromSType t : fromSArgs fs
+
+fromSFieldName :: SFieldName n -> FieldName
+fromSFieldName (SNamed p) = Named' (T.pack (symbolVal p))
+fromSFieldName (SHashed p) = Hashed' (fromIntegral (natVal p))
+
+
+class KnownType (t :: Type) where typ :: SType t
+
+instance KnownType 'NatT where typ = SNatT
+instance KnownType 'Nat8T where typ = SNat8T
+instance KnownType 'Nat16T where typ = SNat16T
+instance KnownType 'Nat32T where typ = SNat32T
+instance KnownType 'Nat64T where typ = SNat64T
+instance KnownType 'IntT where typ = SIntT
+instance KnownType 'Int8T where typ = SInt8T
+instance KnownType 'Int16T where typ = SInt16T
+instance KnownType 'Int32T where typ = SInt32T
+instance KnownType 'Int64T where typ = SInt64T
+instance KnownType 'Float32T where typ = SFloat32T
+instance KnownType 'Float64T where typ = SFloat64T
+instance KnownType 'TextT where typ = STextT
+instance KnownType 'BoolT where typ = SBoolT
+instance KnownType 'NullT where typ = SNullT
+instance KnownType 'ReservedT where typ = SReservedT
+instance KnownType 'EmptyT where typ = SEmptyT
+instance KnownType t => KnownType ('OptT t) where typ = SOptT (typ @t)
+instance KnownType t => KnownType ('VecT t) where typ = SVecT (typ @t)
+instance KnownFields fs => KnownType ('RecT fs) where typ = SRecT (fields @fs)
+instance KnownFields fs => KnownType ('VariantT fs) where typ = SVariantT (fields @fs)
+
+class KnownFields (fs :: [(FieldName, Type)]) where fields :: SFields fs
+instance KnownFields '[] where fields = SFieldsNil
 instance (KnownFieldName n, KnownType t, KnownFields fs) => KnownFields ('(n,t) ': fs) where
-    fields = (fieldName @n, typ @t) : fields @fs
+    fields = SFieldsCons (fieldName @n) (typ @t) (fields @fs)
 
-class KnownTypes (t :: [Type]) where types :: [Type]
-instance KnownTypes '[] where types = []
-instance (KnownType t, KnownTypes ts) => KnownTypes (t ': ts) where
-    types = typ @t : types @ts
+class KnownArgs (t :: [Type]) where args :: SArgs t
+instance KnownArgs '[] where args = SArgsNil
+instance (KnownType t, KnownArgs ts) => KnownArgs (t ': ts) where
+    args = SArgsCons (typ @t) (args @ts)
 
-class KnownFieldName (fn :: FieldName) where fieldName :: FieldName
+class KnownFieldName (fn :: FieldName) where fieldName :: SFieldName fn
 instance KnownSymbol s => KnownFieldName ('Named s) where
-    fieldName = Named' (T.pack (symbolVal @s @Proxy undefined))
+    fieldName = SNamed (Proxy @s)
 instance KnownNat s => KnownFieldName ('Hashed s) where
-    fieldName = Hashed' (fromIntegral (natVal @s @Proxy undefined))
+    fieldName = SHashed (Proxy @s)
 
