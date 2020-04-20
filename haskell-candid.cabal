@@ -35,7 +35,8 @@ test-suite test
   build-depends: base >= 4 && < 5
   build-depends: tasty >= 0.7
   build-depends: tasty-hunit
-  build-depends: tasty-quickcheck
+  build-depends: tasty-smallcheck
+  build-depends: smallcheck
   build-depends: candid
   build-depends: bytestring
   build-depends: text

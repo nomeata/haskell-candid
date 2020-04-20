@@ -3,6 +3,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 import qualified Data.Text as T
@@ -10,11 +12,14 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.Vector as V
 import Test.Tasty
 import Test.Tasty.HUnit
-import Test.Tasty.QuickCheck
+import Test.Tasty.SmallCheck
+import Test.SmallCheck.Series
 import Data.Void
+import Data.Either
 import GHC.Int
 import GHC.Word
 import Numeric.Natural
+import Control.Monad
 import GHC.TypeLits
 
 import Codec.Candid
@@ -53,9 +58,16 @@ roundTripTest v1 = do
     Right v -> return v
   assertEqual "values" v1 v2
 
-roundTripProp :: forall ts. (KnownArgs ts, Arbitrary (Seq ts), Eq (Seq ts), Show (Seq ts)) => TestTree
+roundTripProp :: forall ts. (KnownArgs ts, Serial IO (Seq ts), Eq (Seq ts), Show (Seq ts)) => TestTree
 roundTripProp = testProperty (show (fromSArgs (args @ts))) $ \v ->
-    Right (CandidSeq v) === decode @(CandidSeq ts) (encode (CandidSeq @ts v))
+    Right (CandidSeq v) == decode @(CandidSeq ts) (encode (CandidSeq @ts v))
+
+subTypProp :: forall ts1 ts2.
+    (KnownArgs ts1, Serial IO (Seq ts1), Show (Seq ts1)) =>
+    KnownArgs ts2 =>
+    TestTree
+subTypProp = testProperty (show (fromSArgs (args @ts1)) ++ " <: " ++ show (fromSArgs (args @ts2))) $ \v ->
+    isRight $ decode @(CandidSeq ts2) (encode (CandidSeq @ts1 v))
 
 subTypeTest' :: forall a b.
     (CandidArgs a, Eq a, Show a) =>
@@ -89,17 +101,14 @@ reservedV = CandidVal ()
 emptyRec :: CandidVal ('RecT '[])
 emptyRec = CandidVal ()
 
-instance Arbitrary a => Arbitrary (Unary a) where
-    arbitrary = Unary <$> arbitrary
+instance Monad m => Serial m T.Text where
+    series = T.pack <$> series
 
-instance Arbitrary Natural where
-    arbitrary = arbitrarySizedNatural
+instance (Monad m, Serial m a) => Serial m (V.Vector a) where
+    series = V.fromList <$> series
 
-instance Arbitrary T.Text where
-    arbitrary = T.pack <$> arbitrary
-
-instance Arbitrary a => Arbitrary (V.Vector a) where
-    arbitrary = V.fromList <$> arbitrary
+instance Monad m => Serial m Void where
+    series = mzero
 
 tests = testGroup "tests"
   [ testGroup "encode tests"
@@ -126,7 +135,7 @@ tests = testGroup "tests"
     , testCase "tuple/tuple" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) ((42::Integer, -42::Integer), 100::Integer)
     , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (SingleField (-42) :: SingleField 1 Integer, 100::Integer)
     ]
-  , testGroup "roundtrip quickckeck"
+  , testGroup "roundtrip smallchecks"
     [ roundTripProp @ '[ 'BoolT]
     , roundTripProp @ '[ 'NatT]
     , roundTripProp @ '[ 'Nat8T]
@@ -146,10 +155,18 @@ tests = testGroup "tests"
     , roundTripProp @ '[ 'OptT TextT]
     , roundTripProp @ '[ 'VecT TextT]
     , roundTripProp @ '[ 'RecT '[] ]
-    , roundTripProp @ '[ 'RecT '[ '(Named "Hi", TextT) ] ]
-    , roundTripProp @ '[ 'RecT '[ '(Named "Hi", TextT), '(Named "Ho", BoolT) ] ]
-    , roundTripProp @ '[ 'RecT '[ '(Named "Hi", TextT), '(Hashed 1, BoolT) ] ]
-    -- This does not work well, cannot have Arbitrary Empty
-    -- , roundTripProp @ '[ 'VariantT '[ '(Named "Hi", TextT), '(Named "Ho", BoolT) ] ]
+    , roundTripProp @ '[ 'RecT '[ '(Named "Hi", Nat8T) ] ]
+    , roundTripProp @ '[ 'RecT '[ '(Named "Hi", Nat8T), '(Named "Ho", Nat8T) ] ]
+    , roundTripProp @ '[ 'RecT '[ '(Named "Hi", Nat8T), '(Hashed 1, Nat8T) ] ]
+    , roundTripProp @ '[ 'VariantT '[ '(Named "Hi", BoolT), '(Named "Ho", BoolT) ] ]
+    ]
+  , testGroup "subtype smallchecks"
+    [ subTypProp @ '[ 'NatT ] @ '[ 'IntT ]
+    , subTypProp @ '[ 'RecT '[ '(Named "Hi", Nat8T), '(Hashed 1, Nat8T) ] ] @ '[ 'ReservedT ]
+    , subTypProp @ '[ 'RecT '[ '(Named "Hi", Nat8T), '(Hashed 1, Nat8T) ] ] @ '[ 'RecT '[]]
+    , subTypProp @ '[ 'RecT '[ '(Named "Hi", Nat8T), '(Hashed 1, Nat8T) ] ] @ '[ 'RecT '[ '(Hashed 1, Nat8T)]]
+    , subTypProp @ '[ 'RecT '[ '(Hashed 0, TextT), '(Hashed 1, Nat8T), '(Hashed 2, BoolT) ] ] @ '[ 'RecT '[ '(Hashed 1, Nat8T)]]
+    , subTypProp @ '[ 'VariantT '[ '(Named "Hi", BoolT) ] ] @ '[ 'VariantT '[ '(Named "Hi", BoolT), '(Named "Ho", TextT) ] ]
+    , subTypProp @ '[ 'VariantT '[ '(Named "Ho", TextT) ] ] @ '[ 'VariantT '[ '(Named "Hi", BoolT), '(Named "Ho", TextT) ] ]
     ]
   ]
