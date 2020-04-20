@@ -71,6 +71,7 @@ data Type
     | VecT Type
     | RecT Fields
     | VariantT Fields
+  deriving Show
 
 type Fields = [(FieldName, Type)]
 
@@ -79,6 +80,8 @@ data FieldName
    | Named' T.Text -- ^ Use this in terms (usually not needed)
    | Hashed Nat -- ^ Use this in types
    | Hashed' Word32 -- ^ Use this in terms (mostly internal)
+
+instance Show FieldName where show = prettyFieldName
 
 prettyFieldName :: FieldName -> String
 prettyFieldName (Named _) = error "Named in term"
@@ -306,7 +309,7 @@ decodeVal (SVariantT sfs) (VariantT fs) = do
         unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
         let (fn, t) = fs !! fromIntegral i
         decodeVariant sfs (hashFieldName fn) t
-decodeVal _ _ = error "unexpected type"
+decodeVal s t = fail $ "unexpected type " ++ take 20 (show t) ++  " when decoding " ++ take 20 (show s)
 
 decodeRec :: SFields fs -> Fields -> G.Get (Rec fs)
 decodeRec SFieldsNil [] = return ()
@@ -622,17 +625,23 @@ data SType (t :: Type) where
     SRecT :: SFields fs -> SType ('RecT fs)
     SVariantT :: SFields fs -> SType ('VariantT fs)
 
+deriving instance Show (SType t)
+
 data SFields (fs :: Fields) where
     SFieldsNil :: SFields '[]
     SFieldsCons :: SFieldName n -> SType t -> SFields fs -> SFields ('(n, t) ': fs)
 
+deriving instance Show (SFields fs)
+
 data SArgs (t :: Args) where
     SArgsNil :: SArgs '[]
     SArgsCons :: SType t -> SArgs fs -> SArgs (t ': fs)
+deriving instance Show (SArgs t)
 
 data SFieldName (n :: FieldName) where
     SNamed :: KnownSymbol s => Proxy s -> SFieldName ('Named s)
     SHashed :: KnownNat n => Proxy n -> SFieldName ('Hashed n)
+deriving instance Show (SFieldName n)
 
 fromSType :: SType t -> Type
 fromSType SNatT = NatT

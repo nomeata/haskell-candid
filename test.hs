@@ -3,6 +3,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 
+import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -12,7 +13,6 @@ import GHC.TypeLits
 import Codec.Candid
 
 main = defaultMain unitTests
-
 
 newtype ARecord a = ARecord { foo :: a }
     deriving (Eq, Show)
@@ -46,16 +46,28 @@ roundTripTest v1 = do
     Right v -> return v
   assertEqual "values" v1 v2
 
-subTypeTest :: forall a b.
+subTypeTest' :: forall a b.
     (CandidArgs a, Eq a, Show a) =>
     (CandidArgs b, Eq b, Show b) =>
     a -> b -> Assertion
-subTypeTest v1 v2 = do
+subTypeTest' v1 v2 = do
   let bytes1 = encode v1
   v2' <- case decode @b bytes1 of
     Left err -> assertFailure err
     Right v -> return v
   v2 @=? v2'
+
+subTypeTest :: forall a b.
+    (CandidArgs a, Eq a, Show a) =>
+    (CandidArgs b, Eq b, Show b) =>
+    a -> b -> Assertion
+subTypeTest v1 v2 = do
+  subTypeTest' v1 v2
+  -- now try the other direction
+  let bytes2 = encode v2
+  case decode @a bytes2 of
+    Left err -> return ()
+    Right _ -> assertFailure "converse subtype test succeeded"
 
 nullV :: CandidVal 'NullT
 nullV = CandidVal ()
@@ -68,10 +80,8 @@ emptyRec = CandidVal ()
 
 unitTests = testGroup "Unit tests"
   [ testGroup "encode tests"
-    [ testCase "empty" $
-        encode () @?= B.pack "DIDL\0\0"
-    , testCase "bool" $
-        encode (Unary True) @?= B.pack "DIDL\0\1\x7e\1"
+    [ testCase "empty" $ encode () @?= B.pack "DIDL\0\0"
+    , testCase "bool" $ encode (Unary True) @?= B.pack "DIDL\0\1\x7e\1"
     ]
   , testGroup "roundtrip"
     [ testCase "empty" $ roundTripTest ()
@@ -87,10 +97,10 @@ unitTests = testGroup "Unit tests"
     , testCase "null/opt" $ subTypeTest (Unary nullV) (Unary (Nothing @Integer))
     , testCase "rec" $ subTypeTest (ARecord True, True) (emptyRec, True)
     , testCase "tuple" $ subTypeTest ((42::Integer,-42::Integer), 100::Integer) (emptyRec, 100::Integer)
-    , testCase "variant" $ subTypeTest (Right 42 :: Either Bool Natural, True) (JustRight (42 :: Natural), True)
+    , testCase "variant" $ subTypeTest' (Right 42 :: Either Bool Natural, True) (JustRight (42 :: Natural), True)
     , testCase "rec/any" $ subTypeTest (ARecord True, True) (reservedV, True)
     , testCase "tuple/any" $ subTypeTest ((42::Integer, 42::Natural), True) (reservedV, True)
     , testCase "tuple/tuple" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) ((42::Integer, -42::Integer), 100::Integer)
-    ]
     , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (SingleField (-42) :: SingleField 1 Integer, 100::Integer)
+    ]
   ]

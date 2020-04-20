@@ -37,3 +37,4 @@ test-suite test
   build-depends: tasty-hunit
   build-depends: candid
   build-depends: bytestring
+  build-depends: text
