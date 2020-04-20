@@ -13,16 +13,19 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE UndecidableInstances #-} -- for Eq CandidVal
 module Codec.Candid
     ( Type(..)
     , Fields
     , FieldName(..)
-    , Val(..)
-    , Rec(..)
-    , Variant(..)
-    , Seq(..)
+    , Val
+    , Rec
+    , Variant
+    , Seq
+    , CandidVal(..)
     , Candid(..)
     , Unary(..)
     , CandidArgs(..)
@@ -44,6 +47,7 @@ import Data.Bits
 import Data.Word
 import Data.Int
 import Data.List
+import Data.Void
 import Control.Monad.RWS.Lazy
 import GHC.TypeLits
 import qualified Data.Serialize.Get as G
@@ -85,55 +89,40 @@ prettyFieldName (Hashed' n) = "id " <> show n
 type Args = [Type]
 
 -- The values
+type family Val (t :: Type) where
+    Val 'NatT = Natural
+    Val 'Nat8T = Word8
+    Val 'Nat16T = Word16
+    Val 'Nat32T = Word32
+    Val 'Nat64T = Word64
+    Val 'IntT = Integer
+    Val 'Int8T = Int8
+    Val 'Int16T = Int16
+    Val 'Int32T = Int32
+    Val 'Int64T = Int64
+    Val 'Float32T = Float
+    Val 'Float64T = Double
+    Val 'BoolT = Bool
+    Val 'TextT = T.Text
+    Val 'NullT = ()
+    Val 'ReservedT = ()
+    Val 'EmptyT = Void
+    Val ('OptT t) = Maybe (Val t)
+    Val ('VecT t) = V.Vector (Val t)
+    Val ('RecT fs) = Rec fs
+    Val ('VariantT fs) = Variant fs
 
-data Val (t :: Type) where
-    NatV :: Natural -> Val 'NatT
-    Nat8V :: Word8 -> Val 'Nat8T
-    Nat16V :: Word16 -> Val 'Nat16T
-    Nat32V :: Word32 -> Val 'Nat32T
-    Nat64V :: Word64 -> Val 'Nat64T
-    IntV :: Integer -> Val 'IntT
-    Int8V :: Int8 -> Val 'Int8T
-    Int16V :: Int16 -> Val 'Int16T
-    Int32V :: Int32 -> Val 'Int32T
-    Int64V :: Int64 -> Val 'Int64T
-    Float32V :: Float -> Val 'Float32T
-    Float64V :: Double -> Val 'Float64T
-    BoolV :: Bool -> Val 'BoolT
-    TextV :: T.Text -> Val 'TextT
-    NullV :: Val 'NullT
-    ReservedV :: Val 'ReservedT
-    -- NB: No EmptyV
-    OptV :: KnownType t => Maybe (Val t) -> Val ('OptT t)
-    VecV :: KnownType t => V.Vector (Val t) -> Val ('VecT t)
-    RecV :: KnownFields fs => Rec fs -> Val ('RecT fs)
-    VariantV :: KnownFields fs => Variant fs -> Val ('VariantT fs)
+type family Seq (ts :: [Type]) where
+    Seq '[] = ()
+    Seq (t ': ts) = (Val t, Seq ts)
 
-deriving instance Show (Val a)
-deriving instance Eq (Val a)
+type family Rec (fs :: Fields) where
+    Rec '[] = ()
+    Rec ('(f,t)':fs) = (Val t, Rec fs)
 
-data Seq (ts :: [Type]) where
-  EmptySeq :: Seq '[]
-  (::>) :: (KnownType t, KnownArgs ts) => Val t -> Seq ts ->  Seq (t ': ts)
-infixr 5 ::>
-deriving instance Show (Seq fs)
-deriving instance Eq (Seq fs)
-
-data Rec (fs :: Fields) where
-  EmptyRec :: Rec '[]
-  (:>) :: (KnownFieldName f, KnownType t, KnownFields fs) =>
-          Val t -> Rec fs -> Rec ('(f,t) ': fs)
-infixr 5 :>
-
-deriving instance Show (Rec fs)
-deriving instance Eq (Rec fs)
-
-data Variant (fs :: [(FieldName, Type)]) where
-  This :: KnownType t => Val t -> Variant ('(f,t) ': fs)
-  Other :: KnownFields fs => Variant fs -> Variant ('(f,t) ': fs)
-
-deriving instance Show (Variant fs)
-deriving instance Eq (Variant fs)
+type family Variant (fs :: [(FieldName, Type)]) where
+    Variant '[] = Void
+    Variant ('(f,t) ': fs) = Either (Val t) (Variant fs)
 
 encode :: CandidArgs a => a -> BS.ByteString
 encode = BSL.toStrict . B.toLazyByteString . encodeBuilder
@@ -148,37 +137,37 @@ encodeBuilder x = mconcat
 -- Argument sequences, although represented as records
 -- are always encoded in order
 encodeSeq :: SArgs ts -> Seq ts -> B.Builder
-encodeSeq SArgsNil EmptySeq = mempty
-encodeSeq (SArgsCons t ts) (x ::> xs) = encodeVal t x <> encodeSeq ts xs
+encodeSeq SArgsNil () = mempty
+encodeSeq (SArgsCons t ts) (x, xs) = encodeVal t x <> encodeSeq ts xs
 
 encodeVal :: SType t -> Val t -> B.Builder
 encodeVal SEmptyT v = case v of {}
-encodeVal SBoolT (BoolV False) = B.word8 0
-encodeVal SBoolT (BoolV True) = B.word8 1
-encodeVal SNatT (NatV n) = leb128 n
-encodeVal SNat8T (Nat8V n) = B.word8 n
-encodeVal SNat16T (Nat16V n) = B.word16LE n
-encodeVal SNat32T (Nat32V n) = B.word32LE n
-encodeVal SNat64T (Nat64V n) = B.word64LE n
-encodeVal SIntT (IntV n) = sleb128 n
-encodeVal SInt8T (Int8V n) = B.int8 n
-encodeVal SInt16T (Int16V n) = B.int16LE n
-encodeVal SInt32T (Int32V n) = B.int32LE n
-encodeVal SInt64T (Int64V n) = B.int64LE n
-encodeVal SFloat32T (Float32V n) = B.floatLE n
-encodeVal SFloat64T (Float64V n) = B.doubleLE n
-encodeVal STextT (TextV t) = leb128 (fromIntegral (BS.length bytes)) <> B.byteString bytes
+encodeVal SBoolT False = B.word8 0
+encodeVal SBoolT True = B.word8 1
+encodeVal SNatT n = leb128 n
+encodeVal SNat8T n = B.word8 n
+encodeVal SNat16T n = B.word16LE n
+encodeVal SNat32T n = B.word32LE n
+encodeVal SNat64T n = B.word64LE n
+encodeVal SIntT n = sleb128 n
+encodeVal SInt8T n = B.int8 n
+encodeVal SInt16T n = B.int16LE n
+encodeVal SInt32T n = B.int32LE n
+encodeVal SInt64T n = B.int64LE n
+encodeVal SFloat32T n = B.floatLE n
+encodeVal SFloat64T n = B.doubleLE n
+encodeVal STextT t = leb128 (fromIntegral (BS.length bytes)) <> B.byteString bytes
   where bytes = T.encodeUtf8 t
-encodeVal SNullT NullV = mempty
-encodeVal SReservedT ReservedV = mempty
-encodeVal (SOptT _) (OptV Nothing) = B.word8 0
-encodeVal (SOptT t) (OptV (Just x)) = B.word8 1 <> encodeVal t x
-encodeVal (SVecT t) (VecV xs) =
+encodeVal SNullT () = mempty
+encodeVal SReservedT () = mempty
+encodeVal (SOptT _) Nothing = B.word8 0
+encodeVal (SOptT t) (Just x) = B.word8 1 <> encodeVal t x
+encodeVal (SVecT t) xs =
     leb128 (fromIntegral (V.length xs)) <>
     foldMap (encodeVal t) xs
-encodeVal (SRecT fs) (RecV xs) =
-    foldMap snd $ sortOn fst $ encodeRec fs xs
-encodeVal (SVariantT fs) (VariantV (x :: Variant fs)) =
+encodeVal (SRecT fs) rec =
+    foldMap snd $ sortOn fst $ encodeRec fs rec
+encodeVal (SVariantT fs) x =
     leb128 (fromIntegral i) <> b
   where
     (pos, b) = encodeVariant fs x
@@ -187,15 +176,15 @@ encodeVal (SVariantT fs) (VariantV (x :: Variant fs)) =
 
 -- Encodes the fields, sorting happens later
 encodeRec :: SFields fs -> Rec fs -> [(Word32, B.Builder)]
-encodeRec SFieldsNil EmptyRec = []
-encodeRec (SFieldsCons n t fs) (x :> xs) =
+encodeRec SFieldsNil () = []
+encodeRec (SFieldsCons n t fs) (x, xs) =
     (hashFieldName (fromSFieldName n), encodeVal t x) : encodeRec fs xs
 
 -- Encodes the value, returns fields and index
 encodeVariant :: SFields fs -> Variant fs -> (Natural, B.Builder)
 encodeVariant SFieldsNil x = case x of {}
-encodeVariant (SFieldsCons _ t _) (This x) = (0, encodeVal t x)
-encodeVariant (SFieldsCons _ _ fs) (Other v) = first succ (encodeVariant fs v)
+encodeVariant (SFieldsCons _ t _) (Left x) = (0, encodeVal t x)
+encodeVariant (SFieldsCons _ _ fs) (Right v) = first succ (encodeVariant fs v)
 
 type family FieldNameHead (fs :: Fields) :: FieldName where
     FieldNameHead ('(f,_)':_) = f
@@ -262,157 +251,95 @@ typTable ts = mconcat
             ]
 
 
-decode :: CandidArgs a => BS.ByteString -> Either String a
+decode :: forall a. CandidArgs a => BS.ByteString -> Either String a
 decode = G.runGet $ do
     decodeMagic
     arg_tys <- decodeTypTable
     -- get the argument sequence
-    fromSeq <$> decodeParams arg_tys
+    fromSeq <$> decodeParams (args @(ArgRep a)) arg_tys
 
-class KnownArgs ts => DecodeTypes ts where
-    decodeParams :: [Type] -> G.Get (Seq ts)
+decodeParams :: SArgs ts -> [Type] -> G.Get (Seq ts)
+decodeParams SArgsNil _ = return () -- NB: This is where we ignore extra arguments
+decodeParams SArgsCons{} [] = fail "Missing argument"
+decodeParams (SArgsCons st sts) (t' : ts) = do
+    v <- decodeVal st t'
+    vs <- decodeParams sts ts
+    return (v, vs)
 
-instance DecodeTypes '[] where
-    decodeParams _ = return EmptySeq -- NB: This is where we ignore extra arguments
-
-instance (DecodeTypes ts, DecodeVal pt) => DecodeTypes (pt ': ts) where
-    decodeParams [] = fail "Missing argument"
-    decodeParams (t' : ts) = do
-        v <- decodeVal t'
-        vs <- decodeParams ts
-        return $ v ::> vs
-
-class KnownType t => DecodeVal t where
-    decodeVal :: Type -> G.Get (Val t)
-
-instance DecodeVal 'BoolT where
-    decodeVal BoolT = G.getWord8 >>= \case
-        0 -> return $ BoolV False
-        1 -> return $ BoolV True
-        _ -> fail "Invalid boolean value"
-    decodeVal _ = fail "unexpected type, expected BoolT"
-
-instance DecodeVal 'NatT where
-    decodeVal NatT = NatV <$> getLeb128
-    decodeVal _ = fail "unexpected type, expected NatT"
-instance DecodeVal 'Nat8T where
-    decodeVal Nat8T = Nat8V <$> G.getWord8
-    decodeVal _ = fail "unexpected type, expected Nat8T"
-instance DecodeVal 'Nat16T where
-    decodeVal Nat16T = Nat16V <$> G.getWord16le
-    decodeVal _ = fail "unexpected type, expected Nat16T"
-instance DecodeVal 'Nat32T where
-    decodeVal Nat32T = Nat32V <$> G.getWord32le
-    decodeVal _ = fail "unexpected type, expected Nat32T"
-instance DecodeVal 'Nat64T where
-    decodeVal Nat64T = Nat64V <$> G.getWord64le
-    decodeVal _ = fail "unexpected type, expected Nat64T"
-instance DecodeVal 'IntT where
-    decodeVal NatT = IntV . fromIntegral <$> getLeb128
-    decodeVal IntT = IntV <$> getSleb128
-    decodeVal _ = fail "unexpected type, expected IntT (or NatT)"
-instance DecodeVal 'Int8T where
-    decodeVal Int8T = Int8V <$> G.getInt8
-    decodeVal _ = fail "unexpected type, expected Int8T"
-instance DecodeVal 'Int16T where
-    decodeVal Int16T = Int16V <$> G.getInt16le
-    decodeVal _ = fail "unexpected type, expected Int16T"
-instance DecodeVal 'Int32T where
-    decodeVal Int32T = Int32V <$> G.getInt32le
-    decodeVal _ = fail "unexpected type, expected Int32T"
-instance DecodeVal 'Int64T where
-    decodeVal Int64T = Int64V <$> G.getInt64le
-    decodeVal _ = fail "unexpected type, expected Int64T"
-instance DecodeVal 'Float32T where
-    decodeVal Float32T = Float32V <$> G.getFloat32le
-    decodeVal _ = fail "unexpected type, expected Float32T"
-instance DecodeVal 'Float64T where
-    decodeVal Float64T = Float64V <$> G.getFloat64le
-    decodeVal _ = fail "unexpected type, expected Float64T"
-instance DecodeVal 'TextT where
-    decodeVal TextT = do
-        n <- getLeb128
-        bs <- G.getByteString (fromIntegral n)
-        case T.decodeUtf8' bs of
-            Left err -> fail (show err)
-            Right t -> return $ TextV t
-    decodeVal _ = fail "unexpected type, expected TextT"
-instance DecodeVal 'NullT where
-    decodeVal NullT = return NullV
-    decodeVal _ = fail "unexpected type, expected NullT"
-instance DecodeVal 'ReservedT where
-    decodeVal t = skipVal t >> return ReservedV
-
-instance DecodeVal t => DecodeVal ('OptT t) where
-    decodeVal NullT = return (OptV Nothing)
-    decodeVal (OptT t) = G.getWord8 >>= \case
-        0 -> return $ OptV Nothing
-        1 -> OptV . Just <$> decodeVal t
-        _ -> fail "Invalid optional value"
-    decodeVal _ = fail "unexpected type, expected OptT"
-instance DecodeVal t => DecodeVal ('VecT t) where
-    decodeVal (VecT t) = do
-        n <- getLeb128
-        VecV . V.fromList <$> replicateM (fromIntegral n) (decodeVal t)
-    decodeVal _ = fail "unexpected type, expected VecT"
-instance DecodeFields fs => DecodeVal ('RecT fs) where
-    decodeVal (RecT fs) = RecV <$> decodeRec fs
-    decodeVal _ = fail "unexpected type, expected RecT"
-
-decodeRec :: forall fs. DecodeFields fs => Fields -> G.Get (Rec fs)
-decodeRec [] = noFields
-decodeRec ((h,t):dfs) =
-    findField @fs (hashFieldName h)
-        (skipVal t >> decodeRec dfs)
-        (\(>:) -> do
-            x <- decodeVal t
-            xs <- decodeRec dfs
-            return (x >: xs))
-
-class KnownFields fs => DecodeFields fs where
-    noFields :: G.Get (Rec fs)
-
-    -- findField, in CPS style, produces a function with a type
-    -- like :>, but one that inserts the value in the right slot
-    findField :: forall a.
-        Word32 ->
-        a ->
-        (forall t' fs'.
-            (DecodeVal t', DecodeFields fs') =>
-            (Val t' -> Rec fs' -> Rec fs) -> a
-        ) ->
-        a
-
-instance DecodeFields '[] where
-    noFields = return EmptyRec
-    findField _ k1 _ = k1
-
-instance (KnownFieldName f, DecodeVal t, DecodeFields fs) => DecodeFields ('(f,t) ': fs) where
-    noFields = fail $ "missing field " <> prettyFieldName (fromSFieldName (fieldName @f))
-    findField h k1 k2
-        | h == hashFieldName (fromSFieldName (fieldName @f)) = k2 (:>)
-        | otherwise = findField @fs h k1 $
-            \ ((>:) :: Val t' -> Rec fs' -> Rec fs) -> k2 $
-                \x (y :> ys :: Rec ('(f,t) ': fs')) -> y :> (x >: ys)
-
-instance DecodeVariant fs => DecodeVal ('VariantT fs) where
-    decodeVal (VariantT fs) = do
+decodeVal :: SType t -> Type -> G.Get (Val t)
+decodeVal SBoolT BoolT = G.getWord8 >>= \case
+    0 -> return False
+    1 -> return True
+    _ -> fail "Invalid boolean value"
+decodeVal SNatT NatT = getLeb128
+decodeVal SNat8T Nat8T = G.getWord8
+decodeVal SNat16T Nat16T = G.getWord16le
+decodeVal SNat32T Nat32T = G.getWord32le
+decodeVal SNat64T Nat64T = G.getWord64le
+decodeVal SIntT NatT = fromIntegral <$> getLeb128
+decodeVal SIntT IntT = getSleb128
+decodeVal SInt8T Int8T = G.getInt8
+decodeVal SInt16T Int16T = G.getInt16le
+decodeVal SInt32T Int32T = G.getInt32le
+decodeVal SInt64T Int64T = G.getInt64le
+decodeVal SFloat32T Float32T = G.getFloat32le
+decodeVal SFloat64T Float64T = G.getFloat64le
+decodeVal STextT TextT = do
+    n <- getLeb128
+    bs <- G.getByteString (fromIntegral n)
+    case T.decodeUtf8' bs of
+        Left err -> fail (show err)
+        Right t -> return t
+decodeVal SNullT NullT = return ()
+decodeVal SReservedT t = skipVal t
+decodeVal (SOptT _) NullT = return Nothing
+decodeVal (SOptT st) (OptT t) = G.getWord8 >>= \case
+    0 -> return Nothing
+    1 -> Just <$> decodeVal st t
+    _ -> fail "Invalid optional value"
+decodeVal (SVecT st) (VecT t) = do
+    n <- getLeb128
+    V.fromList <$> replicateM (fromIntegral n) (decodeVal st t)
+decodeVal (SRecT sfs) (RecT fs) = decodeRec sfs fs
+decodeVal (SVariantT sfs) (VariantT fs) = do
         i <- getLeb128
         unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
         let (fn, t) = fs !! fromIntegral i
-        VariantV <$> decodeVariant (hashFieldName fn) t
-    decodeVal _ = fail "unexpected type"
+        decodeVariant sfs (hashFieldName fn) t
+decodeVal _ _ = error "unexpected type"
 
-class KnownFields fs => DecodeVariant fs where
-    decodeVariant :: Word32 -> Type -> G.Get (Variant fs)
+decodeRec :: SFields fs -> Fields -> G.Get (Rec fs)
+decodeRec SFieldsNil [] = return ()
+decodeRec (SFieldsCons fn _ _) [] = fail $ "missing field " <> prettyFieldName (fromSFieldName fn)
+decodeRec sfs ((h,t):dfs) =
+    findField sfs (hashFieldName h)
+        (skipVal t >> decodeRec sfs dfs)
+        (\st' sfs' sortIn -> do
+            x <- decodeVal st' t
+            xs <- decodeRec sfs' dfs
+            return (x `sortIn` xs))
 
-instance DecodeVariant '[] where
-    decodeVariant _ _ = fail "unexpected variant tag"
+-- findField, in CPS style, produces a function with a type
+-- that inserts the value in the right slot in the nested pairs
+findField :: SFields fs ->
+        Word32 ->
+        a ->
+        (forall t' fs'.
+            SType t' -> SFields fs' ->
+            (Val t' -> Rec fs' -> Rec fs) -> a
+        ) ->
+        a
+findField SFieldsNil _ k1 _ = k1
+findField (SFieldsCons fn st sfs) h k1 k2
+    | h == hashFieldName (fromSFieldName fn) = k2 st sfs (,)
+    | otherwise = findField sfs h k1 $ \st' sfs' sortIn ->
+        k2 st' (SFieldsCons fn st sfs') (\x (y, ys) -> (y, x `sortIn` ys))
 
-instance (KnownFieldName f, DecodeVal t, DecodeVariant fs) => DecodeVariant ('(f,t) ': fs) where
-    decodeVariant h t
-        | h == hashFieldName (fromSFieldName (fieldName @f)) = This <$> decodeVal t
-        | otherwise = Other <$> decodeVariant h t
+decodeVariant :: SFields fs -> Word32 -> Type -> G.Get (Variant fs)
+decodeVariant SFieldsNil _ _ = fail "unexpected variant tag"
+decodeVariant (SFieldsCons fn st sfs) h t
+        | h == hashFieldName (fromSFieldName fn) = Left <$> decodeVal st t
+        | otherwise = Right <$> decodeVariant sfs h t
 
 skipVal :: Type -> G.Get ()
 skipVal BoolT = G.skip 1
@@ -445,7 +372,6 @@ skipVal (VariantT fs) = do
     unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
     let (_fn, t) = fs !! fromIntegral i
     skipVal t
-
 
 
 decodeMagic :: G.Get ()
@@ -588,83 +514,86 @@ sleb128 = go
 
 -- Using normal Haskell values
 
-class DecodeTypes (ArgRep a) => CandidArgs a where
+class KnownArgs (ArgRep a) => CandidArgs a where
     type ArgRep a :: [Type]
     toSeq :: a -> Seq (ArgRep a)
     fromSeq :: Seq (ArgRep a) -> a
 
+    default toSeq :: Seq (ArgRep a) ~ a => a -> Seq (ArgRep a)
+    toSeq = id
+    default fromSeq :: Seq (ArgRep a) ~ a => Seq (ArgRep a) -> a
+    fromSeq = id
+
 newtype Unary a = Unary a deriving (Eq, Show)
 
-instance DecodeTypes ts => CandidArgs (Seq ts) where
+{-
+instance KnownArgs ts => CandidArgs (Seq ts) where
     type ArgRep (Seq ts) = ts
     toSeq = id
     fromSeq = id
+-}
 
 instance CandidArgs () where
     type ArgRep () = '[]
-    toSeq () = EmptySeq
-    fromSeq EmptySeq = ()
 
 instance Candid a => CandidArgs (Unary a) where
     type ArgRep (Unary a) = '[Rep a]
-    toSeq (Unary x) = toCandid x ::> EmptySeq
-    fromSeq (x ::> EmptySeq) = Unary $ fromCandid x
+    toSeq (Unary x) = (toCandid x, ())
+    fromSeq (x, ()) = Unary $ fromCandid x
 
 instance (Candid a, Candid b) => CandidArgs (a, b) where
     type ArgRep (a, b) = '[Rep a, Rep b]
-    toSeq (x,y) = toCandid x ::> toCandid y ::> EmptySeq
-    fromSeq (x ::> y ::> EmptySeq) = (fromCandid x, fromCandid y)
+    toSeq (x,y) = (toCandid x, (toCandid y, ()))
+    fromSeq (x, (y, ())) = (fromCandid x, fromCandid y)
 
-class DecodeVal (Rep a) => Candid a where
+class KnownType (Rep a) => Candid a where
     type Rep a :: Type
     toCandid :: a -> Val (Rep a)
     fromCandid :: Val (Rep a) -> a
 
-instance DecodeVal t => Candid (Val t) where
-    type Rep (Val t) = t
+    default toCandid :: Val (Rep a) ~ a => a -> Val (Rep a)
     toCandid = id
+    default fromCandid :: Val (Rep a) ~ a => Val (Rep a) -> a
     fromCandid = id
 
-instance Candid Bool where
-    type Rep Bool = 'BoolT
-    toCandid = BoolV
-    fromCandid (BoolV b) = b
+newtype CandidVal (t :: Type) where CandidVal :: Val t -> CandidVal t
 
-instance Candid Natural where
-    type Rep Natural = 'NatT
-    toCandid = NatV
-    fromCandid (NatV b) = b
+deriving instance Eq (Val t) => Eq (CandidVal t)
+deriving instance Show (Val t) => Show (CandidVal t)
 
-instance Candid Integer where
-    type Rep Integer = 'IntT
-    toCandid = IntV
-    fromCandid (IntV b) = b
+instance KnownType t => Candid (CandidVal t) where
+    type Rep (CandidVal t) = t
+    toCandid (CandidVal x) = x
+    fromCandid = CandidVal
+
+instance Candid Bool where type Rep Bool = 'BoolT
+instance Candid Natural where type Rep Natural = 'NatT
+instance Candid Integer where type Rep Integer = 'IntT
 
 instance Candid a => Candid (Maybe a) where
     type Rep (Maybe a) = 'OptT (Rep a)
-    toCandid = OptV . fmap toCandid
-    fromCandid (OptV x) = fmap fromCandid x
+    toCandid = fmap toCandid
+    fromCandid = fmap fromCandid
 
 instance (Candid a, Candid b) => Candid (a, b) where
     type Rep (a, b) = 'RecT '[ TupField 0 a, TupField 1 b]
-    toCandid (x,y) = RecV $ toCandid x :> toCandid y :> EmptyRec
-    fromCandid (RecV (x :> y :> EmptyRec)) = (fromCandid x, fromCandid y)
+    toCandid (x,y) = (toCandid x, (toCandid y, ()))
+    fromCandid (x, (y, ())) = (fromCandid x, fromCandid y)
 
 instance (Candid a, Candid b, Candid c) => Candid (a, b, c) where
     type Rep (a, b, c) = 'RecT '[ TupField 0 a, TupField 1 b, TupField 2 c]
-    toCandid (x,y,z) = RecV $ toCandid x :> toCandid y :> toCandid z :> EmptyRec
-    fromCandid (RecV (x :> y :> z :> EmptyRec)) = (fromCandid x, fromCandid y, fromCandid z)
+    toCandid (x,y,z) = (toCandid x, (toCandid y, (toCandid z, ())))
+    fromCandid (x, (y, (z, ()))) = (fromCandid x, fromCandid y, fromCandid z)
 
 type TupField n a = '( 'Hashed n, Rep a)
 
 instance (Candid a, Candid b) => Candid (Either a b) where
     type Rep (Either a b) = 'VariantT '[ '( 'Named "Left", Rep a), '( 'Named "Right", Rep b) ]
-    toCandid (Left x) = VariantV $ This $ toCandid x
-    toCandid (Right x) = VariantV $ Other $ This $ toCandid x
-    fromCandid (VariantV (This x)) = Left (fromCandid x)
-    fromCandid (VariantV (Other (This x))) = Right (fromCandid x)
-    fromCandid (VariantV (Other (Other _))) = error "unreachable"
-
+    toCandid (Left x) = Left (toCandid x)
+    toCandid (Right x) = Right (Left (toCandid x))
+    fromCandid (Left x) = Left (fromCandid x)
+    fromCandid (Right (Left x)) = Right (fromCandid x)
+    fromCandid (Right (Right x)) = case x of {}
 
 -- Repetitive stuff for dependently typed programming
 
