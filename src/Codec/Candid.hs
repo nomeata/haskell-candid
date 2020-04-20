@@ -18,19 +18,16 @@ module Codec.Candid
     ( Type(..)
     , Fields
     , FieldName(..)
-    , KnownFields
     , Val(..)
     , Rec(..)
     , Variant(..)
     , Seq(..)
-    , DecodeVal(..)
     , Candid(..)
     , Unary(..)
     , CandidArgs(..)
     , encode
     , encodeBuilder
     , decode
-    , DecodeTypes
     ) where
 
 import Numeric.Natural
