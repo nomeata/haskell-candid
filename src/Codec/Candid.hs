@@ -351,30 +351,29 @@ instance DecodeFields fs => DecodeVal ('RecT fs) where
 decodeRec :: DecodeFields fs => Fields -> G.Get (Rec fs)
 decodeRec [] = noFieldLeft
 decodeRec ((n, t):dfs) =
-    decodeField (hashFieldName n) t $ FieldDecoder (\Proxy -> decodeRec dfs)
+    decodeField (hashFieldName n) t $ FieldDecoder (decodeRec dfs)
 
-newtype FieldDecoder = FieldDecoder (forall fs' fs. (DecodeFields fs, DecodeFields fs') => Proxy fs' -> G.Get (Rec fs))
+newtype FieldDecoder = FieldDecoder (forall fs. DecodeFields fs => G.Get (Rec fs))
 
 class KnownFields fs => DecodeFields fs where
     decodeField :: Word32 -> Type -> FieldDecoder -> G.Get (Rec fs)
     noFieldLeft :: G.Get (Rec fs)
 
 instance DecodeFields '[] where
-    decodeField _ t (FieldDecoder k) = do
-        skipVal t
-        k (Proxy @'[])
     noFieldLeft =
         return EmptyRec
+    decodeField _ t (FieldDecoder k) = do
+        skipVal t
+        k
 
 instance (KnownFieldName f, DecodeVal t, DecodeFields fs) => DecodeFields ('(f,t) ': fs) where
-    decodeField h t (FieldDecoder k)
+    decodeField h t fd@(FieldDecoder k)
         | h == hashFieldName (fieldName @f) = do
             x <- decodeVal t
-            xs <- k (Proxy @fs)
+            xs <- k
             return $ x :> xs
         | otherwise =
-            decodeField h t $ FieldDecoder $
-                \(Proxy :: Proxy fs') -> k (Proxy @('(f,t) ': fs'))
+            decodeField h t fd
     noFieldLeft = fail "missing fields"
 
 instance DecodeVariant fs => DecodeVal ('VariantT fs) where
