@@ -20,18 +20,23 @@
 module Codec.Candid
     ( Type(..)
     , Fields
-    , FieldName(..)
+    , FieldName(Named, Hashed)
+    , Candid(..)
+    , CandidArgs(..)
+    , Unary(..)
+    , encode
+    , encodeBuilder
+    , decode
     , Val
     , Rec
     , Variant
     , Seq
     , CandidVal(..)
-    , Candid(..)
-    , Unary(..)
-    , CandidArgs(..)
-    , encode
-    , encodeBuilder
-    , decode
+    , CandidSeq(..)
+    , KnownType(..)
+    , KnownArgs(..)
+    , KnownFields(..)
+    , fromSArgs
     ) where
 
 import Numeric.Natural
@@ -76,9 +81,9 @@ data Type
 type Fields = [(FieldName, Type)]
 
 data FieldName
-   = Named Symbol -- ^ Use this in types
+   = Named Symbol
    | Named' T.Text -- ^ Use this in terms (usually not needed)
-   | Hashed Nat -- ^ Use this in types
+   | Hashed Nat
    | Hashed' Word32 -- ^ Use this in terms (mostly internal)
 
 instance Show FieldName where show = prettyFieldName
@@ -560,21 +565,48 @@ class KnownType (Rep a) => Candid a where
     fromCandid = id
 
 newtype CandidVal (t :: Type) where CandidVal :: Val t -> CandidVal t
-
 deriving instance Eq (Val t) => Eq (CandidVal t)
 deriving instance Show (Val t) => Show (CandidVal t)
-
 instance KnownType t => Candid (CandidVal t) where
     type Rep (CandidVal t) = t
     toCandid (CandidVal x) = x
     fromCandid = CandidVal
 
+newtype CandidSeq (t :: [Type]) where CandidSeq :: Seq t -> CandidSeq t
+deriving instance Eq (Seq t) => Eq (CandidSeq t)
+deriving instance Show (Seq t) => Show (CandidSeq t)
+instance KnownArgs t => CandidArgs (CandidSeq t) where
+    type ArgRep (CandidSeq t) = t
+    toSeq (CandidSeq x) = x
+    fromSeq = CandidSeq
+
 instance Candid Bool where type Rep Bool = 'BoolT
 instance Candid Natural where type Rep Natural = 'NatT
+instance Candid Word8 where type Rep Word8 = 'Nat8T
+instance Candid Word16 where type Rep Word16 = 'Nat16T
+instance Candid Word32 where type Rep Word32 = 'Nat32T
+instance Candid Word64 where type Rep Word64 = 'Nat64T
 instance Candid Integer where type Rep Integer = 'IntT
+instance Candid Int8 where type Rep Int8 = 'Int8T
+instance Candid Int16 where type Rep Int16 = 'Int16T
+instance Candid Int32 where type Rep Int32 = 'Int32T
+instance Candid Int64 where type Rep Int64 = 'Int64T
+instance Candid Float where type Rep Float = 'Float32T
+instance Candid Double where type Rep Double = 'Float64T
+instance Candid Void where type Rep Void = 'EmptyT
+instance Candid T.Text where type Rep T.Text = 'TextT
+instance Candid String where
+    type Rep String = 'TextT
+    toCandid = toCandid . T.pack
+    fromCandid = T.unpack . fromCandid
 
 instance Candid a => Candid (Maybe a) where
     type Rep (Maybe a) = 'OptT (Rep a)
+    toCandid = fmap toCandid
+    fromCandid = fmap fromCandid
+
+instance Candid a => Candid (V.Vector a) where
+    type Rep (V.Vector a) = 'VecT (Rep a)
     toCandid = fmap toCandid
     fromCandid = fmap fromCandid
 

@@ -2,17 +2,24 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B
+import qualified Data.Vector as V
 import Test.Tasty
 import Test.Tasty.HUnit
+import Test.Tasty.QuickCheck
+import Data.Void
+import GHC.Int
+import GHC.Word
 import Numeric.Natural
 import GHC.TypeLits
 
 import Codec.Candid
 
-main = defaultMain unitTests
+main = defaultMain tests
 
 newtype ARecord a = ARecord { foo :: a }
     deriving (Eq, Show)
@@ -46,6 +53,10 @@ roundTripTest v1 = do
     Right v -> return v
   assertEqual "values" v1 v2
 
+roundTripProp :: forall ts. (KnownArgs ts, Arbitrary (Seq ts), Eq (Seq ts), Show (Seq ts)) => TestTree
+roundTripProp = testProperty (show (fromSArgs (args @ts))) $ \v ->
+    Right (CandidSeq v) === decode @(CandidSeq ts) (encode (CandidSeq @ts v))
+
 subTypeTest' :: forall a b.
     (CandidArgs a, Eq a, Show a) =>
     (CandidArgs b, Eq b, Show b) =>
@@ -78,7 +89,19 @@ reservedV = CandidVal ()
 emptyRec :: CandidVal ('RecT '[])
 emptyRec = CandidVal ()
 
-unitTests = testGroup "Unit tests"
+instance Arbitrary a => Arbitrary (Unary a) where
+    arbitrary = Unary <$> arbitrary
+
+instance Arbitrary Natural where
+    arbitrary = arbitrarySizedNatural
+
+instance Arbitrary T.Text where
+    arbitrary = T.pack <$> arbitrary
+
+instance Arbitrary a => Arbitrary (V.Vector a) where
+    arbitrary = V.fromList <$> arbitrary
+
+tests = testGroup "tests"
   [ testGroup "encode tests"
     [ testCase "empty" $ encode () @?= B.pack "DIDL\0\0"
     , testCase "bool" $ encode (Unary True) @?= B.pack "DIDL\0\1\x7e\1"
@@ -102,5 +125,31 @@ unitTests = testGroup "Unit tests"
     , testCase "tuple/any" $ subTypeTest ((42::Integer, 42::Natural), True) (reservedV, True)
     , testCase "tuple/tuple" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) ((42::Integer, -42::Integer), 100::Integer)
     , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (SingleField (-42) :: SingleField 1 Integer, 100::Integer)
+    ]
+  , testGroup "roundtrip quickckeck"
+    [ roundTripProp @ '[ 'BoolT]
+    , roundTripProp @ '[ 'NatT]
+    , roundTripProp @ '[ 'Nat8T]
+    , roundTripProp @ '[ 'Nat16T]
+    , roundTripProp @ '[ 'Nat32T]
+    , roundTripProp @ '[ 'Nat64T]
+    , roundTripProp @ '[ 'IntT]
+    , roundTripProp @ '[ 'Int8T]
+    , roundTripProp @ '[ 'Int16T]
+    , roundTripProp @ '[ 'Int32T]
+    , roundTripProp @ '[ 'Int64T]
+    , roundTripProp @ '[ 'Float32T]
+    , roundTripProp @ '[ 'Float64T]
+    , roundTripProp @ '[ 'TextT]
+    , roundTripProp @ '[ 'NullT]
+    , roundTripProp @ '[ 'ReservedT]
+    , roundTripProp @ '[ 'OptT TextT]
+    , roundTripProp @ '[ 'VecT TextT]
+    , roundTripProp @ '[ 'RecT '[] ]
+    , roundTripProp @ '[ 'RecT '[ '(Named "Hi", TextT) ] ]
+    , roundTripProp @ '[ 'RecT '[ '(Named "Hi", TextT), '(Named "Ho", BoolT) ] ]
+    , roundTripProp @ '[ 'RecT '[ '(Named "Hi", TextT), '(Hashed 1, BoolT) ] ]
+    -- This does not work well, cannot have Arbitrary Empty
+    -- , roundTripProp @ '[ 'VariantT '[ '(Named "Hi", TextT), '(Named "Ho", BoolT) ] ]
     ]
   ]
