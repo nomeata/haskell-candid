@@ -339,36 +339,29 @@ instance DecodeVal t => DecodeVal ('VecT t) where
         n <- getLeb128
         VecV . V.fromList <$> replicateM (fromIntegral n) (decodeVal t)
     decodeVal _ = fail "unexpected type"
-instance DecodeRec fs => DecodeVal ('RecT fs) where
+instance DecodeFields fs => DecodeVal ('RecT fs) where
     decodeVal (RecT fs) = RecV <$> decodeRec fs
     decodeVal _ = fail "unexpected type"
 
+decodeRec :: DecodeFields fs => Fields -> G.Get (Rec fs)
+decodeRec [] = noFieldLeft
+decodeRec ((n, t):dfs) =
+    decodeField (hashFieldName n) t $ FieldDecoder (\Proxy -> decodeRec dfs)
 
-class DecodeFields fs => DecodeRec fs where
-    decodeRec :: Fields -> G.Get (Rec fs)
-
-instance DecodeRec '[] where
-    decodeRec [] = return EmptyRec
-    decodeRec ((_, _t):dfs) =
-        -- TODO: skip t
-        decodeRec dfs
-
-instance (KnownFieldName f, DecodeVal t, DecodeRec fs) => DecodeRec ('(f,t) ': fs) where
-    decodeRec [] = fail "Missing fields"
-    decodeRec ((n, t):dfs) =
-        decodeField (hashFieldName n) t $ FieldDecoder (\Proxy -> decodeRec dfs)
-
-newtype FieldDecoder = FieldDecoder (forall fs' fs. (DecodeRec fs, DecodeRec fs') => Proxy fs' -> G.Get (Rec fs))
+newtype FieldDecoder = FieldDecoder (forall fs' fs. (DecodeFields fs, DecodeFields fs') => Proxy fs' -> G.Get (Rec fs))
 
 class KnownFields fs => DecodeFields fs where
     decodeField :: Word32 -> Type -> FieldDecoder -> G.Get (Rec fs)
+    noFieldLeft :: G.Get (Rec fs)
 
 instance DecodeFields '[] where
     decodeField _ _t _ =
         -- TODO: skip t
         return EmptyRec
+    noFieldLeft =
+        return EmptyRec
 
-instance (KnownFieldName f, DecodeVal t, DecodeRec fs) => DecodeFields ('(f,t) ': fs) where
+instance (KnownFieldName f, DecodeVal t, DecodeFields fs) => DecodeFields ('(f,t) ': fs) where
     decodeField h t (FieldDecoder k)
         | h == hashFieldName (fieldName @f) = do
             x <- decodeVal t
@@ -376,6 +369,7 @@ instance (KnownFieldName f, DecodeVal t, DecodeRec fs) => DecodeFields ('(f,t) '
             return $ x :> xs
         | otherwise = decodeField h t $
             FieldDecoder (\(Proxy :: Proxy fs') -> k (Proxy @('(f,t) ': fs')))
+    noFieldLeft = fail "missing fields"
 
 decodeMagic :: G.Get ()
 decodeMagic = do
