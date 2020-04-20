@@ -23,7 +23,10 @@ module Codec.Candid
     , Rec(..)
     , Variant(..)
     , Seq(..)
-    , args0, args1, args2
+    , DecodeVal(..)
+    , Candid(..)
+    , Unary(..)
+    , CandidArgs(..)
     , encode
     , encodeBuilder
     , decode
@@ -118,15 +121,6 @@ infixr 5 :>
 deriving instance Show (Rec fs)
 deriving instance Eq (Rec fs)
 
-args0 :: Seq '[]
-args0 = EmptySeq
-
-args1 :: KnownType a => Val a -> Seq '[ a ]
-args1 x = x ::> EmptySeq
-
-args2 :: (KnownType a, KnownType b) => Val a -> Val b -> Seq '[ a, b ]
-args2 x y = x ::> y ::> EmptySeq
-
 data Variant (fs :: [(FieldName, Type)]) where
   This :: KnownType t => Val t -> Variant ('(f,t) ': fs)
   Other :: KnownFields fs => Variant fs -> Variant ('(f,t) ': fs)
@@ -134,14 +128,14 @@ data Variant (fs :: [(FieldName, Type)]) where
 deriving instance Show (Variant fs)
 deriving instance Eq (Variant fs)
 
-encode :: forall ts. KnownTypes ts => Seq ts -> BS.ByteString
+encode :: CandidArgs a => a -> BS.ByteString
 encode = BSL.toStrict . B.toLazyByteString . encodeBuilder
 
-encodeBuilder :: forall ts. KnownTypes ts => Seq ts -> B.Builder
-encodeBuilder xs = mconcat
+encodeBuilder :: forall a. CandidArgs a => a -> B.Builder
+encodeBuilder x = mconcat
     [ B.stringUtf8 "DIDL"
-    , typTable (types @ts)
-    , encodeSeq xs
+    , typTable (types @(ArgRep a))
+    , encodeSeq (toSeq x)
     ]
 
 -- Argument sequences, although represented as records
@@ -250,18 +244,18 @@ typTable ts = mconcat
             return (hashFieldName fn, ti)
         addTyp $ mconcat
             [ sleb128 (-21)
-            , leb128Len ts
+            , leb128Len fs
             , foldMap (\(n,ti) -> leb128 (fromIntegral n) <> sleb128 ti) $
               sortOn fst tis -- TODO: Check duplicates maybe?
             ]
 
 
-decode :: DecodeTypes ts => BS.ByteString -> Either String (Seq ts)
+decode :: CandidArgs a => BS.ByteString -> Either String a
 decode = G.runGet $ do
     decodeMagic
     arg_tys <- decodeTypTable
     -- get the argument sequence
-    decodeParams arg_tys
+    fromSeq <$> decodeParams arg_tys
 
 class KnownTypes ts => DecodeTypes ts where
     decodeParams :: [Type] -> G.Get (Seq ts)
@@ -538,7 +532,60 @@ sleb128 = go
         let !byte' = if done then byte else setBit byte 7
         B.word8 byte' <> if done then mempty else go val'
 
--- Repetitive stuff for dependently types programming
+-- Using normal Haskell values
+
+class DecodeTypes (ArgRep a) => CandidArgs a where
+    type ArgRep a :: [Type]
+    toSeq :: a -> Seq (ArgRep a)
+    fromSeq :: Seq (ArgRep a) -> a
+
+newtype Unary a = Unary a deriving (Eq, Show)
+
+instance DecodeTypes ts => CandidArgs (Seq ts) where
+    type ArgRep (Seq ts) = ts
+    toSeq = id
+    fromSeq = id
+
+instance CandidArgs () where
+    type ArgRep () = '[]
+    toSeq () = EmptySeq
+    fromSeq EmptySeq = ()
+
+instance Candid a => CandidArgs (Unary a) where
+    type ArgRep (Unary a) = '[Rep a]
+    toSeq (Unary x) = toCandid x ::> EmptySeq
+    fromSeq (x ::> EmptySeq) = Unary $ fromCandid x
+
+instance (Candid a, Candid b) => CandidArgs (a, b) where
+    type ArgRep (a, b) = '[Rep a, Rep b]
+    toSeq (x,y) = toCandid x ::> toCandid y ::> EmptySeq
+    fromSeq (x ::> y ::> EmptySeq) = (fromCandid x, fromCandid y)
+
+class DecodeVal (Rep a) => Candid a where
+    type Rep a :: Type
+    toCandid :: a -> Val (Rep a)
+    fromCandid :: Val (Rep a) -> a
+
+instance DecodeVal t => Candid (Val t) where
+    type Rep (Val t) = t
+    toCandid = id
+    fromCandid = id
+
+instance Candid Bool where
+    type Rep Bool = 'BoolT
+    toCandid = BoolV
+    fromCandid (BoolV b) = b
+
+instance (Candid a, Candid b) => Candid (Either a b) where
+    type Rep (Either a b) = 'VariantT '[ '( 'Named "Left", Rep a), '( 'Named "Right", Rep b) ]
+    toCandid (Left x) = VariantV $ This $ toCandid x
+    toCandid (Right x) = VariantV $ Other $ This $ toCandid x
+    fromCandid (VariantV (This x)) = Left (fromCandid x)
+    fromCandid (VariantV (Other (This x))) = Right (fromCandid x)
+    fromCandid (VariantV (Other (Other _))) = error "unreachable"
+
+
+-- Repetitive stuff for dependently typed programming
 
 class KnownType (t :: Type) where typ :: Type
 
@@ -577,3 +624,4 @@ instance (KnownType t, KnownTypes ts) => KnownTypes (t ': ts) where
 class KnownFieldName (fn :: FieldName) where fieldName :: FieldName
 instance KnownSymbol s => KnownFieldName ('Named s) where
     fieldName = Named' (T.pack (symbolVal @s @Proxy undefined))
+
