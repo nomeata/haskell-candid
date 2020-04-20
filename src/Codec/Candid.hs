@@ -6,24 +6,35 @@
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
 module Codec.Candid
     ( Type(..)
     , Fields
-    , FieldName
+    , FieldName(..)
+    , KnownFields
     , Val(..)
     , Rec(..)
+    , args0, args1
     , Variant(..)
     , encode
-    )where
+    , encodeBuilder
+    , decode
+    , DecodeParams
+    ) where
 
 import Numeric.Natural
 import qualified Data.Vector as V
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Builder as B
 import Data.Proxy
 import Data.Bifunctor
@@ -33,6 +44,8 @@ import Data.Int
 import Data.List
 import Control.Monad.RWS.Lazy
 import GHC.TypeLits
+import qualified Data.Serialize.Get as G
+import qualified Data.Serialize.IEEE754 as G
 
 -- |
 -- The type of candid values
@@ -56,11 +69,10 @@ data Type
 type Fields = [(FieldName, Type)]
 
 data FieldName
-   = Named Symbol -- ^ Use this in types
+   = Anonymous -- ^ only used in argument/result sequences
+   | Named Symbol -- ^ Use this in types
    | Named' T.Text -- ^ Use this in terms (usually not needed)
-   {-
    | Hashed Word32
-   -}
 
 -- The values
 
@@ -87,18 +99,36 @@ data Val (t :: Type) where
     RecV :: KnownFields fs => Rec fs -> Val ('RecT fs)
     VariantV :: KnownFields fs => Variant fs -> Val ('VariantT fs)
 
+deriving instance Show (Val a)
+deriving instance Eq (Val a)
+
 data Rec (fs :: Fields) where
   EmptyRec :: Rec '[]
   (:>) :: (KnownFieldName f, KnownType t, KnownFields fs) =>
           Val t -> Rec fs -> Rec ('(f,t) ': fs)
 infixr 5 :>
 
+deriving instance Show (Rec fs)
+deriving instance Eq (Rec fs)
+
+args0 :: Rec '[]
+args0 = EmptyRec
+
+args1 :: KnownType a => Val a -> Rec '[ '( 'Anonymous, a) ]
+args1 x = x :> EmptyRec
+
 data Variant (fs :: [(FieldName, Type)]) where
   This :: KnownType t => Val t -> Variant ('(f,t) ': fs)
   Other :: KnownFields fs => Variant fs -> Variant ('(f,t) ': fs)
 
-encode :: forall fs. KnownFields fs => Rec fs -> B.Builder
-encode xs = mconcat
+deriving instance Show (Variant fs)
+deriving instance Eq (Variant fs)
+
+encode :: forall fs. KnownFields fs => Rec fs -> BS.ByteString
+encode = BSL.toStrict . B.toLazyByteString . encodeBuilder
+
+encodeBuilder :: forall fs. KnownFields fs => Rec fs -> B.Builder
+encodeBuilder xs = mconcat
     [ B.stringUtf8 "DIDL"
     , typTable (map snd (fields @fs))
     , encodeSeq xs
@@ -216,12 +246,246 @@ typTable ts = mconcat
             ]
 
 
+decode :: forall fs. DecodeParams fs => BS.ByteString -> Either String (Rec fs)
+decode = G.runGet $ do
+    decodeMagic
+    arg_tys <- decodeTypTable
+    -- get the argument sequence
+    decodeParams arg_tys
+
+class KnownFields fs => DecodeParams fs where
+    decodeParams :: [Type] -> G.Get (Rec fs)
+
+instance DecodeParams '[] where
+    decodeParams _ = return EmptyRec -- NB: This is where we ignore extra arguments
+
+instance (DecodeParams fs, DecodeVal pt, KnownFieldName f) => DecodeParams ('(f, pt) ': fs) where
+    decodeParams [] = fail "Missing argument"
+    decodeParams (t' : ts) = do
+        v <- decodeVal t'
+        vs <- decodeParams ts
+        return $ v :> vs
+
+class KnownType t => DecodeVal t where
+    decodeVal :: Type -> G.Get (Val t)
+
+instance DecodeVal 'BoolT where
+    decodeVal BoolT = G.getWord8 >>= \case
+        0 -> return $ BoolV False
+        1 -> return $ BoolV True
+        _ -> fail "Invalid boolean value"
+    decodeVal _ = fail "unexpected type"
+
+instance DecodeVal 'NatT where
+    decodeVal NatT = NatV <$> getLeb128
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'Nat8T where
+    decodeVal Nat8T = Nat8V <$> G.getWord8
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'Nat16T where
+    decodeVal Nat16T = Nat16V <$> G.getWord16le
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'Nat32T where
+    decodeVal Nat32T = Nat32V <$> G.getWord32le
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'Nat64T where
+    decodeVal Nat64T = Nat64V <$> G.getWord64le
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'IntT where
+    decodeVal NatT = IntV . fromIntegral <$> getLeb128
+    decodeVal IntT = IntV <$> getSleb128
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'Int8T where
+    decodeVal Int8T = Int8V <$> G.getInt8
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'Int16T where
+    decodeVal Int16T = Int16V <$> G.getInt16le
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'Int32T where
+    decodeVal Int32T = Int32V <$> G.getInt32le
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'Int64T where
+    decodeVal Int64T = Int64V <$> G.getInt64le
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'Float32T where
+    decodeVal Float32T = Float32V <$> G.getFloat32le
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'Float64T where
+    decodeVal Float64T = Float64V <$> G.getFloat64le
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'TextT where
+    decodeVal TextT = do
+        n <- getLeb128
+        bs <- G.getByteString (fromIntegral n)
+        case T.decodeUtf8' bs of
+            Left err -> fail (show err)
+            Right t -> return $ TextV t
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'NullT where
+    decodeVal NullT = return NullV
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal 'ReservedT where
+    decodeVal _t = return ReservedV -- TODO: implement skipVal t
+
+instance DecodeVal t => DecodeVal ('OptT t) where
+    decodeVal NullT = return (OptV Nothing)
+    decodeVal (OptT t) = G.getWord8 >>= \case
+        0 -> return $ OptV Nothing
+        1 -> OptV . Just <$> decodeVal t
+        _ -> fail "Invalid optional value"
+    decodeVal _ = fail "unexpected type"
+instance DecodeVal t => DecodeVal ('VecT t) where
+    decodeVal (VecT t) = do
+        n <- getLeb128
+        VecV . V.fromList <$> replicateM (fromIntegral n) (decodeVal t)
+    decodeVal _ = fail "unexpected type"
+instance DecodeRec fs => DecodeVal ('RecT fs) where
+    decodeVal (RecT fs) = RecV <$> decodeRec fs
+    decodeVal _ = fail "unexpected type"
+
+
+class DecodeFields fs => DecodeRec fs where
+    decodeRec :: Fields -> G.Get (Rec fs)
+
+instance DecodeRec '[] where
+    decodeRec [] = return EmptyRec
+    decodeRec ((_, _t):dfs) =
+        -- TODO: skip t
+        decodeRec dfs
+
+instance (KnownFieldName f, DecodeVal t, DecodeRec fs) => DecodeRec ('(f,t) ': fs) where
+    decodeRec [] = fail "Missing fields"
+    decodeRec ((n, t):dfs) =
+        decodeField (hashFieldName n) t $ FieldDecoder (\Proxy -> decodeRec dfs)
+
+newtype FieldDecoder = FieldDecoder (forall fs' fs. (DecodeRec fs, DecodeRec fs') => Proxy fs' -> G.Get (Rec fs))
+
+class KnownFields fs => DecodeFields fs where
+    decodeField :: Word32 -> Type -> FieldDecoder -> G.Get (Rec fs)
+
+instance DecodeFields '[] where
+    decodeField _ _t _ =
+        -- TODO: skip t
+        return EmptyRec
+
+instance (KnownFieldName f, DecodeVal t, DecodeRec fs) => DecodeFields ('(f,t) ': fs) where
+    decodeField h t (FieldDecoder k)
+        | h == hashFieldName (fieldName @f) = do
+            x <- decodeVal t
+            xs <- k (Proxy @fs)
+            return $ x :> xs
+        | otherwise = decodeField h t $
+            FieldDecoder (\(Proxy :: Proxy fs') -> k (Proxy @('(f,t) ': fs')))
+
+decodeMagic :: G.Get ()
+decodeMagic = do
+    magic <- G.getBytes 4
+    unless (magic == T.encodeUtf8 (T.pack "DIDL")) $ fail "Expected magic bytes \"DIDL\""
+
+decodeSeq :: G.Get a -> G.Get [a]
+decodeSeq act = do
+    len <- getLeb128
+    replicateM (fromIntegral len) act
+
+decodeTypTable :: G.Get [Type]
+decodeTypTable = do
+    -- typ table
+    len <- getLeb128
+    pre_table <- V.fromList <$> replicateM (fromIntegral len) (decodeTypTableEntry len)
+    -- tie the know
+    let table = fmap ($ table) pre_table
+    -- argument list
+    map ($ table) <$> decodeSeq (decodeTypRef len)
+
+decodeTypTableEntry :: Natural -> G.Get (V.Vector Type -> Type)
+decodeTypTableEntry max = getSleb128 >>= \case
+    -18 -> (OptT <$>) <$> decodeTypRef max
+    -19 -> (VecT <$>) <$> decodeTypRef max
+    -20 -> (RecT <$>) <$> decodeTypFields max
+    -21 -> (VariantT <$>) <$> decodeTypFields max
+    _ -> fail "Unknown structural type"
+
+decodeTypRef :: Natural -> G.Get (V.Vector Type -> Type)
+decodeTypRef max = do
+    i <- getSleb128
+    when (i > fromIntegral max) $ fail "Type reference out of range"
+    if i < 0
+    then case primTyp i of
+        Just t -> return $ const t
+        Nothing -> fail "Unknown prim typ"
+    else return $ \v ->v V.! fromIntegral i
+
+decodeTypFields :: Natural -> G.Get (V.Vector Type -> Fields)
+decodeTypFields max = sequence <$> decodeSeq (decodeTypField max)
+
+decodeTypField :: Natural -> G.Get (V.Vector Type -> (FieldName, Type))
+decodeTypField max = do
+    h <- getLeb128
+    when (h > fromIntegral (maxBound :: Word32)) $ fail "Field hash too large"
+    t <- decodeTypRef max
+    return $ (Hashed (fromIntegral h),) <$> t
+
+primTyp :: Integer -> Maybe Type
+primTyp (-1)  = Just NullT
+primTyp (-2)  = Just BoolT
+primTyp (-3)  = Just NatT
+primTyp (-4)  = Just IntT
+primTyp (-5)  = Just Nat8T
+primTyp (-6)  = Just Nat16T
+primTyp (-7)  = Just Nat32T
+primTyp (-8)  = Just Nat64T
+primTyp (-9)  = Just Int8T
+primTyp (-10) = Just Int16T
+primTyp (-11) = Just Int32T
+primTyp (-12) = Just Int64T
+primTyp (-13) = Just Float32T
+primTyp (-14) = Just Float64T
+primTyp (-15) = Just TextT
+primTyp (-16) = Just ReservedT
+primTyp (-17) = Just EmptyT
+primTyp _     = Nothing
+
+
+
 hashFieldName :: FieldName -> Word32
--- hashFieldName (Hashed n) = n
+hashFieldName Anonymous = error "Anonymous record field"
+hashFieldName (Hashed n) = n
 hashFieldName (Named _) = error "Symbol in value level computation"
 hashFieldName (Named' s) =
     BS.foldl (\h c -> (h * 223 + fromIntegral c)) 0 $ T.encodeUtf8 s
 
+getLeb128 :: G.Get Natural
+getLeb128 = go 0 0
+  where
+    go :: Int -> Natural -> G.Get Natural
+    go shift w = do
+        byte <- G.getWord8
+        let !byteVal = fromIntegral (clearBit byte 7)
+        let !hasMore = testBit byte 7
+        let !val = w .|. (byteVal `unsafeShiftL` shift)
+        if hasMore
+            then go (shift+7) val
+            else return $! val
+
+getSleb128 :: G.Get Integer
+getSleb128 = do
+    (val,shift,signed) <- go 0 0
+    return $ if signed
+        then val - 2^shift
+        else val
+    where
+        go :: Int -> Integer -> G.Get (Integer, Int, Bool)
+        go shift val = do
+            byte <- G.getWord8
+            let !byteVal = fromIntegral (clearBit byte 7)
+            let !val' = val .|. (byteVal `unsafeShiftL` shift)
+            let !more = testBit byte 7
+            let !shift' = shift+7
+            if more
+                then go shift' val'
+                else do
+                    let !signed = testBit byte 6
+                    return (val',shift',signed)
 
 leb128 :: Natural -> B.Builder
 leb128 = go
@@ -285,3 +549,5 @@ instance (KnownFieldName n, KnownType t, KnownFields fs) => KnownFields ('(n,t) 
 class KnownFieldName (fn :: FieldName) where fieldName :: FieldName
 instance KnownSymbol s => KnownFieldName ('Named s) where
     fieldName = Named' (T.pack (symbolVal @s @Proxy undefined))
+instance KnownFieldName 'Anonymous where
+    fieldName = Anonymous

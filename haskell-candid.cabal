@@ -1,5 +1,5 @@
 cabal-version:       >=1.10
-name:                haskell-candid
+name:                candid
 version:             0.1
 -- synopsis:
 -- description:
@@ -23,6 +23,17 @@ library
   build-depends:       bytestring
   build-depends:       mtl
   build-depends:       hex-text
+  build-depends:       cereal
   hs-source-dirs: src
   default-language:    Haskell2010
   ghc-options:         -Wall -Wno-name-shadowing
+
+test-suite test
+  default-language: Haskell2010
+  type: exitcode-stdio-1.0
+  main-is: test.hs
+  build-depends: base >= 4 && < 5
+  build-depends: tasty >= 0.7
+  build-depends: tasty-hunit
+  build-depends: candid
+  build-depends: bytestring
