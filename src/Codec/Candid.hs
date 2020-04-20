@@ -75,7 +75,8 @@ type Fields = [(FieldName, Type)]
 data FieldName
    = Named Symbol -- ^ Use this in types
    | Named' T.Text -- ^ Use this in terms (usually not needed)
-   | Hashed Word32
+   | Hashed Nat -- ^ Use this in types
+   | Hashed' Word32 -- ^ Use this in terms (mostly internal)
 
 -- The values
 
@@ -234,7 +235,7 @@ typTable ts = mconcat
             return (hashFieldName fn, ti)
         addTyp $ mconcat
             [ sleb128 (-20)
-            , leb128Len ts
+            , leb128Len fs
             , foldMap (\(n,ti) -> leb128 (fromIntegral n) <> sleb128 ti) $
               sortOn fst tis -- TODO: Check duplicates maybe?
             ]
@@ -329,7 +330,7 @@ instance DecodeVal 'NullT where
     decodeVal NullT = return NullV
     decodeVal _ = fail "unexpected type"
 instance DecodeVal 'ReservedT where
-    decodeVal _t = return ReservedV -- TODO: implement skipVal t
+    decodeVal t = skipVal t >> return ReservedV
 
 instance DecodeVal t => DecodeVal ('OptT t) where
     decodeVal NullT = return (OptV Nothing)
@@ -359,9 +360,9 @@ class KnownFields fs => DecodeFields fs where
     noFieldLeft :: G.Get (Rec fs)
 
 instance DecodeFields '[] where
-    decodeField _ _t _ =
-        -- TODO: skip t
-        return EmptyRec
+    decodeField _ t (FieldDecoder k) = do
+        skipVal t
+        k (Proxy @'[])
     noFieldLeft =
         return EmptyRec
 
@@ -371,8 +372,9 @@ instance (KnownFieldName f, DecodeVal t, DecodeFields fs) => DecodeFields ('(f,t
             x <- decodeVal t
             xs <- k (Proxy @fs)
             return $ x :> xs
-        | otherwise = decodeField h t $
-            FieldDecoder (\(Proxy :: Proxy fs') -> k (Proxy @('(f,t) ': fs')))
+        | otherwise =
+            decodeField h t $ FieldDecoder $
+                \(Proxy :: Proxy fs') -> k (Proxy @('(f,t) ': fs'))
     noFieldLeft = fail "missing fields"
 
 instance DecodeVariant fs => DecodeVal ('VariantT fs) where
@@ -393,6 +395,40 @@ instance (KnownFieldName f, DecodeVal t, DecodeVariant fs) => DecodeVariant ('(f
     decodeVariant h t
         | h == hashFieldName (fieldName @f) = This <$> decodeVal t
         | otherwise = Other <$> decodeVariant h t
+
+skipVal :: Type -> G.Get ()
+skipVal BoolT = G.skip 1
+skipVal NatT = void getLeb128
+skipVal Nat8T = G.skip 1
+skipVal Nat16T = G.skip 2
+skipVal Nat32T = G.skip 4
+skipVal Nat64T = G.skip 8
+skipVal IntT = void getSleb128
+skipVal Int8T = G.skip 1
+skipVal Int16T = G.skip 2
+skipVal Int32T = G.skip 4
+skipVal Int64T = G.skip 8
+skipVal Float32T = G.skip 4
+skipVal Float64T = G.skip 8
+skipVal TextT = getLeb128 >>= G.skip . fromIntegral
+skipVal NullT = return ()
+skipVal ReservedT = return ()
+skipVal EmptyT = fail "skipping empty value"
+skipVal (OptT t) = G.getWord8 >>= \case
+    0 -> return ()
+    1 -> skipVal t
+    _ -> fail "Invalid optional value"
+skipVal (VecT t) = do
+    n <- getLeb128
+    replicateM_ (fromIntegral n) (skipVal t)
+skipVal (RecT fs) = mapM_ (skipVal . snd) fs
+skipVal (VariantT fs) = do
+    i <- getLeb128
+    unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
+    let (_fn, t) = fs !! fromIntegral i
+    skipVal t
+
+
 
 decodeMagic :: G.Get ()
 decodeMagic = do
@@ -440,7 +476,7 @@ decodeTypField max = do
     h <- getLeb128
     when (h > fromIntegral (maxBound :: Word32)) $ fail "Field hash too large"
     t <- decodeTypRef max
-    return $ (Hashed (fromIntegral h),) <$> t
+    return $ (Hashed' (fromIntegral h),) <$> t
 
 primTyp :: Integer -> Maybe Type
 primTyp (-1)  = Just NullT
@@ -464,7 +500,8 @@ primTyp _     = Nothing
 
 
 hashFieldName :: FieldName -> Word32
-hashFieldName (Hashed n) = n
+hashFieldName (Hashed _) = error "Nat on value level"
+hashFieldName (Hashed' n) = n
 hashFieldName (Named _) = error "Symbol in value level computation"
 hashFieldName (Named' s) =
     BS.foldl (\h c -> (h * 223 + fromIntegral c)) 0 $ T.encodeUtf8 s
@@ -590,6 +627,11 @@ instance Candid a => Candid (Maybe a) where
     toCandid = OptV . fmap toCandid
     fromCandid (OptV x) = fmap fromCandid x
 
+instance (Candid a, Candid b) => Candid (a, b) where
+    type Rep (a, b) = 'RecT '[ '( 'Hashed 0, Rep a), '( 'Hashed 1, Rep b)]
+    toCandid (x,y) = RecV $ toCandid x :> toCandid y :> EmptyRec
+    fromCandid (RecV (x :> y :> EmptyRec)) = (fromCandid x, fromCandid y)
+
 instance (Candid a, Candid b) => Candid (Either a b) where
     type Rep (Either a b) = 'VariantT '[ '( 'Named "Left", Rep a), '( 'Named "Right", Rep b) ]
     toCandid (Left x) = VariantV $ This $ toCandid x
@@ -638,4 +680,6 @@ instance (KnownType t, KnownTypes ts) => KnownTypes (t ': ts) where
 class KnownFieldName (fn :: FieldName) where fieldName :: FieldName
 instance KnownSymbol s => KnownFieldName ('Named s) where
     fieldName = Named' (T.pack (symbolVal @s @Proxy undefined))
+instance KnownNat s => KnownFieldName ('Hashed s) where
+    fieldName = Hashed' (fromIntegral (natVal @s @Proxy undefined))
 

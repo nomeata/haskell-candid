@@ -60,15 +60,19 @@ unitTests = testGroup "Unit tests"
   , testGroup "roundtrip"
     [ testCase "empty" $ roundTripTest ()
     , testCase "bool" $ roundTripTest $ Unary True
-    , testCase "simple record" $ roundTripTest $ Unary (ARecord True)
-    , testCase "simple variant" $ roundTripTest $ Unary (Left True :: Either Bool Bool)
-    , testCase "simple variant" $ roundTripTest $ Unary (Right False :: Either Bool Bool)
+    , testCase "simple record 1" $ roundTripTest (ARecord True, False)
+    , testCase "simple record 2" $ roundTripTest (ARecord (100000 :: Natural), False)
+    , testCase "simple variant 1" $ roundTripTest $ Unary (Left True :: Either Bool Bool)
+    , testCase "simple variant 2" $ roundTripTest $ Unary (Right False :: Either Bool Bool)
+    , testCase "nested record 2" $ roundTripTest (ARecord (True,False), False)
     ]
   , testGroup "subtypes"
     [ testCase "nat/int" $ subTypeTest (Unary (42 :: Natural)) (Unary (42 :: Integer))
     , testCase "null/opt" $ subTypeTest (Unary NullV) (Unary (Nothing @Integer))
     , testCase "rec" $ subTypeTest (ARecord True, True) (RecV EmptyRec, True)
+    , testCase "tuple" $ subTypeTest ((42::Integer,-42::Integer), 100::Integer) (RecV EmptyRec, 100::Integer)
     , testCase "variant" $ subTypeTest (Right 42 :: Either Bool Natural, True) (JustRight (42 :: Natural), True)
-    , testCase "any" $ subTypeTest (ARecord True, True) (ReservedV, True)
+    , testCase "rec/any" $ subTypeTest (ARecord True, True) (ReservedV, True)
+    , testCase "tuple/any" $ subTypeTest ((42::Integer, 42::Natural), True) (ReservedV, True)
     ]
   ]
