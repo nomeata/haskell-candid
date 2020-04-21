@@ -17,7 +17,6 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE RecursiveDo #-}
-{-# OPTIONS_GHC -fprof-auto #-}
 module Codec.Candid
     ( Type(..)
     , Named(..)
@@ -210,10 +209,6 @@ encodeVariant :: SFields fs -> Variant fs -> (Natural, B.Builder)
 encodeVariant SFieldsNil x = case x of {}
 encodeVariant (SFieldsCons _ t _) (Left x) = (0, encodeVal t x)
 encodeVariant (SFieldsCons _ _ fs) (Right v) = first succ (encodeVariant fs v)
-
-type family FieldNameHead (fs :: Fields) :: FieldName where
-    FieldNameHead ('(f,_)':_) = f
-
 
 type TypTableBuilder = RWS () B.Builder (M.Map TypeRep Integer, Natural)
 typTable :: [Type] -> B.Builder
