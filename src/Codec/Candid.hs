@@ -19,7 +19,7 @@
 {-# LANGUAGE RecursiveDo #-}
 module Codec.Candid
     ( Type(..)
-    , Knot(Knot)
+    , Other(Other)
     , Fields
     , FieldName(N, H)
     , Candid(..)
@@ -62,7 +62,7 @@ import qualified Data.Serialize.IEEE754 as G
 
 -- |
 -- The type of candid values
--- (coinductively, without named types, i.e. after name resolution)
+-- (possibly coinductively, without named types, i.e. after name resolution)
 data Type
     -- prim types
     = NatT | Nat8T | Nat16T | Nat32T | Nat64T
@@ -79,16 +79,19 @@ data Type
     | RecT Fields
     | VariantT Fields
     -- for recursive types
-    | KnotT Knot
+    | OtherT Other
     deriving Show
 
-data Knot where
-    Knot :: a -> Knot
-    Knot_ :: TypeRep -> Type -> Knot -- ^ only on the value level
+-- | A wrapper for arbitrary other types with a Candid instance.
+--
+-- This allows recursive types
+data Other where
+    Other :: a -> Other
+    Other_ :: TypeRep -> Type -> Other -- ^ only on the value level
 
-instance Show Knot where
-    show (Knot _) = error "Knot on term level"
-    show (Knot_ _ t) = show t
+instance Show Other where
+    show (Other _) = error "Other on term level"
+    show (Other_ _ t) = show t
 
 type Fields = [(FieldName, Type)]
 
@@ -131,7 +134,7 @@ type family Val (t :: Type) where
     Val ('VecT t) = V.Vector (Val t)
     Val ('RecT fs) = Rec fs
     Val ('VariantT fs) = Variant fs
-    Val ('KnotT ('Knot t)) = t
+    Val ('OtherT ('Other t)) = t
 
 newtype Fix a = Fix a
 
@@ -153,7 +156,7 @@ encode = BSL.toStrict . B.toLazyByteString . encodeBuilder
 encodeBuilder :: forall a. CandidArgs a => a -> B.Builder
 encodeBuilder x = mconcat
     [ B.stringUtf8 "DIDL"
-    , typTable (fromSArgs (args @(ArgRep a)))
+    , typTable (args @(ArgRep a))
     , encodeSeq (args @(ArgRep a)) (toSeq x)
     ]
 
@@ -196,7 +199,7 @@ encodeVal (SVariantT fs) x =
     (pos, b) = encodeVariant fs x
     m = map fst $ sortOn snd $ zip [0..] (map (hashFieldName . fst) (fromSFields fs))
     Just i = elemIndex pos m
-encodeVal (SKnotT _ st) x = encodeVal st (toCandid x)
+encodeVal (SOtherT _ st) x = encodeVal st (toCandid x)
 
 -- Encodes the fields, sorting happens later
 encodeRec :: SFields fs -> Rec fs -> [(Word32, B.Builder)]
@@ -211,26 +214,18 @@ encodeVariant (SFieldsCons _ t _) (Left x) = (0, encodeVal t x)
 encodeVariant (SFieldsCons _ _ fs) (Right v) = first succ (encodeVariant fs v)
 
 type TypTableBuilder = RWS () B.Builder (M.Map TypeRep Integer, Natural)
-typTable :: [Type] -> B.Builder
+typTable :: Typeable fs => SArgs fs -> B.Builder
 typTable ts = mconcat
     [ leb128 typ_tbl_len
     , typ_tbl
-    , leb128Len ts
+    , leb128 (lenSArgs ts)
     , foldMap sleb128 typ_idxs
     ]
   where
-    (typ_idxs, (_, typ_tbl_len), typ_tbl) = runRWS (mapM go ts) () (M.empty, 0)
+    (typ_idxs, (_, typ_tbl_len), typ_tbl) = runRWS (goArgs ts) () (M.empty, 0)
 
-    addTyp :: TypTableBuilder B.Builder -> TypTableBuilder Integer
-    addTyp body = do
-        b <- body
-        i <- gets snd
-        modify' (second succ)
-        tell b
-        return $ fromIntegral i
-
-    addKnotTyp :: TypeRep -> TypTableBuilder B.Builder -> TypTableBuilder Integer
-    addKnotTyp n body = gets (M.lookup n . fst) >>= \case
+    addCon :: forall (t :: Type). Typeable t => TypTableBuilder B.Builder -> TypTableBuilder Integer
+    addCon body = gets (M.lookup n . fst) >>= \case
         Just i -> return i
         Nothing -> mdo
             i <- gets snd
@@ -239,63 +234,62 @@ typTable ts = mconcat
             tell b
             b <- body
             return $ fromIntegral i
+      where n = typeRep (Proxy @t)
 
+    goArgs :: SArgs ts -> TypTableBuilder [Integer]
+    goArgs SArgsNil = return []
+    goArgs (SArgsCons t ts) = (:) <$> go t <*> goArgs ts
 
-    go :: Type -> TypTableBuilder Integer
+    go :: forall t. Typeable t => SType t -> TypTableBuilder Integer
 
-    go NullT     = return $ -1
-    go BoolT     = return $ -2
-    go NatT      = return $ -3
-    go IntT      = return $ -4
-    go Nat8T     = return $ -5
-    go Nat16T    = return $ -6
-    go Nat32T    = return $ -7
-    go Nat64T    = return $ -8
-    go Int8T     = return $ -9
-    go Int16T    = return $ -10
-    go Int32T    = return $ -11
-    go Int64T    = return $ -12
-    go Float32T  = return $ -13
-    go Float64T  = return $ -14
-    go TextT     = return $ -15
-    go ReservedT = return $ -16
-    go EmptyT    = return $ -17
+    go SNullT     = return $ -1
+    go SBoolT     = return $ -2
+    go SNatT      = return $ -3
+    go SIntT      = return $ -4
+    go SNat8T     = return $ -5
+    go SNat16T    = return $ -6
+    go SNat32T    = return $ -7
+    go SNat64T    = return $ -8
+    go SInt8T     = return $ -9
+    go SInt16T    = return $ -10
+    go SInt32T    = return $ -11
+    go SInt64T    = return $ -12
+    go SFloat32T  = return $ -13
+    go SFloat64T  = return $ -14
+    go STextT     = return $ -15
+    go SReservedT = return $ -16
+    go SEmptyT    = return $ -17
 
-    -- Tie the knot
-    go (KnotT (Knot _)) = error "Knot on term level"
-    go (KnotT (Knot_ tr t)) = addKnotTyp tr $ goCon t
-
-    -- all the others are constructors
-    go t = addTyp $ goCon t
-
-    goCon :: Type -> TypTableBuilder B.Builder
-    goCon (OptT t) = do
+    -- Constructors
+    go (SOptT t) = addCon @t $ do
         ti <- go t
         return $ sleb128 (-18) <> sleb128 ti
-    goCon (VecT t) = do
+    go (SVecT t) = addCon @t $ do
         ti <- go t
         return $ sleb128 (-19) <> sleb128 ti
-    goCon (RecT fs) = do
-        tis <- forM fs $ \(fn, t) -> do
-            ti <- go t
-            return (hashFieldName fn, ti)
+    go (SRecT fs) = addCon @t $ recordLike (-20) fs
+    go (SVariantT fs) = addCon @t $ recordLike (-21) fs
+
+    -- Other types
+    go (SOtherT (_ :: Proxy a) st) = go st
+
+    goFields :: SFields fs -> TypTableBuilder [(Word32, Integer)]
+    goFields SFieldsNil = return []
+    goFields (SFieldsCons fn t fs) = do
+        ti <- go t
+        tis <- goFields fs
+        return $ (hashFieldName (fromSFieldName fn), ti) : tis
+
+    recordLike :: Integer -> SFields fs -> TypTableBuilder B.Builder
+    recordLike n fs = do
+        tis <- goFields fs
         return $ mconcat
-            [ sleb128 (-20)
-            , leb128Len fs
+            [ sleb128 n
+            , leb128Len tis
             , foldMap (\(n,ti) -> leb128 (fromIntegral n) <> sleb128 ti) $
               sortOn fst tis -- TODO: Check duplicates maybe?
             ]
-    goCon (VariantT fs) = do
-        tis <- forM fs $ \(fn, t) -> do
-            ti <- go t
-            return (hashFieldName fn, ti)
-        return $ mconcat
-            [ sleb128 (-21)
-            , leb128Len fs
-            , foldMap (\(n,ti) -> leb128 (fromIntegral n) <> sleb128 ti) $
-              sortOn fst tis -- TODO: Check duplicates maybe?
-            ]
-    goCon _ = error "goCon: Prim typ"
+
 
 
 decode :: forall a. CandidArgs a => BS.ByteString -> Either String a
@@ -353,7 +347,7 @@ decodeVal (SVariantT sfs) (VariantT fs) = do
         unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
         let (fn, t) = fs !! fromIntegral i
         decodeVariant sfs (hashFieldName fn) t
-decodeVal (SKnotT _ st) t = fromCandid <$> decodeVal st t
+decodeVal (SOtherT _ st) t = fromCandid <$> decodeVal st t
 decodeVal s t = fail $ "unexpected type " ++ take 20 (show t) ++  " when decoding " ++ take 20 (show s)
 
 decodeRec :: SFields fs -> Fields -> G.Get (Rec fs)
@@ -390,8 +384,8 @@ decodeVariant (SFieldsCons fn st sfs) h t
         | otherwise = Right <$> decodeVariant sfs h t
 
 skipVal :: Type -> G.Get ()
-skipVal (KnotT (Knot _ )) = error "Knot on term level"
-skipVal (KnotT (Knot_ _ t)) = skipVal t
+skipVal (OtherT (Other _ )) = error "Other on term level"
+skipVal (OtherT (Other_ _ t)) = skipVal t
 skipVal BoolT = G.skip 1
 skipVal NatT = void getLeb128
 skipVal Nat8T = G.skip 1
@@ -681,23 +675,23 @@ data SType (t :: Type) where
     SNullT :: SType 'NullT
     SReservedT :: SType 'ReservedT
     SEmptyT :: SType 'EmptyT
-    SOptT :: SType t -> SType ('OptT t)
-    SVecT :: SType t -> SType ('VecT t)
+    SOptT :: Typeable t => SType t -> SType ('OptT t)
+    SVecT :: Typeable t => SType t -> SType ('VecT t)
     SRecT :: SFields fs -> SType ('RecT fs)
     SVariantT :: SFields fs -> SType ('VariantT fs)
-    SKnotT :: forall a. Candid a => Proxy a -> SType (Rep a) -> SType ('KnotT ('Knot a))
+    SOtherT :: forall a. Candid a => Proxy a -> SType (Rep a) -> SType ('OtherT ('Other a))
 
 deriving instance Show (SType t)
 
 data SFields (fs :: Fields) where
     SFieldsNil :: SFields '[]
-    SFieldsCons :: SFieldName n -> SType t -> SFields fs -> SFields ('(n, t) ': fs)
+    SFieldsCons :: Typeable t => SFieldName n -> SType t -> SFields fs -> SFields ('(n, t) ': fs)
 
 deriving instance Show (SFields fs)
 
 data SArgs (t :: Args) where
     SArgsNil :: SArgs '[]
-    SArgsCons :: SType t -> SArgs fs -> SArgs (t ': fs)
+    SArgsCons :: Typeable t => SType t -> SArgs fs -> SArgs (t ': fs)
 deriving instance Show (SArgs t)
 
 data SFieldName (n :: FieldName) where
@@ -727,7 +721,7 @@ fromSType (SOptT t) = OptT (fromSType t)
 fromSType (SVecT t) = VecT (fromSType t)
 fromSType (SRecT fs) = RecT (fromSFields fs)
 fromSType (SVariantT fs) = VariantT (fromSFields fs)
-fromSType (SKnotT (_ :: Proxy a) st) = KnotT (Knot_ (typeRep (Proxy @a)) (fromSType st))
+fromSType (SOtherT (_ :: Proxy a) st) = OtherT (Other_ (typeRep (Proxy @a)) (fromSType st))
 
 fromSFields :: SFields fs -> Fields
 fromSFields SFieldsNil = []
@@ -737,12 +731,16 @@ fromSArgs :: SArgs fs -> Args
 fromSArgs SArgsNil = []
 fromSArgs (SArgsCons t fs) = fromSType t : fromSArgs fs
 
+lenSArgs :: SArgs fs -> Natural
+lenSArgs SArgsNil = 0
+lenSArgs (SArgsCons _ fs) = succ (lenSArgs fs)
+
 fromSFieldName :: SFieldName n -> FieldName
 fromSFieldName (SN p) = N' (T.pack (symbolVal p))
 fromSFieldName (SH p) = H' (fromIntegral (natVal p))
 
 
-class KnownType (t :: Type) where typ :: SType t
+class Typeable t => KnownType (t :: Type) where typ :: SType t
 
 instance KnownType 'NatT where typ = SNatT
 instance KnownType 'Nat8T where typ = SNat8T
@@ -765,19 +763,19 @@ instance KnownType t => KnownType ('OptT t) where typ = SOptT (typ @t)
 instance KnownType t => KnownType ('VecT t) where typ = SVecT (typ @t)
 instance KnownFields fs => KnownType ('RecT fs) where typ = SRecT (fields @fs)
 instance KnownFields fs => KnownType ('VariantT fs) where typ = SVariantT (fields @fs)
-instance (Typeable a, Candid a) => KnownType ('KnotT ('Knot a)) where typ = SKnotT Proxy (typ @(Rep a))
+instance (Typeable a, Candid a) => KnownType ('OtherT ('Other a)) where typ = SOtherT Proxy (typ @(Rep a))
 
-class KnownFields (fs :: [(FieldName, Type)]) where fields :: SFields fs
+class Typeable fs => KnownFields (fs :: [(FieldName, Type)]) where fields :: SFields fs
 instance KnownFields '[] where fields = SFieldsNil
 instance (KnownFieldName n, KnownType t, KnownFields fs) => KnownFields ('(n,t) ': fs) where
     fields = SFieldsCons (fieldName @n) (typ @t) (fields @fs)
 
-class KnownArgs (t :: [Type]) where args :: SArgs t
+class Typeable t => KnownArgs (t :: [Type]) where args :: SArgs t
 instance KnownArgs '[] where args = SArgsNil
 instance (KnownType t, KnownArgs ts) => KnownArgs (t ': ts) where
     args = SArgsCons (typ @t) (args @ts)
 
-class KnownFieldName (fn :: FieldName) where fieldName :: SFieldName fn
+class Typeable fn => KnownFieldName (fn :: FieldName) where fieldName :: SFieldName fn
 instance KnownSymbol s => KnownFieldName ('N s) where
     fieldName = SN (Proxy @s)
 instance KnownNat s => KnownFieldName ('H s) where
