@@ -19,7 +19,7 @@
 {-# LANGUAGE RecursiveDo #-}
 module Codec.Candid
     ( Type(..)
-    , Named(..)
+    , Knot(Knot)
     , Fields
     , FieldName(N, H)
     , Candid(..)
@@ -79,16 +79,16 @@ data Type
     | RecT Fields
     | VariantT Fields
     -- for recursive types
-    | NamedT Named
+    | KnotT Knot
     deriving Show
 
-data Named where
-    Named :: Symbol -> a -> Named
-    Named_ :: TypeRep -> Type -> Named
+data Knot where
+    Knot :: a -> Knot
+    Knot_ :: TypeRep -> Type -> Knot -- ^ only on the value level
 
-instance Show Named where
-    show (Named _ _) = error "Named on term level"
-    show (Named_ _ t) = show t
+instance Show Knot where
+    show (Knot _) = error "Knot on term level"
+    show (Knot_ _ t) = show t
 
 type Fields = [(FieldName, Type)]
 
@@ -131,7 +131,7 @@ type family Val (t :: Type) where
     Val ('VecT t) = V.Vector (Val t)
     Val ('RecT fs) = Rec fs
     Val ('VariantT fs) = Variant fs
-    Val ('NamedT ('Named s t)) = t
+    Val ('KnotT ('Knot t)) = t
 
 newtype Fix a = Fix a
 
@@ -196,7 +196,7 @@ encodeVal (SVariantT fs) x =
     (pos, b) = encodeVariant fs x
     m = map fst $ sortOn snd $ zip [0..] (map (hashFieldName . fst) (fromSFields fs))
     Just i = elemIndex pos m
-encodeVal (SNamedT _ st) x = encodeVal st (toCandid x)
+encodeVal (SKnotT _ st) x = encodeVal st (toCandid x)
 
 -- Encodes the fields, sorting happens later
 encodeRec :: SFields fs -> Rec fs -> [(Word32, B.Builder)]
@@ -229,8 +229,8 @@ typTable ts = mconcat
         tell b
         return $ fromIntegral i
 
-    addNamedTyp :: TypeRep -> TypTableBuilder B.Builder -> TypTableBuilder Integer
-    addNamedTyp n body = gets (M.lookup n . fst) >>= \case
+    addKnotTyp :: TypeRep -> TypTableBuilder B.Builder -> TypTableBuilder Integer
+    addKnotTyp n body = gets (M.lookup n . fst) >>= \case
         Just i -> return i
         Nothing -> mdo
             i <- gets snd
@@ -262,8 +262,8 @@ typTable ts = mconcat
     go EmptyT    = return $ -17
 
     -- Tie the knot
-    go (NamedT (Named _ _)) = error "Named on term level"
-    go (NamedT (Named_ tr t)) = addNamedTyp tr $ goCon t
+    go (KnotT (Knot _)) = error "Knot on term level"
+    go (KnotT (Knot_ tr t)) = addKnotTyp tr $ goCon t
 
     -- all the others are constructors
     go t = addTyp $ goCon t
@@ -353,7 +353,7 @@ decodeVal (SVariantT sfs) (VariantT fs) = do
         unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
         let (fn, t) = fs !! fromIntegral i
         decodeVariant sfs (hashFieldName fn) t
-decodeVal (SNamedT _ st) t = fromCandid <$> decodeVal st t
+decodeVal (SKnotT _ st) t = fromCandid <$> decodeVal st t
 decodeVal s t = fail $ "unexpected type " ++ take 20 (show t) ++  " when decoding " ++ take 20 (show s)
 
 decodeRec :: SFields fs -> Fields -> G.Get (Rec fs)
@@ -390,8 +390,8 @@ decodeVariant (SFieldsCons fn st sfs) h t
         | otherwise = Right <$> decodeVariant sfs h t
 
 skipVal :: Type -> G.Get ()
-skipVal (NamedT (Named _ _ )) = error "Named on term level"
-skipVal (NamedT (Named_ _ t)) = skipVal t
+skipVal (KnotT (Knot _ )) = error "Knot on term level"
+skipVal (KnotT (Knot_ _ t)) = skipVal t
 skipVal BoolT = G.skip 1
 skipVal NatT = void getLeb128
 skipVal Nat8T = G.skip 1
@@ -685,7 +685,7 @@ data SType (t :: Type) where
     SVecT :: SType t -> SType ('VecT t)
     SRecT :: SFields fs -> SType ('RecT fs)
     SVariantT :: SFields fs -> SType ('VariantT fs)
-    SNamedT :: forall s a. Candid a => Proxy a -> SType (Rep a) -> SType ('NamedT ('Named s a))
+    SKnotT :: forall a. Candid a => Proxy a -> SType (Rep a) -> SType ('KnotT ('Knot a))
 
 deriving instance Show (SType t)
 
@@ -727,7 +727,7 @@ fromSType (SOptT t) = OptT (fromSType t)
 fromSType (SVecT t) = VecT (fromSType t)
 fromSType (SRecT fs) = RecT (fromSFields fs)
 fromSType (SVariantT fs) = VariantT (fromSFields fs)
-fromSType (SNamedT (_ :: Proxy a) st) = NamedT (Named_ (typeRep (Proxy @a)) (fromSType st))
+fromSType (SKnotT (_ :: Proxy a) st) = KnotT (Knot_ (typeRep (Proxy @a)) (fromSType st))
 
 fromSFields :: SFields fs -> Fields
 fromSFields SFieldsNil = []
@@ -765,7 +765,7 @@ instance KnownType t => KnownType ('OptT t) where typ = SOptT (typ @t)
 instance KnownType t => KnownType ('VecT t) where typ = SVecT (typ @t)
 instance KnownFields fs => KnownType ('RecT fs) where typ = SRecT (fields @fs)
 instance KnownFields fs => KnownType ('VariantT fs) where typ = SVariantT (fields @fs)
-instance (KnownSymbol s, Typeable a, Candid a) => KnownType ('NamedT ('Named s a)) where typ = SNamedT @s Proxy (typ @(Rep a))
+instance (Typeable a, Candid a) => KnownType ('KnotT ('Knot a)) where typ = SKnotT Proxy (typ @(Rep a))
 
 class KnownFields (fs :: [(FieldName, Type)]) where fields :: SFields fs
 instance KnownFields '[] where fields = SFieldsNil

@@ -28,7 +28,7 @@ import Codec.Candid.Wrappers
 main = defaultMain tests
 
 newtype Peano = Peano (Maybe Peano) deriving (Show, Eq)
-type PeanoT = 'NamedT ('Named "Peano" Peano)
+type PeanoT = 'KnotT ('Knot Peano)
 
 instance Candid Peano where
     type Rep Peano = 'OptT PeanoT
@@ -39,7 +39,7 @@ peano :: Val PeanoT
 peano = Peano $ Just $ Peano $ Just $ Peano $ Just $ Peano Nothing
 
 instance Candid a => Candid [a] where
-    type Rep [a] = 'OptT ('RecT '[ '( 'H 0, Rep a), '( 'H 1, 'NamedT ('Named "list" [a]))])
+    type Rep [a] = 'OptT ('RecT '[ '( 'H 0, Rep a), '( 'H 1, 'KnotT ('Knot [a]))])
     toCandid [] = Nothing
     toCandid (x:xs) = Just (toCandid x, (xs, ()))
     fromCandid Nothing = []
