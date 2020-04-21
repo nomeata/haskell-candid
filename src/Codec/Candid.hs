@@ -107,7 +107,7 @@ prettyFieldName :: FieldName -> String
 prettyFieldName (N _) = error "Named in term"
 prettyFieldName (N' t) = T.unpack t
 prettyFieldName (H _) = error "Nat in term"
-prettyFieldName (H' n) = "id " <> show n
+prettyFieldName (H' n) = show n
 
 type Args = [Type]
 
