@@ -33,10 +33,10 @@ module Codec.Candid
     , Rec
     , Variant
     , Seq
-    , KnownType(..)
-    , KnownArgs(..)
-    , KnownFields(..)
-    , fromSArgs
+    , KnownType
+    , KnownArgs
+    , KnownFields
+    , types
     ) where
 
 import Numeric.Natural
@@ -774,6 +774,9 @@ class Typeable t => KnownArgs (t :: [Type]) where args :: SArgs t
 instance KnownArgs '[] where args = SArgsNil
 instance (KnownType t, KnownArgs ts) => KnownArgs (t ': ts) where
     args = SArgsCons (typ @t) (args @ts)
+
+types :: forall ts. KnownArgs ts => [Type]
+types = fromSArgs (args @ts)
 
 class Typeable fn => KnownFieldName (fn :: FieldName) where fieldName :: SFieldName fn
 instance KnownSymbol s => KnownFieldName ('N s) where

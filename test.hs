@@ -84,14 +84,14 @@ roundTripTest v1 = do
   assertEqual "values" v1 v2
 
 roundTripProp :: forall ts. (KnownArgs ts, Serial IO (Seq ts), Eq (Seq ts), Show (Seq ts)) => TestTree
-roundTripProp = testProperty (show (fromSArgs (args @ts))) $ \v ->
+roundTripProp = testProperty (show (types @ts)) $ \v ->
     Right (CandidSeq v) == decode @(CandidSeq ts) (encode (CandidSeq @ts v))
 
 subTypProp :: forall ts1 ts2.
     (KnownArgs ts1, Serial IO (Seq ts1), Show (Seq ts1)) =>
     KnownArgs ts2 =>
     TestTree
-subTypProp = testProperty (show (fromSArgs (args @ts1)) ++ " <: " ++ show (fromSArgs (args @ts2))) $ \v ->
+subTypProp = testProperty (show (types @ts1) ++ " <: " ++ show (types @ts2)) $ \v ->
     isRight $ decode @(CandidSeq ts2) (encode (CandidSeq @ts1 v))
 
 subTypeTest' :: forall a b.
