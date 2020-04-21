@@ -11,7 +11,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -20,7 +19,7 @@
 module Codec.Candid
     ( Type(..)
     , Fields
-    , FieldName(Named, Hashed)
+    , Field(H,N)
     , Candid(..)
     , CandidArgs(..)
     , Unary(..)
@@ -78,21 +77,20 @@ data Type
     | VariantT Fields
   deriving Show
 
-type Fields = [(FieldName, Type)]
+type Fields = [Field]
 
-data FieldName
-   = Named Symbol
-   | Named' T.Text -- ^ Use this in terms (usually not needed)
-   | Hashed Nat
-   | Hashed' Word32 -- ^ Use this in terms (mostly internal)
+data Field
+    = N Symbol Type
+    | N_ T.Text Type -- ^ internal only
+    | H Nat Type
+    | H_ Word32 Type -- ^ internal only
 
-instance Show FieldName where show = prettyFieldName
-
-prettyFieldName :: FieldName -> String
-prettyFieldName (Named _) = error "Named in term"
-prettyFieldName (Named' t) = T.unpack t
-prettyFieldName (Hashed _) = error "Nat in term"
-prettyFieldName (Hashed' n) = "id " <> show n
+-- TODO: Do a proper pretty-printer
+instance Show Field where
+    show (N _ _) = error "show on type"
+    show (H _ _) = error "show on type"
+    show (N_ s t) = T.unpack s <> " : " <> show t
+    show (H_ n t) = show n  <> " : " <> show t
 
 type Args = [Type]
 
@@ -126,11 +124,17 @@ type family Seq (ts :: [Type]) where
 
 type family Rec (fs :: Fields) where
     Rec '[] = ()
-    Rec ('(f,t)':fs) = (Val t, Rec fs)
+    Rec (f :fs) = (Val (FieldType f), Rec fs)
 
-type family Variant (fs :: [(FieldName, Type)]) where
+type family FieldType (f :: Field) where
+    FieldType ('N _ t) = t
+    FieldType ('N_ _ t) = t
+    FieldType ('H _ t) = t
+    FieldType ('H_ _ t) = t
+
+type family Variant (fs :: [Field]) where
     Variant '[] = Void
-    Variant ('(f,t) ': fs) = Either (Val t) (Variant fs)
+    Variant (f ': fs) = Either (Val (FieldType f)) (Variant fs)
 
 encode :: CandidArgs a => a -> BS.ByteString
 encode = BSL.toStrict . B.toLazyByteString . encodeBuilder
@@ -179,24 +183,20 @@ encodeVal (SVariantT fs) x =
     leb128 (fromIntegral i) <> b
   where
     (pos, b) = encodeVariant fs x
-    m = map fst $ sortOn snd $ zip [0..] (map (hashFieldName . fst) (fromSFields fs))
+    m = map fst $ sortOn snd $ zip [0..] (map fieldHash (fromSFields fs))
     Just i = elemIndex pos m
 
 -- Encodes the fields, sorting happens later
 encodeRec :: SFields fs -> Rec fs -> [(Word32, B.Builder)]
 encodeRec SFieldsNil () = []
-encodeRec (SFieldsCons n t fs) (x, xs) =
-    (hashFieldName (fromSFieldName n), encodeVal t x) : encodeRec fs xs
+encodeRec (SFieldsCons f fs) (x, xs) =
+    (fieldHash (fromSField f), encodeVal (sFieldType f) x) : encodeRec fs xs
 
 -- Encodes the value, returns fields and index
 encodeVariant :: SFields fs -> Variant fs -> (Natural, B.Builder)
 encodeVariant SFieldsNil x = case x of {}
-encodeVariant (SFieldsCons _ t _) (Left x) = (0, encodeVal t x)
-encodeVariant (SFieldsCons _ _ fs) (Right v) = first succ (encodeVariant fs v)
-
-type family FieldNameHead (fs :: Fields) :: FieldName where
-    FieldNameHead ('(f,_)':_) = f
-
+encodeVariant (SFieldsCons f _) (Left x) = (0, encodeVal (sFieldType f) x)
+encodeVariant (SFieldsCons _ fs) (Right v) = first succ (encodeVariant fs v)
 
 type TypTableBuilder = RWS () B.Builder Natural
 typTable :: [Type] -> B.Builder
@@ -238,9 +238,9 @@ typTable ts = mconcat
         ti <- go t
         addTyp $ sleb128 (-19) <> sleb128 ti
     go (RecT fs) = do
-        tis <- forM fs $ \(fn, t) -> do
-            ti <- go t
-            return (hashFieldName fn, ti)
+        tis <- forM fs $ \f -> do
+            ti <- go (fieldType f)
+            return (fieldHash f, ti)
         addTyp $ mconcat
             [ sleb128 (-20)
             , leb128Len fs
@@ -248,9 +248,9 @@ typTable ts = mconcat
               sortOn fst tis -- TODO: Check duplicates maybe?
             ]
     go (VariantT fs) = do
-        tis <- forM fs $ \(fn, t) -> do
-            ti <- go t
-            return (hashFieldName fn, ti)
+        tis <- forM fs $ \f -> do
+            ti <- go (fieldType f)
+            return (fieldHash f, ti)
         addTyp $ mconcat
             [ sleb128 (-21)
             , leb128Len fs
@@ -312,18 +312,18 @@ decodeVal (SRecT sfs) (RecT fs) = decodeRec sfs fs
 decodeVal (SVariantT sfs) (VariantT fs) = do
         i <- getLeb128
         unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
-        let (fn, t) = fs !! fromIntegral i
-        decodeVariant sfs (hashFieldName fn) t
+        let f = fs !! fromIntegral i
+        decodeVariant sfs (fieldHash f) (fieldType f)
 decodeVal s t = fail $ "unexpected type " ++ take 20 (show t) ++  " when decoding " ++ take 20 (show s)
 
 decodeRec :: SFields fs -> Fields -> G.Get (Rec fs)
 decodeRec SFieldsNil [] = return ()
-decodeRec (SFieldsCons fn _ _) [] = fail $ "missing field " <> prettyFieldName (fromSFieldName fn)
-decodeRec sfs ((h,t):dfs) =
-    findField sfs (hashFieldName h)
-        (skipVal t >> decodeRec sfs dfs)
+decodeRec (SFieldsCons f _) [] = fail $ "missing field " <> show (fromSField f)
+decodeRec sfs (f:dfs) =
+    findField sfs (fieldHash f)
+        (skipVal (fieldType f) >> decodeRec sfs dfs)
         (\st' sfs' sortIn -> do
-            x <- decodeVal st' t
+            x <- decodeVal st' (fieldType f)
             xs <- decodeRec sfs' dfs
             return (x `sortIn` xs))
 
@@ -338,15 +338,15 @@ findField :: SFields fs ->
         ) ->
         a
 findField SFieldsNil _ k1 _ = k1
-findField (SFieldsCons fn st sfs) h k1 k2
-    | h == hashFieldName (fromSFieldName fn) = k2 st sfs (,)
+findField (SFieldsCons sf sfs) h k1 k2
+    | h == fieldHash (fromSField sf) = k2 (sFieldType sf) sfs (,)
     | otherwise = findField sfs h k1 $ \st' sfs' sortIn ->
-        k2 st' (SFieldsCons fn st sfs') (\x (y, ys) -> (y, x `sortIn` ys))
+        k2 st' (SFieldsCons sf sfs') (\x (y, ys) -> (y, x `sortIn` ys))
 
 decodeVariant :: SFields fs -> Word32 -> Type -> G.Get (Variant fs)
 decodeVariant SFieldsNil _ _ = fail "unexpected variant tag"
-decodeVariant (SFieldsCons fn st sfs) h t
-        | h == hashFieldName (fromSFieldName fn) = Left <$> decodeVal st t
+decodeVariant (SFieldsCons sf sfs) h t
+        | h == fieldHash (fromSField sf) = Left <$> decodeVal (sFieldType sf) t
         | otherwise = Right <$> decodeVariant sfs h t
 
 skipVal :: Type -> G.Get ()
@@ -374,12 +374,12 @@ skipVal (OptT t) = G.getWord8 >>= \case
 skipVal (VecT t) = do
     n <- getLeb128
     replicateM_ (fromIntegral n) (skipVal t)
-skipVal (RecT fs) = mapM_ (skipVal . snd) fs
+skipVal (RecT fs) = mapM_ (skipVal . fieldType) fs
 skipVal (VariantT fs) = do
     i <- getLeb128
     unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
-    let (_fn, t) = fs !! fromIntegral i
-    skipVal t
+    let f = fs !! fromIntegral i
+    skipVal (fieldType f)
 
 
 decodeMagic :: G.Get ()
@@ -423,12 +423,12 @@ decodeTypRef max = do
 decodeTypFields :: Natural -> G.Get (V.Vector Type -> Fields)
 decodeTypFields max = sequence <$> decodeSeq (decodeTypField max)
 
-decodeTypField :: Natural -> G.Get (V.Vector Type -> (FieldName, Type))
+decodeTypField :: Natural -> G.Get (V.Vector Type -> Field)
 decodeTypField max = do
     h <- getLeb128
     when (h > fromIntegral (maxBound :: Word32)) $ fail "Field hash too large"
     t <- decodeTypRef max
-    return $ (Hashed' (fromIntegral h),) <$> t
+    return $ H_ (fromIntegral h) <$> t
 
 primTyp :: Integer -> Maybe Type
 primTyp (-1)  = Just NullT
@@ -451,12 +451,22 @@ primTyp (-17) = Just EmptyT
 primTyp _     = Nothing
 
 
-hashFieldName :: FieldName -> Word32
-hashFieldName (Hashed _) = error "Nat on value level"
-hashFieldName (Hashed' n) = n
-hashFieldName (Named _) = error "Symbol in value level computation"
-hashFieldName (Named' s) =
+fieldHash :: Field -> Word32
+fieldHash (H _ _) = error "Nat on value level"
+fieldHash (H_ n _) = n
+fieldHash (N _ _) = error "Symbol in value level computation"
+fieldHash (N_ s _) =
     BS.foldl (\h c -> (h * 223 + fromIntegral c)) 0 $ T.encodeUtf8 s
+
+fieldType :: Field -> Type
+fieldType (N _ _) = error "Symbol in value level computation"
+fieldType (N_ _ t) = t
+fieldType (H _ _) = error "Nat on value level"
+fieldType (H_ _ t) = t
+
+sFieldType :: SField f -> SType (FieldType f)
+sFieldType (SN _ t) = t
+sFieldType (SH _ t) = t
 
 getLeb128 :: G.Get Natural
 getLeb128 = go 0 0
@@ -620,10 +630,10 @@ instance (Candid a, Candid b, Candid c) => Candid (a, b, c) where
     toCandid (x,y,z) = (toCandid x, (toCandid y, (toCandid z, ())))
     fromCandid (x, (y, (z, ()))) = (fromCandid x, fromCandid y, fromCandid z)
 
-type TupField n a = '( 'Hashed n, Rep a)
+type TupField n a = 'H n (Rep a)
 
 instance (Candid a, Candid b) => Candid (Either a b) where
-    type Rep (Either a b) = 'VariantT '[ '( 'Named "Left", Rep a), '( 'Named "Right", Rep b) ]
+    type Rep (Either a b) = 'VariantT '[ 'N "Left" (Rep a), 'N "Right" (Rep b) ]
     toCandid (Left x) = Left (toCandid x)
     toCandid (Right x) = Right (Left (toCandid x))
     fromCandid (Left x) = Left (fromCandid x)
@@ -661,7 +671,7 @@ deriving instance Show (SType t)
 
 data SFields (fs :: Fields) where
     SFieldsNil :: SFields '[]
-    SFieldsCons :: SFieldName n -> SType t -> SFields fs -> SFields ('(n, t) ': fs)
+    SFieldsCons :: SField f -> SFields fs -> SFields (f ': fs)
 
 deriving instance Show (SFields fs)
 
@@ -670,10 +680,10 @@ data SArgs (t :: Args) where
     SArgsCons :: SType t -> SArgs fs -> SArgs (t ': fs)
 deriving instance Show (SArgs t)
 
-data SFieldName (n :: FieldName) where
-    SNamed :: KnownSymbol s => Proxy s -> SFieldName ('Named s)
-    SHashed :: KnownNat n => Proxy n -> SFieldName ('Hashed n)
-deriving instance Show (SFieldName n)
+data SField (n :: Field) where
+    SN :: KnownSymbol s => Proxy s -> SType t -> SField ('N s t)
+    SH :: KnownNat n => Proxy n -> SType t -> SField ('H n t)
+deriving instance Show (SField n)
 
 fromSType :: SType t -> Type
 fromSType SNatT = NatT
@@ -700,15 +710,15 @@ fromSType (SVariantT fs) = VariantT (fromSFields fs)
 
 fromSFields :: SFields fs -> Fields
 fromSFields SFieldsNil = []
-fromSFields (SFieldsCons n t fs) = (fromSFieldName n, fromSType t) : fromSFields fs
+fromSFields (SFieldsCons f fs) = fromSField f : fromSFields fs
 
 fromSArgs :: SArgs fs -> Args
 fromSArgs SArgsNil = []
 fromSArgs (SArgsCons t fs) = fromSType t : fromSArgs fs
 
-fromSFieldName :: SFieldName n -> FieldName
-fromSFieldName (SNamed p) = Named' (T.pack (symbolVal p))
-fromSFieldName (SHashed p) = Hashed' (fromIntegral (natVal p))
+fromSField :: SField n -> Field
+fromSField (SN p t) = N_ (T.pack (symbolVal p)) (fromSType t)
+fromSField (SH p t) = H_ (fromIntegral (natVal p)) (fromSType t)
 
 
 class KnownType (t :: Type) where typ :: SType t
@@ -735,19 +745,19 @@ instance KnownType t => KnownType ('VecT t) where typ = SVecT (typ @t)
 instance KnownFields fs => KnownType ('RecT fs) where typ = SRecT (fields @fs)
 instance KnownFields fs => KnownType ('VariantT fs) where typ = SVariantT (fields @fs)
 
-class KnownFields (fs :: [(FieldName, Type)]) where fields :: SFields fs
+class KnownFields (fs :: Fields) where fields :: SFields fs
 instance KnownFields '[] where fields = SFieldsNil
-instance (KnownFieldName n, KnownType t, KnownFields fs) => KnownFields ('(n,t) ': fs) where
-    fields = SFieldsCons (fieldName @n) (typ @t) (fields @fs)
+instance (KnownField f, KnownFields fs) => KnownFields (f ': fs) where
+    fields = SFieldsCons (field @f) (fields @fs)
 
 class KnownArgs (t :: [Type]) where args :: SArgs t
 instance KnownArgs '[] where args = SArgsNil
 instance (KnownType t, KnownArgs ts) => KnownArgs (t ': ts) where
     args = SArgsCons (typ @t) (args @ts)
 
-class KnownFieldName (fn :: FieldName) where fieldName :: SFieldName fn
-instance KnownSymbol s => KnownFieldName ('Named s) where
-    fieldName = SNamed (Proxy @s)
-instance KnownNat s => KnownFieldName ('Hashed s) where
-    fieldName = SHashed (Proxy @s)
+class KnownField (f :: Field) where field :: SField f
+instance (KnownSymbol s, KnownType t) => KnownField ('N s t) where
+    field = SN (Proxy @s) (typ @t)
+instance (KnownNat s, KnownType t) => KnownField ('H s t) where
+    field = SH (Proxy @s) (typ @t)
 

@@ -30,7 +30,7 @@ newtype ARecord a = ARecord { foo :: a }
     deriving (Eq, Show)
 
 instance Candid a => Candid (ARecord a) where
-    type Rep (ARecord a) = 'RecT '[ '( 'Named "foo", Rep a) ]
+    type Rep (ARecord a) = 'RecT '[ 'N "foo" (Rep a) ]
     toCandid (ARecord x) = (toCandid x, ())
     fromCandid (x, ()) = ARecord (fromCandid x)
 
@@ -38,7 +38,7 @@ newtype SingleField (n::Nat) a = SingleField a
     deriving (Eq, Show)
 
 instance (KnownNat n, Candid a) => Candid (SingleField n a) where
-    type Rep (SingleField n a) = 'RecT '[ '( 'Hashed n, Rep a) ]
+    type Rep (SingleField n a) = 'RecT '[ 'H n (Rep a) ]
     toCandid (SingleField x) = (toCandid x, ())
     fromCandid (x, ()) = SingleField (fromCandid x)
 
@@ -46,7 +46,7 @@ newtype JustRight a = JustRight a
     deriving (Eq, Show)
 
 instance Candid a => Candid (JustRight a) where
-    type Rep (JustRight a) = 'VariantT '[ '( 'Named "Right", Rep a) ]
+    type Rep (JustRight a) = 'VariantT '[ 'N "Right" (Rep a) ]
     toCandid (JustRight x) = Left (toCandid x)
     fromCandid (Left x) = JustRight (fromCandid x)
 
@@ -155,18 +155,18 @@ tests = testGroup "tests"
     , roundTripProp @ '[ 'OptT TextT]
     , roundTripProp @ '[ 'VecT TextT]
     , roundTripProp @ '[ 'RecT '[] ]
-    , roundTripProp @ '[ 'RecT '[ '(Named "Hi", Nat8T) ] ]
-    , roundTripProp @ '[ 'RecT '[ '(Named "Hi", Nat8T), '(Named "Ho", Nat8T) ] ]
-    , roundTripProp @ '[ 'RecT '[ '(Named "Hi", Nat8T), '(Hashed 1, Nat8T) ] ]
-    , roundTripProp @ '[ 'VariantT '[ '(Named "Hi", BoolT), '(Named "Ho", BoolT) ] ]
+    , roundTripProp @ '[ 'RecT '[ 'N "Hi" Nat8T ] ]
+    , roundTripProp @ '[ 'RecT '[ 'N "Hi" Nat8T, 'N "Ho" Nat8T ] ]
+    , roundTripProp @ '[ 'RecT '[ 'N "Hi" Nat8T, 'H 1 Nat8T ] ]
+    , roundTripProp @ '[ 'VariantT '[ 'N "Hi" BoolT, 'N "Ho" BoolT ] ]
     ]
   , testGroup "subtype smallchecks"
     [ subTypProp @ '[ 'NatT ] @ '[ 'IntT ]
-    , subTypProp @ '[ 'RecT '[ '(Named "Hi", Nat8T), '(Hashed 1, Nat8T) ] ] @ '[ 'ReservedT ]
-    , subTypProp @ '[ 'RecT '[ '(Named "Hi", Nat8T), '(Hashed 1, Nat8T) ] ] @ '[ 'RecT '[]]
-    , subTypProp @ '[ 'RecT '[ '(Named "Hi", Nat8T), '(Hashed 1, Nat8T) ] ] @ '[ 'RecT '[ '(Hashed 1, Nat8T)]]
-    , subTypProp @ '[ 'RecT '[ '(Hashed 0, TextT), '(Hashed 1, Nat8T), '(Hashed 2, BoolT) ] ] @ '[ 'RecT '[ '(Hashed 1, Nat8T)]]
-    , subTypProp @ '[ 'VariantT '[ '(Named "Hi", BoolT) ] ] @ '[ 'VariantT '[ '(Named "Hi", BoolT), '(Named "Ho", TextT) ] ]
-    , subTypProp @ '[ 'VariantT '[ '(Named "Ho", TextT) ] ] @ '[ 'VariantT '[ '(Named "Hi", BoolT), '(Named "Ho", TextT) ] ]
+    , subTypProp @ '[ 'RecT '[ 'N "Hi" Nat8T, 'H 1 Nat8T ] ] @ '[ 'ReservedT ]
+    , subTypProp @ '[ 'RecT '[ 'N "Hi" Nat8T, 'H 1 Nat8T ] ] @ '[ 'RecT '[]]
+    , subTypProp @ '[ 'RecT '[ 'N "Hi" Nat8T, 'H 1 Nat8T ] ] @ '[ 'RecT '[ 'H 1 Nat8T]]
+    , subTypProp @ '[ 'RecT '[ 'H 0 TextT, 'H 1 Nat8T, 'H 2 BoolT ] ] @ '[ 'RecT '[ 'H 1 Nat8T]]
+    , subTypProp @ '[ 'VariantT '[ 'N "Hi" BoolT ] ] @ '[ 'VariantT '[ 'N "Hi" BoolT, 'N "Ho" TextT ] ]
+    , subTypProp @ '[ 'VariantT '[ 'N "Ho" TextT ] ] @ '[ 'VariantT '[ 'N "Hi" BoolT, 'N "Ho" TextT ] ]
     ]
   ]
