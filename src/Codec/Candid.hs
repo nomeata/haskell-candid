@@ -17,7 +17,6 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE UndecidableInstances #-} -- for Eq CandidVal
 {-# OPTIONS_GHC -fprof-auto #-}
 module Codec.Candid
     ( Type(..)
@@ -35,8 +34,6 @@ module Codec.Candid
     , Rec
     , Variant
     , Seq
-    , CandidVal(..)
-    , CandidSeq(..)
     , KnownType(..)
     , KnownArgs(..)
     , KnownFields(..)
@@ -613,22 +610,6 @@ class (Typeable a, KnownType (Rep a)) => Candid a where
     toCandid = id
     default fromCandid :: Val (Rep a) ~ a => Val (Rep a) -> a
     fromCandid = id
-
-newtype CandidVal (t :: Type) where CandidVal :: Val t -> CandidVal t
-deriving instance Eq (Val t) => Eq (CandidVal t)
-deriving instance Show (Val t) => Show (CandidVal t)
-instance (Typeable t, KnownType t) => Candid (CandidVal t) where
-    type Rep (CandidVal t) = t
-    toCandid (CandidVal x) = x
-    fromCandid = CandidVal
-
-newtype CandidSeq (t :: [Type]) where CandidSeq :: Seq t -> CandidSeq t
-deriving instance Eq (Seq t) => Eq (CandidSeq t)
-deriving instance Show (Seq t) => Show (CandidSeq t)
-instance KnownArgs t => CandidArgs (CandidSeq t) where
-    type ArgRep (CandidSeq t) = t
-    toSeq (CandidSeq x) = x
-    fromSeq = CandidSeq
 
 instance Candid Bool where type Rep Bool = 'BoolT
 instance Candid Natural where type Rep Natural = 'NatT

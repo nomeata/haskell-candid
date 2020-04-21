@@ -6,7 +6,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B
@@ -24,6 +23,7 @@ import Control.Monad
 import GHC.TypeLits
 
 import Codec.Candid
+import Codec.Candid.Wrappers
 
 main = defaultMain tests
 
