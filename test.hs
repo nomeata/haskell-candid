@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B
@@ -25,6 +26,30 @@ import GHC.TypeLits
 import Codec.Candid
 
 main = defaultMain tests
+
+newtype Peano = Peano (Maybe Peano) deriving (Show, Eq)
+type PeanoT = 'NamedT ('Named "Peano" Peano)
+
+instance Candid Peano where
+    type Rep Peano = 'OptT PeanoT
+    toCandid (Peano x) = x
+    fromCandid = Peano
+
+peano :: Val PeanoT
+peano = Peano $ Just $ Peano $ Just $ Peano $ Just $ Peano Nothing
+
+instance Candid a => Candid [a] where
+    type Rep [a] = 'OptT ('RecT '[ 'H 0 (Rep a), 'H 1 ('NamedT ('Named "list" [a]))])
+    toCandid [] = Nothing
+    toCandid (x:xs) = Just (toCandid x, (xs, ()))
+    fromCandid Nothing = []
+    fromCandid (Just (x,(xs, ()))) = fromCandid x : xs
+
+natList :: [Natural]
+natList = [1,2,3,4]
+
+stringList :: [T.Text]
+stringList = [T.pack "HI", T.pack "Ho"]
 
 newtype ARecord a = ARecord { foo :: a }
     deriving (Eq, Show)
@@ -123,6 +148,8 @@ tests = testGroup "tests"
     , testCase "simple variant 1" $ roundTripTest $ Unary (Left True :: Either Bool Bool)
     , testCase "simple variant 2" $ roundTripTest $ Unary (Right False :: Either Bool Bool)
     , testCase "nested record 2" $ roundTripTest (ARecord (True,False), False)
+    , testCase "peano" $ roundTripTest $ Unary peano
+    , testCase "lists" $ roundTripTest (natList, stringList)
     ]
   , testGroup "subtypes"
     [ testCase "nat/int" $ subTypeTest (Unary (42 :: Natural)) (Unary (42 :: Integer))

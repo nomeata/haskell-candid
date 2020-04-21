@@ -15,9 +15,12 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE UndecidableInstances #-} -- for Eq CandidVal
+{-# OPTIONS_GHC -fprof-auto #-}
 module Codec.Candid
     ( Type(..)
+    , Named(..)
     , Fields
     , Field(H,N)
     , Candid(..)
@@ -27,6 +30,7 @@ module Codec.Candid
     , encodeBuilder
     , decode
     , Val
+    , Fix(..)
     , Rec
     , Variant
     , Seq
@@ -45,7 +49,9 @@ import qualified Data.Text.Encoding as T
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Builder as B
+import qualified Data.Map as M
 import Data.Proxy
+import Data.Typeable
 import Data.Bifunctor
 import Data.Bits
 import Data.Word
@@ -75,7 +81,17 @@ data Type
     | VecT Type
     | RecT Fields
     | VariantT Fields
-  deriving Show
+    -- for recursive types
+    | NamedT Named
+    deriving Show
+
+data Named where
+    Named :: Symbol -> a -> Named
+    Named_ :: TypeRep -> Type -> Named
+
+instance Show Named where
+    show (Named _ _) = error "Named on term level"
+    show (Named_ _ t) = show t
 
 type Fields = [Field]
 
@@ -117,6 +133,9 @@ type family Val (t :: Type) where
     Val ('VecT t) = V.Vector (Val t)
     Val ('RecT fs) = Rec fs
     Val ('VariantT fs) = Variant fs
+    Val ('NamedT ('Named s t)) = t
+
+newtype Fix a = Fix a
 
 type family Seq (ts :: [Type]) where
     Seq '[] = ()
@@ -177,14 +196,15 @@ encodeVal (SOptT t) (Just x) = B.word8 1 <> encodeVal t x
 encodeVal (SVecT t) xs =
     leb128 (fromIntegral (V.length xs)) <>
     foldMap (encodeVal t) xs
-encodeVal (SRecT fs) rec =
-    foldMap snd $ sortOn fst $ encodeRec fs rec
+encodeVal (SRecT fs) r =
+    foldMap snd $ sortOn fst $ encodeRec fs r
 encodeVal (SVariantT fs) x =
     leb128 (fromIntegral i) <> b
   where
     (pos, b) = encodeVariant fs x
     m = map fst $ sortOn snd $ zip [0..] (map fieldHash (fromSFields fs))
     Just i = elemIndex pos m
+encodeVal (SNamedT _ st) x = encodeVal st (toCandid x)
 
 -- Encodes the fields, sorting happens later
 encodeRec :: SFields fs -> Rec fs -> [(Word32, B.Builder)]
@@ -198,7 +218,7 @@ encodeVariant SFieldsNil x = case x of {}
 encodeVariant (SFieldsCons f _) (Left x) = (0, encodeVal (sFieldType f) x)
 encodeVariant (SFieldsCons _ fs) (Right v) = first succ (encodeVariant fs v)
 
-type TypTableBuilder = RWS () B.Builder Natural
+type TypTableBuilder = RWS () B.Builder (M.Map TypeRep Integer, Natural)
 typTable :: [Type] -> B.Builder
 typTable ts = mconcat
     [ leb128 typ_tbl_len
@@ -207,12 +227,30 @@ typTable ts = mconcat
     , foldMap sleb128 typ_idxs
     ]
   where
-    (typ_idxs, typ_tbl_len, typ_tbl) = runRWS (mapM go ts) () 0
+    (typ_idxs, (_, typ_tbl_len), typ_tbl) = runRWS (mapM go ts) () (M.empty, 0)
 
-    addTyp :: B.Builder -> TypTableBuilder Integer
-    addTyp b = fmap fromIntegral $ tell b *> get <* modify' succ
+    addTyp :: TypTableBuilder B.Builder -> TypTableBuilder Integer
+    addTyp body = do
+        b <- body
+        i <- gets snd
+        modify' (second succ)
+        tell b
+        return $ fromIntegral i
+
+    addNamedTyp :: TypeRep -> TypTableBuilder B.Builder -> TypTableBuilder Integer
+    addNamedTyp n body = gets (M.lookup n . fst) >>= \case
+        Just i -> return i
+        Nothing -> mdo
+            i <- gets snd
+            modify' (first (M.insert n (fromIntegral i)))
+            modify' (second succ)
+            tell b
+            b <- body
+            return $ fromIntegral i
+
 
     go :: Type -> TypTableBuilder Integer
+
     go NullT     = return $ -1
     go BoolT     = return $ -2
     go NatT      = return $ -3
@@ -231,32 +269,41 @@ typTable ts = mconcat
     go ReservedT = return $ -16
     go EmptyT    = return $ -17
 
-    go (OptT t) = do
+    -- Tie the knot
+    go (NamedT (Named _ _)) = error "Named on term level"
+    go (NamedT (Named_ tr t)) = addNamedTyp tr $ goCon t
+
+    -- all the others are constructors
+    go t = addTyp $ goCon t
+
+    goCon :: Type -> TypTableBuilder B.Builder
+    goCon (OptT t) = do
         ti <- go t
-        addTyp $ sleb128 (-18) <> sleb128 ti
-    go (VecT t) = do
+        return $ sleb128 (-18) <> sleb128 ti
+    goCon (VecT t) = do
         ti <- go t
-        addTyp $ sleb128 (-19) <> sleb128 ti
-    go (RecT fs) = do
+        return $ sleb128 (-19) <> sleb128 ti
+    goCon (RecT fs) = do
         tis <- forM fs $ \f -> do
             ti <- go (fieldType f)
             return (fieldHash f, ti)
-        addTyp $ mconcat
+        return $ mconcat
             [ sleb128 (-20)
             , leb128Len fs
             , foldMap (\(n,ti) -> leb128 (fromIntegral n) <> sleb128 ti) $
               sortOn fst tis -- TODO: Check duplicates maybe?
             ]
-    go (VariantT fs) = do
+    goCon (VariantT fs) = do
         tis <- forM fs $ \f -> do
             ti <- go (fieldType f)
             return (fieldHash f, ti)
-        addTyp $ mconcat
+        return $ mconcat
             [ sleb128 (-21)
             , leb128Len fs
             , foldMap (\(n,ti) -> leb128 (fromIntegral n) <> sleb128 ti) $
               sortOn fst tis -- TODO: Check duplicates maybe?
             ]
+    goCon _ = error "goCon: Prim typ"
 
 
 decode :: forall a. CandidArgs a => BS.ByteString -> Either String a
@@ -314,6 +361,7 @@ decodeVal (SVariantT sfs) (VariantT fs) = do
         unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
         let f = fs !! fromIntegral i
         decodeVariant sfs (fieldHash f) (fieldType f)
+decodeVal (SNamedT _ st) t = fromCandid <$> decodeVal st t
 decodeVal s t = fail $ "unexpected type " ++ take 20 (show t) ++  " when decoding " ++ take 20 (show s)
 
 decodeRec :: SFields fs -> Fields -> G.Get (Rec fs)
@@ -350,6 +398,8 @@ decodeVariant (SFieldsCons sf sfs) h t
         | otherwise = Right <$> decodeVariant sfs h t
 
 skipVal :: Type -> G.Get ()
+skipVal (NamedT (Named _ _ )) = error "Named on term level"
+skipVal (NamedT (Named_ _ t)) = skipVal t
 skipVal BoolT = G.skip 1
 skipVal NatT = void getLeb128
 skipVal Nat8T = G.skip 1
@@ -564,7 +614,7 @@ instance (Candid a, Candid b) => CandidArgs (a, b) where
     toSeq (x,y) = (toCandid x, (toCandid y, ()))
     fromSeq (x, (y, ())) = (fromCandid x, fromCandid y)
 
-class KnownType (Rep a) => Candid a where
+class (Typeable a, KnownType (Rep a)) => Candid a where
     type Rep a :: Type
     toCandid :: a -> Val (Rep a)
     fromCandid :: Val (Rep a) -> a
@@ -577,7 +627,7 @@ class KnownType (Rep a) => Candid a where
 newtype CandidVal (t :: Type) where CandidVal :: Val t -> CandidVal t
 deriving instance Eq (Val t) => Eq (CandidVal t)
 deriving instance Show (Val t) => Show (CandidVal t)
-instance KnownType t => Candid (CandidVal t) where
+instance (Typeable t, KnownType t) => Candid (CandidVal t) where
     type Rep (CandidVal t) = t
     toCandid (CandidVal x) = x
     fromCandid = CandidVal
@@ -605,10 +655,13 @@ instance Candid Float where type Rep Float = 'Float32T
 instance Candid Double where type Rep Double = 'Float64T
 instance Candid Void where type Rep Void = 'EmptyT
 instance Candid T.Text where type Rep T.Text = 'TextT
+
+{-
 instance Candid String where
     type Rep String = 'TextT
     toCandid = toCandid . T.pack
     fromCandid = T.unpack . fromCandid
+-}
 
 instance Candid a => Candid (Maybe a) where
     type Rep (Maybe a) = 'OptT (Rep a)
@@ -666,6 +719,7 @@ data SType (t :: Type) where
     SVecT :: SType t -> SType ('VecT t)
     SRecT :: SFields fs -> SType ('RecT fs)
     SVariantT :: SFields fs -> SType ('VariantT fs)
+    SNamedT :: forall s a. Candid a => Proxy a -> SType (Rep a) -> SType ('NamedT ('Named s a))
 
 deriving instance Show (SType t)
 
@@ -707,6 +761,7 @@ fromSType (SOptT t) = OptT (fromSType t)
 fromSType (SVecT t) = VecT (fromSType t)
 fromSType (SRecT fs) = RecT (fromSFields fs)
 fromSType (SVariantT fs) = VariantT (fromSFields fs)
+fromSType (SNamedT (_ :: Proxy a) st) = NamedT (Named_ (typeRep (Proxy @a)) (fromSType st))
 
 fromSFields :: SFields fs -> Fields
 fromSFields SFieldsNil = []
@@ -744,6 +799,7 @@ instance KnownType t => KnownType ('OptT t) where typ = SOptT (typ @t)
 instance KnownType t => KnownType ('VecT t) where typ = SVecT (typ @t)
 instance KnownFields fs => KnownType ('RecT fs) where typ = SRecT (fields @fs)
 instance KnownFields fs => KnownType ('VariantT fs) where typ = SVariantT (fields @fs)
+instance (KnownSymbol s, Typeable a, Candid a) => KnownType ('NamedT ('Named s a)) where typ = SNamedT @s Proxy (typ @(Rep a))
 
 class KnownFields (fs :: Fields) where fields :: SFields fs
 instance KnownFields '[] where fields = SFieldsNil
@@ -760,4 +816,3 @@ instance (KnownSymbol s, KnownType t) => KnownField ('N s t) where
     field = SN (Proxy @s) (typ @t)
 instance (KnownNat s, KnownType t) => KnownField ('H s t) where
     field = SH (Proxy @s) (typ @t)
-

@@ -24,6 +24,7 @@ library
   build-depends:       mtl
   build-depends:       hex-text
   build-depends:       cereal
+  build-depends:       containers
   hs-source-dirs: src
   default-language:    Haskell2010
   ghc-options:         -Wall -Wno-name-shadowing
@@ -41,3 +42,4 @@ test-suite test
   build-depends: bytestring
   build-depends: text
   build-depends: vector
+  ghc-options: -rtsopts
