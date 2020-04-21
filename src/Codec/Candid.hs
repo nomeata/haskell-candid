@@ -87,11 +87,11 @@ data Type
 -- This allows recursive types
 data Other where
     Other :: a -> Other
-    Other_ :: TypeRep -> Type -> Other -- ^ only on the value level
+    Other_ :: Type -> Other -- ^ only on the value level
 
 instance Show Other where
     show (Other _) = error "Other on term level"
-    show (Other_ _ t) = show t
+    show (Other_ t) = show t
 
 type Fields = [(FieldName, Type)]
 
@@ -199,7 +199,7 @@ encodeVal (SVariantT fs) x =
     (pos, b) = encodeVariant fs x
     m = map fst $ sortOn snd $ zip [0..] (map (hashFieldName . fst) (fromSFields fs))
     Just i = elemIndex pos m
-encodeVal (SOtherT _ st) x = encodeVal st (toCandid x)
+encodeVal (SOtherT st) x = encodeVal st (toCandid x)
 
 -- Encodes the fields, sorting happens later
 encodeRec :: SFields fs -> Rec fs -> [(Word32, B.Builder)]
@@ -271,7 +271,7 @@ typTable ts = mconcat
     go (SVariantT fs) = addCon @t $ recordLike (-21) fs
 
     -- Other types
-    go (SOtherT (_ :: Proxy a) st) = go st
+    go (SOtherT st) = go st
 
     goFields :: SFields fs -> TypTableBuilder [(Word32, Integer)]
     goFields SFieldsNil = return []
@@ -347,7 +347,7 @@ decodeVal (SVariantT sfs) (VariantT fs) = do
         unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
         let (fn, t) = fs !! fromIntegral i
         decodeVariant sfs (hashFieldName fn) t
-decodeVal (SOtherT _ st) t = fromCandid <$> decodeVal st t
+decodeVal (SOtherT st) t = fromCandid <$> decodeVal st t
 decodeVal s t = fail $ "unexpected type " ++ take 20 (show t) ++  " when decoding " ++ take 20 (show s)
 
 decodeRec :: SFields fs -> Fields -> G.Get (Rec fs)
@@ -385,7 +385,7 @@ decodeVariant (SFieldsCons fn st sfs) h t
 
 skipVal :: Type -> G.Get ()
 skipVal (OtherT (Other _ )) = error "Other on term level"
-skipVal (OtherT (Other_ _ t)) = skipVal t
+skipVal (OtherT (Other_ t)) = skipVal t
 skipVal BoolT = G.skip 1
 skipVal NatT = void getLeb128
 skipVal Nat8T = G.skip 1
@@ -679,7 +679,7 @@ data SType (t :: Type) where
     SVecT :: Typeable t => SType t -> SType ('VecT t)
     SRecT :: SFields fs -> SType ('RecT fs)
     SVariantT :: SFields fs -> SType ('VariantT fs)
-    SOtherT :: forall a. Candid a => Proxy a -> SType (Rep a) -> SType ('OtherT ('Other a))
+    SOtherT :: forall a. Candid a => SType (Rep a) -> SType ('OtherT ('Other a))
 
 deriving instance Show (SType t)
 
@@ -721,7 +721,7 @@ fromSType (SOptT t) = OptT (fromSType t)
 fromSType (SVecT t) = VecT (fromSType t)
 fromSType (SRecT fs) = RecT (fromSFields fs)
 fromSType (SVariantT fs) = VariantT (fromSFields fs)
-fromSType (SOtherT (_ :: Proxy a) st) = OtherT (Other_ (typeRep (Proxy @a)) (fromSType st))
+fromSType (SOtherT st) = OtherT (Other_ (fromSType st))
 
 fromSFields :: SFields fs -> Fields
 fromSFields SFieldsNil = []
@@ -763,7 +763,7 @@ instance KnownType t => KnownType ('OptT t) where typ = SOptT (typ @t)
 instance KnownType t => KnownType ('VecT t) where typ = SVecT (typ @t)
 instance KnownFields fs => KnownType ('RecT fs) where typ = SRecT (fields @fs)
 instance KnownFields fs => KnownType ('VariantT fs) where typ = SVariantT (fields @fs)
-instance (Typeable a, Candid a) => KnownType ('OtherT ('Other a)) where typ = SOtherT Proxy (typ @(Rep a))
+instance Candid a => KnownType ('OtherT ('Other a)) where typ = SOtherT (typ @(Rep a))
 
 class Typeable fs => KnownFields (fs :: [(FieldName, Type)]) where fields :: SFields fs
 instance KnownFields '[] where fields = SFieldsNil
