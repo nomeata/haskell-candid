@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B
@@ -21,6 +22,7 @@ import GHC.Word
 import Numeric.Natural
 import Control.Monad
 import GHC.TypeLits
+import Data.Text.Prettyprint.Doc
 
 import Codec.Candid
 import Codec.Candid.Wrappers
@@ -84,14 +86,14 @@ roundTripTest v1 = do
   assertEqual "values" v1 v2
 
 roundTripProp :: forall ts. (KnownArgs ts, Serial IO (Seq ts), Eq (Seq ts), Show (Seq ts)) => TestTree
-roundTripProp = testProperty (show (types @ts)) $ \v ->
+roundTripProp = testProperty (show (pretty (types @ts))) $ \v ->
     Right (CandidSeq v) == decode @(CandidSeq ts) (encode (CandidSeq @ts v))
 
 subTypProp :: forall ts1 ts2.
     (KnownArgs ts1, Serial IO (Seq ts1), Show (Seq ts1)) =>
     KnownArgs ts2 =>
     TestTree
-subTypProp = testProperty (show (types @ts1) ++ " <: " ++ show (types @ts2)) $ \v ->
+subTypProp = testProperty (show (pretty (types @ts1) <+> "<:" <+> pretty (types @ts2))) $ \v ->
     isRight $ decode @(CandidSeq ts2) (encode (CandidSeq @ts1 v))
 
 subTypeTest' :: forall a b.

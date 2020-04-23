@@ -9,7 +9,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RankNTypes #-}
@@ -17,6 +16,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Codec.Candid
     ( Type(..)
     , Other(Other)
@@ -59,6 +59,7 @@ import GHC.TypeLits
 import Data.Serialize.LEB128
 import qualified Data.Serialize.Get as G
 import qualified Data.Serialize.IEEE754 as G
+import Data.Text.Prettyprint.Doc
 
 -- |
 -- The type of candid values
@@ -80,7 +81,6 @@ data Type
     | VariantT Fields
     -- for recursive types
     | OtherT Other
-    deriving Show
 
 -- | A wrapper for arbitrary other types with a Candid instance.
 --
@@ -89,9 +89,41 @@ data Other where
     Other :: a -> Other
     Other_ :: Type -> Other -- ^ only on the value level
 
-instance Show Other where
-    show (Other _) = error "Other on term level"
-    show (Other_ t) = show t
+instance Pretty Type where
+    pretty NatT = "nat"
+    pretty Nat8T = "nat8"
+    pretty Nat16T = "nat16"
+    pretty Nat32T = "nat32"
+    pretty Nat64T = "nat64"
+    pretty IntT = "int"
+    pretty Int8T = "int8"
+    pretty Int16T = "int16"
+    pretty Int32T = "int32"
+    pretty Int64T = "int64"
+    pretty Float32T = "float"
+    pretty Float64T = "float"
+    pretty BoolT = "bool"
+    pretty TextT = "text"
+    pretty NullT = "null"
+    pretty ReservedT = "reserved"
+    pretty EmptyT = "empty"
+    pretty (OptT t) = "opt" <+> pretty t
+    pretty (VecT t) = "vec" <+> pretty t
+    pretty (RecT fs) = "record" <+> prettyFields fs
+    pretty (VariantT fs) = "variant" <+> prettyFields fs
+    pretty (OtherT (Other _)) = error "Other on term level"
+    pretty (OtherT (Other_ t)) = pretty t
+
+    prettyList = encloseSep lparen rparen comma . map pretty
+
+prettyFields :: Fields -> Doc ann
+prettyFields fs = braces $ hsep $ punctuate semi $ map prettyField fs
+
+prettyField :: (FieldName, Type) -> Doc ann
+prettyField (N _, _) = error "N on term level"
+prettyField (N' n, t) = pretty n <+> colon <+> pretty t -- TODO: encode field names
+prettyField (H _, _) = error "H on term level"
+prettyField (H' n, t) = pretty n <+> colon <+> pretty t
 
 type Fields = [(FieldName, Type)]
 
@@ -348,7 +380,7 @@ decodeVal (SVariantT sfs) (VariantT fs) = do
         let (fn, t) = fs !! i
         decodeVariant sfs (hashFieldName fn) t
 decodeVal (SOtherT st) t = fromCandid <$> decodeVal st t
-decodeVal s t = fail $ "unexpected type " ++ take 20 (show t) ++  " when decoding " ++ take 20 (show s)
+decodeVal s t = fail $ "unexpected type " ++ take 20 (show (pretty t)) ++  " when decoding " ++ take 20 (show s)
 
 decodeRec :: SFields fs -> Fields -> G.Get (Rec fs)
 decodeRec SFieldsNil [] = return ()

@@ -14,20 +14,21 @@ build-type:          Simple
 extra-source-files:  CHANGELOG.md
 
 library
-  exposed-modules:     Codec.Candid
-  exposed-modules:     Codec.Candid.Wrappers
-  build-depends:       base >=4.12 && <5
-  build-depends:       text
-  build-depends:       vector
-  build-depends:       bytestring
-  build-depends:       mtl
-  build-depends:       hex-text
-  build-depends:       cereal
-  build-depends:       leb128-cereal
-  build-depends:       containers
+  exposed-modules: Codec.Candid
+  exposed-modules: Codec.Candid.Wrappers
+  build-depends: base >=4.12 && <5
+  build-depends: text
+  build-depends: vector
+  build-depends: bytestring
+  build-depends: mtl
+  build-depends: hex-text
+  build-depends: cereal
+  build-depends: leb128-cereal
+  build-depends: containers
+  build-depends: prettyprinter
   hs-source-dirs: src
-  default-language:    Haskell2010
-  ghc-options:         -Wall -Wno-name-shadowing
+  default-language: Haskell2010
+  ghc-options: -Wall -Wno-name-shadowing
 
 test-suite test
   default-language: Haskell2010
@@ -42,4 +43,5 @@ test-suite test
   build-depends: bytestring
   build-depends: text
   build-depends: vector
+  build-depends: prettyprinter
   ghc-options: -rtsopts
