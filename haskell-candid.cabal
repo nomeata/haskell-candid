@@ -16,9 +16,7 @@ extra-source-files:  CHANGELOG.md
 library
   exposed-modules:     Codec.Candid
   exposed-modules:     Codec.Candid.Wrappers
-  -- other-modules:
-  -- other-extensions:
-  build-depends:       base >=4.13 && <4.14
+  build-depends:       base >=4.12 && <5
   build-depends:       text
   build-depends:       vector
   build-depends:       bytestring
