@@ -23,6 +23,7 @@ library
   build-depends:       mtl
   build-depends:       hex-text
   build-depends:       cereal
+  build-depends:       leb128-cereal
   build-depends:       containers
   hs-source-dirs: src
   default-language:    Haskell2010

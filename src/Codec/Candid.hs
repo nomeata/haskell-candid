@@ -50,13 +50,13 @@ import qualified Data.Map as M
 import Data.Proxy
 import Data.Typeable
 import Data.Bifunctor
-import Data.Bits
 import Data.Word
 import Data.Int
 import Data.List
 import Data.Void
 import Control.Monad.RWS.Lazy
 import GHC.TypeLits
+import Data.Serialize.LEB128
 import qualified Data.Serialize.Get as G
 import qualified Data.Serialize.IEEE754 as G
 
@@ -170,31 +170,31 @@ encodeVal :: SType t -> Val t -> B.Builder
 encodeVal SEmptyT v = case v of {}
 encodeVal SBoolT False = B.word8 0
 encodeVal SBoolT True = B.word8 1
-encodeVal SNatT n = leb128 n
+encodeVal SNatT n = buildLEB128 n
 encodeVal SNat8T n = B.word8 n
 encodeVal SNat16T n = B.word16LE n
 encodeVal SNat32T n = B.word32LE n
 encodeVal SNat64T n = B.word64LE n
-encodeVal SIntT n = sleb128 n
+encodeVal SIntT n = buildSLEB128 n
 encodeVal SInt8T n = B.int8 n
 encodeVal SInt16T n = B.int16LE n
 encodeVal SInt32T n = B.int32LE n
 encodeVal SInt64T n = B.int64LE n
 encodeVal SFloat32T n = B.floatLE n
 encodeVal SFloat64T n = B.doubleLE n
-encodeVal STextT t = leb128 (fromIntegral (BS.length bytes)) <> B.byteString bytes
+encodeVal STextT t = buildLEB128Int (BS.length bytes) <> B.byteString bytes
   where bytes = T.encodeUtf8 t
 encodeVal SNullT () = mempty
 encodeVal SReservedT () = mempty
 encodeVal (SOptT _) Nothing = B.word8 0
 encodeVal (SOptT t) (Just x) = B.word8 1 <> encodeVal t x
 encodeVal (SVecT t) xs =
-    leb128 (fromIntegral (V.length xs)) <>
+    buildLEB128Int (V.length xs) <>
     foldMap (encodeVal t) xs
 encodeVal (SRecT fs) r =
     foldMap snd $ sortOn fst $ encodeRec fs r
 encodeVal (SVariantT fs) x =
-    leb128 (fromIntegral i) <> b
+    buildLEB128Int i <> b
   where
     (pos, b) = encodeVariant fs x
     m = map fst $ sortOn snd $ zip [0..] (map (hashFieldName . fst) (fromSFields fs))
@@ -216,10 +216,10 @@ encodeVariant (SFieldsCons _ _ fs) (Right v) = first succ (encodeVariant fs v)
 type TypTableBuilder = RWS () B.Builder (M.Map TypeRep Integer, Natural)
 typTable :: Typeable fs => SArgs fs -> B.Builder
 typTable ts = mconcat
-    [ leb128 typ_tbl_len
+    [ buildLEB128 typ_tbl_len
     , typ_tbl
-    , leb128 (lenSArgs ts)
-    , foldMap sleb128 typ_idxs
+    , buildLEB128 (lenSArgs ts)
+    , foldMap buildSLEB128 typ_idxs
     ]
   where
     (typ_idxs, (_, typ_tbl_len), typ_tbl) = runRWS (goArgs ts) () (M.empty, 0)
@@ -263,10 +263,10 @@ typTable ts = mconcat
     -- Constructors
     go (SOptT t) = addCon @t $ do
         ti <- go t
-        return $ sleb128 (-18) <> sleb128 ti
+        return $ buildSLEB128 @Integer (-18) <> buildSLEB128 ti
     go (SVecT t) = addCon @t $ do
         ti <- go t
-        return $ sleb128 (-19) <> sleb128 ti
+        return $ buildSLEB128 @Integer (-19) <> buildSLEB128 ti
     go (SRecT fs) = addCon @t $ recordLike (-20) fs
     go (SVariantT fs) = addCon @t $ recordLike (-21) fs
 
@@ -284,9 +284,9 @@ typTable ts = mconcat
     recordLike n fs = do
         tis <- goFields fs
         return $ mconcat
-            [ sleb128 n
+            [ buildSLEB128 n
             , leb128Len tis
-            , foldMap (\(n,ti) -> leb128 (fromIntegral n) <> sleb128 ti) $
+            , foldMap (\(n,ti) -> buildLEB128 n <> buildSLEB128 ti) $
               sortOn fst tis -- TODO: Check duplicates maybe?
             ]
 
@@ -312,13 +312,13 @@ decodeVal SBoolT BoolT = G.getWord8 >>= \case
     0 -> return False
     1 -> return True
     _ -> fail "Invalid boolean value"
-decodeVal SNatT NatT = getLeb128
+decodeVal SNatT NatT = getLEB128
 decodeVal SNat8T Nat8T = G.getWord8
 decodeVal SNat16T Nat16T = G.getWord16le
 decodeVal SNat32T Nat32T = G.getWord32le
 decodeVal SNat64T Nat64T = G.getWord64le
-decodeVal SIntT NatT = fromIntegral <$> getLeb128
-decodeVal SIntT IntT = getSleb128
+decodeVal SIntT NatT = fromIntegral <$> getLEB128 @Natural
+decodeVal SIntT IntT = getSLEB128
 decodeVal SInt8T Int8T = G.getInt8
 decodeVal SInt16T Int16T = G.getInt16le
 decodeVal SInt32T Int32T = G.getInt32le
@@ -326,8 +326,8 @@ decodeVal SInt64T Int64T = G.getInt64le
 decodeVal SFloat32T Float32T = G.getFloat32le
 decodeVal SFloat64T Float64T = G.getFloat64le
 decodeVal STextT TextT = do
-    n <- getLeb128
-    bs <- G.getByteString (fromIntegral n)
+    n <- getLEB128Int
+    bs <- G.getByteString n
     case T.decodeUtf8' bs of
         Left err -> fail (show err)
         Right t -> return t
@@ -339,13 +339,13 @@ decodeVal (SOptT st) (OptT t) = G.getWord8 >>= \case
     1 -> Just <$> decodeVal st t
     _ -> fail "Invalid optional value"
 decodeVal (SVecT st) (VecT t) = do
-    n <- getLeb128
-    V.fromList <$> replicateM (fromIntegral n) (decodeVal st t)
+    n <- getLEB128Int
+    V.fromList <$> replicateM n (decodeVal st t)
 decodeVal (SRecT sfs) (RecT fs) = decodeRec sfs fs
 decodeVal (SVariantT sfs) (VariantT fs) = do
-        i <- getLeb128
-        unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
-        let (fn, t) = fs !! fromIntegral i
+        i <- getLEB128Int
+        unless (i <= length fs) $ fail "variant index out of bound"
+        let (fn, t) = fs !! i
         decodeVariant sfs (hashFieldName fn) t
 decodeVal (SOtherT st) t = fromCandid <$> decodeVal st t
 decodeVal s t = fail $ "unexpected type " ++ take 20 (show t) ++  " when decoding " ++ take 20 (show s)
@@ -387,19 +387,19 @@ skipVal :: Type -> G.Get ()
 skipVal (OtherT (Other _ )) = error "Other on term level"
 skipVal (OtherT (Other_ t)) = skipVal t
 skipVal BoolT = G.skip 1
-skipVal NatT = void getLeb128
+skipVal NatT = void (getLEB128 @Natural)
 skipVal Nat8T = G.skip 1
 skipVal Nat16T = G.skip 2
 skipVal Nat32T = G.skip 4
 skipVal Nat64T = G.skip 8
-skipVal IntT = void getSleb128
+skipVal IntT = void (getSLEB128 @Integer)
 skipVal Int8T = G.skip 1
 skipVal Int16T = G.skip 2
 skipVal Int32T = G.skip 4
 skipVal Int64T = G.skip 8
 skipVal Float32T = G.skip 4
 skipVal Float64T = G.skip 8
-skipVal TextT = getLeb128 >>= G.skip . fromIntegral
+skipVal TextT = getLEB128Int >>= G.skip
 skipVal NullT = return ()
 skipVal ReservedT = return ()
 skipVal EmptyT = fail "skipping empty value"
@@ -408,13 +408,13 @@ skipVal (OptT t) = G.getWord8 >>= \case
     1 -> skipVal t
     _ -> fail "Invalid optional value"
 skipVal (VecT t) = do
-    n <- getLeb128
-    replicateM_ (fromIntegral n) (skipVal t)
+    n <- getLEB128Int
+    replicateM_ n (skipVal t)
 skipVal (RecT fs) = mapM_ (skipVal . snd) fs
 skipVal (VariantT fs) = do
-    i <- getLeb128
-    unless (i <= fromIntegral (length fs)) $ fail "variant index out of bound"
-    let (_fn, t) = fs !! fromIntegral i
+    i <- getLEB128Int
+    unless (i <= length fs) $ fail "variant index out of bound"
+    let (_fn, t) = fs !! i
     skipVal t
 
 
@@ -423,15 +423,18 @@ decodeMagic = do
     magic <- G.getBytes 4
     unless (magic == T.encodeUtf8 (T.pack "DIDL")) $ fail "Expected magic bytes \"DIDL\""
 
+getLEB128Int :: G.Get Int
+getLEB128Int = fromIntegral <$> getLEB128 @Natural
+
 decodeSeq :: G.Get a -> G.Get [a]
 decodeSeq act = do
-    len <- getLeb128
-    replicateM (fromIntegral len) act
+    len <- getLEB128Int
+    replicateM len act
 
 decodeTypTable :: G.Get [Type]
 decodeTypTable = do
     -- typ table
-    len <- getLeb128
+    len <- getLEB128
     pre_table <- V.fromList <$> replicateM (fromIntegral len) (decodeTypTableEntry len)
     -- tie the know
     let table = fmap ($ table) pre_table
@@ -439,7 +442,7 @@ decodeTypTable = do
     map ($ table) <$> decodeSeq (decodeTypRef len)
 
 decodeTypTableEntry :: Natural -> G.Get (V.Vector Type -> Type)
-decodeTypTableEntry max = getSleb128 >>= \case
+decodeTypTableEntry max = getSLEB128 @Integer >>= \case
     -18 -> (OptT <$>) <$> decodeTypRef max
     -19 -> (VecT <$>) <$> decodeTypRef max
     -20 -> (RecT <$>) <$> decodeTypFields max
@@ -448,7 +451,7 @@ decodeTypTableEntry max = getSleb128 >>= \case
 
 decodeTypRef :: Natural -> G.Get (V.Vector Type -> Type)
 decodeTypRef max = do
-    i <- getSleb128
+    i <- getSLEB128
     when (i > fromIntegral max) $ fail "Type reference out of range"
     if i < 0
     then case primTyp i of
@@ -461,10 +464,9 @@ decodeTypFields max = sequence <$> decodeSeq (decodeTypField max)
 
 decodeTypField :: Natural -> G.Get (V.Vector Type -> (FieldName, Type))
 decodeTypField max = do
-    h <- getLeb128
-    when (h > fromIntegral (maxBound :: Word32)) $ fail "Field hash too large"
+    h <- getLEB128
     t <- decodeTypRef max
-    return $ (H' (fromIntegral h),) <$> t
+    return $ (H' h,) <$> t
 
 primTyp :: Integer -> Maybe Type
 primTyp (-1)  = Just NullT
@@ -494,67 +496,11 @@ hashFieldName (N _) = error "Symbol in value level computation"
 hashFieldName (N' s) =
     BS.foldl (\h c -> (h * 223 + fromIntegral c)) 0 $ T.encodeUtf8 s
 
-getLeb128 :: G.Get Natural
-getLeb128 = go 0 0
-  where
-    go :: Int -> Natural -> G.Get Natural
-    go shift w = do
-        byte <- G.getWord8
-        let !byteVal = fromIntegral (clearBit byte 7)
-        let !hasMore = testBit byte 7
-        let !val = w .|. (byteVal `unsafeShiftL` shift)
-        if hasMore
-            then go (shift+7) val
-            else return $! val
-
-getSleb128 :: G.Get Integer
-getSleb128 = do
-    (val,shift,signed) <- go 0 0
-    return $ if signed
-        then val - 2^shift
-        else val
-    where
-        go :: Int -> Integer -> G.Get (Integer, Int, Bool)
-        go shift val = do
-            byte <- G.getWord8
-            let !byteVal = fromIntegral (clearBit byte 7)
-            let !val' = val .|. (byteVal `unsafeShiftL` shift)
-            let !more = testBit byte 7
-            let !shift' = shift+7
-            if more
-                then go shift' val'
-                else do
-                    let !signed = testBit byte 6
-                    return (val',shift',signed)
-
-leb128 :: Natural -> B.Builder
-leb128 = go
-  where
-    go i
-      | i <= 127
-      = B.word8 (fromIntegral i :: Word8)
-      | otherwise =
-        -- bit 7 (8th bit) indicates more to come.
-        B.word8 (setBit (fromIntegral i) 7) <> go (i `unsafeShiftR` 7)
+buildLEB128Int :: Int -> B.Builder
+buildLEB128Int = buildLEB128 @Natural . fromIntegral
 
 leb128Len :: [a] -> B.Builder
-leb128Len = leb128 . fromIntegral . length
-
-sleb128 :: Integer -> B.Builder
-sleb128 = go
-  where
-    go val = do
-        let !byte = fromIntegral (clearBit val 7) :: Word8
-        let !val' = val `unsafeShiftR` 7
-        let !signBit = testBit byte 6
-        let !done =
-                -- Unsigned value, val' == 0 and and last value can
-                -- be discriminated from a negative number.
-                (val' == 0 && not signBit) ||
-                -- Signed value,
-                (val' == -1 && signBit)
-        let !byte' = if done then byte else setBit byte 7
-        B.word8 byte' <> if done then mempty else go val'
+leb128Len = buildLEB128Int . length
 
 -- Using normal Haskell values
 
