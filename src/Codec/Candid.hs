@@ -631,6 +631,11 @@ instance Candid Void where type Rep Void = 'EmptyT
 instance Candid T.Text where type Rep T.Text = 'TextT
 instance Candid BS.ByteString where type Rep BS.ByteString = 'BlobT
 
+instance Candid BSL.ByteString where
+    type Rep BSL.ByteString = 'BlobT
+    toCandid = BSL.toStrict
+    fromCandid = BSL.fromStrict
+
 {-
 instance Candid String where
     type Rep String = 'TextT
@@ -657,6 +662,16 @@ instance (Candid a, Candid b, Candid c) => Candid (a, b, c) where
     type Rep (a, b, c) = 'RecT '[ TupField 0 a, TupField 1 b, TupField 2 c]
     toCandid (x,y,z) = (toCandid x, (toCandid y, (toCandid z, ())))
     fromCandid (x, (y, (z, ()))) = (fromCandid x, fromCandid y, fromCandid z)
+
+instance (Candid a, Candid b, Candid c, Candid d, Candid e, Candid f) => Candid (a, b, c, d, e, f) where
+    type Rep (a, b, c, d, e, f) = 'RecT '[ TupField 0 a, TupField 1 b, TupField 2 c, TupField 3 d, TupField 4 e, TupField 5 f]
+    toCandid (x1,x2,x3,x4,x5,x6) =
+        x1 & x2 & x3 & x4 & x5 & x6 & ()
+      where
+        infixr &
+        x & r = (toCandid x, r)
+    fromCandid (x1, (x2, (x3, (x4, (x5, (x6, ())))))) =
+        (fromCandid x1, fromCandid x2, fromCandid x3, fromCandid x4, fromCandid x5, fromCandid x6)
 
 type TupField n a = '( 'H n, Rep a)
 
