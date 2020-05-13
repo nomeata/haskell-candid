@@ -9,6 +9,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import qualified Data.Text as T
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B
 import qualified Data.Vector as V
 import Test.Tasty
@@ -87,7 +88,13 @@ roundTripTest v1 = do
 
 roundTripProp :: forall ts. (KnownArgs ts, Serial IO (Seq ts), Eq (Seq ts), Show (Seq ts)) => TestTree
 roundTripProp = testProperty (show (pretty (types @ts))) $ \v ->
-    Right (CandidSeq v) == decode @(CandidSeq ts) (encode (CandidSeq @ts v))
+    let exp = CandidSeq @ts v in
+    case decode @(CandidSeq ts) (encode exp) of
+        Right y | y == exp -> Right ("all good" :: String)
+        Right y -> Left $
+            show exp ++ " round-tripped to " ++ show y
+        Left err -> Left $
+            show exp ++ " failed to decode: " ++ err
 
 subTypProp :: forall ts1 ts2.
     (KnownArgs ts1, Serial IO (Seq ts1), Show (Seq ts1)) =>
@@ -181,6 +188,8 @@ tests = testGroup "tests"
     , roundTripProp @ '[ 'TextT]
     , roundTripProp @ '[ 'NullT]
     , roundTripProp @ '[ 'ReservedT]
+    , roundTripProp @ '[ 'PrincipalT]
+    , roundTripProp @ '[ 'BlobT]
     , roundTripProp @ '[ 'OptT TextT]
     , roundTripProp @ '[ 'VecT TextT]
     , roundTripProp @ '[ 'RecT '[] ]
@@ -197,5 +206,12 @@ tests = testGroup "tests"
     , subTypProp @ '[ 'RecT '[ '(H 0, TextT), '(H 1, Nat8T), '(H 2, BoolT) ] ] @ '[ 'RecT '[ '(H 1, Nat8T)]]
     , subTypProp @ '[ 'VariantT '[ '(N "Hi", BoolT) ] ] @ '[ 'VariantT '[ '(N "Hi", BoolT), '(N "Ho", TextT) ] ]
     , subTypProp @ '[ 'VariantT '[ '(N "Ho", TextT) ] ] @ '[ 'VariantT '[ '(N "Hi", BoolT), '(N "Ho", TextT) ] ]
+    , subTypProp @ '[ 'NatT ] @ '[ 'ReservedT ]
+    , subTypProp @ '[ 'BlobT ] @ '[ 'ReservedT ]
+    , subTypProp @ '[ 'PrincipalT ] @ '[ 'ReservedT ]
     ]
   ]
+
+instance Monad m => Serial m BS.ByteString where
+    series = BS.pack <$> series
+

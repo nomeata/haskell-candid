@@ -79,6 +79,10 @@ data Type
     | VecT Type
     | RecT Fields
     | VariantT Fields
+    -- reference
+    | PrincipalT
+    -- short-hands
+    | BlobT
     -- for recursive types
     | OtherT Other
 
@@ -112,6 +116,8 @@ instance Pretty Type where
     pretty (RecT fs) = "record" <+> prettyFields fs
     pretty (VariantT fs) = "variant" <+> prettyFields fs
     pretty (OtherT (Other _)) = error "Other on term level"
+    pretty BlobT = "blob"
+    pretty PrincipalT = "principal"
     pretty (OtherT (Other_ t)) = pretty t
 
     prettyList = encloseSep lparen rparen comma . map pretty
@@ -166,6 +172,8 @@ type family Val (t :: Type) where
     Val ('VecT t) = V.Vector (Val t)
     Val ('RecT fs) = Rec fs
     Val ('VariantT fs) = Variant fs
+    Val 'PrincipalT = BS.ByteString
+    Val 'BlobT = BS.ByteString
     Val ('OtherT ('Other t)) = t
 
 newtype Fix a = Fix a
@@ -214,8 +222,7 @@ encodeVal SInt32T n = B.int32LE n
 encodeVal SInt64T n = B.int64LE n
 encodeVal SFloat32T n = B.floatLE n
 encodeVal SFloat64T n = B.doubleLE n
-encodeVal STextT t = buildLEB128Int (BS.length bytes) <> B.byteString bytes
-  where bytes = T.encodeUtf8 t
+encodeVal STextT t = encodeBytes (T.encodeUtf8 t)
 encodeVal SNullT () = mempty
 encodeVal SReservedT () = mempty
 encodeVal (SOptT _) Nothing = B.word8 0
@@ -231,7 +238,12 @@ encodeVal (SVariantT fs) x =
     (pos, b) = encodeVariant fs x
     m = map fst $ sortOn snd $ zip [0..] (map (hashFieldName . fst) (fromSFields fs))
     Just i = elemIndex pos m
+encodeVal SPrincipalT s = B.int8 1 <> encodeBytes s
+encodeVal SBlobT b = encodeBytes b
 encodeVal (SOtherT st) x = encodeVal st (toCandid x)
+
+encodeBytes :: BS.ByteString -> B.Builder
+encodeBytes bytes = buildLEB128Int (BS.length bytes) <> B.byteString bytes
 
 -- Encodes the fields, sorting happens later
 encodeRec :: SFields fs -> Rec fs -> [(Word32, B.Builder)]
@@ -302,6 +314,14 @@ typTable ts = mconcat
     go (SRecT fs) = addCon @t $ recordLike (-20) fs
     go (SVariantT fs) = addCon @t $ recordLike (-21) fs
 
+    -- References
+    go SPrincipalT = return $ -24
+
+    -- Short-hands
+    go SBlobT = addCon @t $
+        -- blob = vec nat8
+        return $ buildSLEB128 @Integer (-19) <> buildSLEB128 @Integer (-5)
+
     -- Other types
     go (SOtherT st) = go st
 
@@ -358,8 +378,7 @@ decodeVal SInt64T Int64T = G.getInt64le
 decodeVal SFloat32T Float32T = G.getFloat32le
 decodeVal SFloat64T Float64T = G.getFloat64le
 decodeVal STextT TextT = do
-    n <- getLEB128Int
-    bs <- G.getByteString n
+    bs <- decodeBytes
     case T.decodeUtf8' bs of
         Left err -> fail (show err)
         Right t -> return t
@@ -380,6 +399,11 @@ decodeVal (SVariantT sfs) (VariantT fs) = do
         let (fn, t) = fs !! i
         decodeVariant sfs (hashFieldName fn) t
 decodeVal (SOtherT st) t = fromCandid <$> decodeVal st t
+decodeVal SPrincipalT PrincipalT = G.getWord8 >>= \case
+    0 -> fail "reference encountered"
+    1 -> decodeBytes
+    _ -> fail "Invalid principal value"
+decodeVal SBlobT (VecT Nat8T) = decodeBytes
 decodeVal s t = fail $ "unexpected type " ++ take 20 (show (pretty t)) ++  " when decoding " ++ take 20 (show s)
 
 decodeRec :: SFields fs -> Fields -> G.Get (Rec fs)
@@ -392,6 +416,9 @@ decodeRec sfs ((h,t):dfs) =
             x <- decodeVal st' t
             xs <- decodeRec sfs' dfs
             return (x `sortIn` xs))
+
+decodeBytes :: G.Get BS.ByteString
+decodeBytes = getLEB128Int >>= G.getByteString
 
 -- findField, in CPS style, produces a function with a type
 -- that inserts the value in the right slot in the nested pairs
@@ -431,7 +458,7 @@ skipVal Int32T = G.skip 4
 skipVal Int64T = G.skip 8
 skipVal Float32T = G.skip 4
 skipVal Float64T = G.skip 8
-skipVal TextT = getLEB128Int >>= G.skip
+skipVal TextT = skipBytes
 skipVal NullT = return ()
 skipVal ReservedT = return ()
 skipVal EmptyT = fail "skipping empty value"
@@ -448,6 +475,14 @@ skipVal (VariantT fs) = do
     unless (i <= length fs) $ fail "variant index out of bound"
     let (_fn, t) = fs !! i
     skipVal t
+skipVal PrincipalT = G.getWord8 >>= \case
+    0 -> fail "reference encountered"
+    1 -> skipBytes
+    _ -> fail "Invalid principal value"
+skipVal BlobT = skipBytes
+
+skipBytes :: G.Get ()
+skipBytes = getLEB128Int >>= G.skip
 
 
 decodeMagic :: G.Get ()
@@ -488,7 +523,7 @@ decodeTypRef max = do
     if i < 0
     then case primTyp i of
         Just t -> return $ const t
-        Nothing -> fail "Unknown prim typ"
+        Nothing -> fail  $ "Unknown prim typ " ++ show i
     else return $ \v ->v V.! fromIntegral i
 
 decodeTypFields :: Natural -> G.Get (V.Vector Type -> Fields)
@@ -518,6 +553,7 @@ primTyp (-14) = Just Float64T
 primTyp (-15) = Just TextT
 primTyp (-16) = Just ReservedT
 primTyp (-17) = Just EmptyT
+primTyp (-24) = Just PrincipalT
 primTyp _     = Nothing
 
 
@@ -593,6 +629,7 @@ instance Candid Float where type Rep Float = 'Float32T
 instance Candid Double where type Rep Double = 'Float64T
 instance Candid Void where type Rep Void = 'EmptyT
 instance Candid T.Text where type Rep T.Text = 'TextT
+instance Candid BS.ByteString where type Rep BS.ByteString = 'BlobT
 
 {-
 instance Candid String where
@@ -657,6 +694,8 @@ data SType (t :: Type) where
     SVecT :: Typeable t => SType t -> SType ('VecT t)
     SRecT :: SFields fs -> SType ('RecT fs)
     SVariantT :: SFields fs -> SType ('VariantT fs)
+    SPrincipalT :: SType 'PrincipalT
+    SBlobT :: SType 'BlobT
     SOtherT :: forall a. Candid a => SType (Rep a) -> SType ('OtherT ('Other a))
 
 deriving instance Show (SType t)
@@ -699,6 +738,8 @@ fromSType (SOptT t) = OptT (fromSType t)
 fromSType (SVecT t) = VecT (fromSType t)
 fromSType (SRecT fs) = RecT (fromSFields fs)
 fromSType (SVariantT fs) = VariantT (fromSFields fs)
+fromSType SPrincipalT = PrincipalT
+fromSType SBlobT = BlobT
 fromSType (SOtherT st) = OtherT (Other_ (fromSType st))
 
 fromSFields :: SFields fs -> Fields
@@ -741,6 +782,8 @@ instance KnownType t => KnownType ('OptT t) where typ = SOptT (typ @t)
 instance KnownType t => KnownType ('VecT t) where typ = SVecT (typ @t)
 instance KnownFields fs => KnownType ('RecT fs) where typ = SRecT (fields @fs)
 instance KnownFields fs => KnownType ('VariantT fs) where typ = SVariantT (fields @fs)
+instance KnownType 'PrincipalT where typ = SPrincipalT
+instance KnownType 'BlobT where typ = SBlobT
 instance Candid a => KnownType ('OtherT ('Other a)) where typ = SOtherT (typ @(Rep a))
 
 class Typeable fs => KnownFields (fs :: [(FieldName, Type)]) where fields :: SFields fs
