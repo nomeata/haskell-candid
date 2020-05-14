@@ -582,7 +582,7 @@ class KnownArgs (ArgRep a) => CandidArgs a where
     default fromSeq :: Seq (ArgRep a) ~ a => Seq (ArgRep a) -> a
     fromSeq = id
 
-newtype Unary a = Unary a deriving (Eq, Show)
+newtype Unary a = Unary {unUnary :: a} deriving (Eq, Show)
 
 {-
 instance KnownArgs ts => CandidArgs (Seq ts) where
@@ -603,6 +603,17 @@ instance (Candid a, Candid b) => CandidArgs (a, b) where
     type ArgRep (a, b) = '[Rep a, Rep b]
     toSeq (x,y) = (toCandid x, (toCandid y, ()))
     fromSeq (x, (y, ())) = (fromCandid x, fromCandid y)
+
+instance (Candid a, Candid b, Candid c, Candid d, Candid e, Candid f) => CandidArgs (a, b, c, d, e, f) where
+    type ArgRep (a, b, c, d, e, f) = '[ Rep a, Rep b, Rep c, Rep d, Rep e, Rep f]
+    toSeq (x1,x2,x3,x4,x5,x6) =
+        x1 & x2 & x3 & x4 & x5 & x6 & ()
+      where
+        infixr &
+        x & r = (toCandid x, r)
+    fromSeq (x1, (x2, (x3, (x4, (x5, (x6, ())))))) =
+        (fromCandid x1, fromCandid x2, fromCandid x3, fromCandid x4, fromCandid x5, fromCandid x6)
+
 
 class (Typeable a, KnownType (Rep a)) => Candid a where
     type Rep a :: Type
