@@ -33,7 +33,7 @@ import Data.Text.Prettyprint.Doc
 
 import Codec.Candid
 import Codec.Candid.Wrappers
-import Codec.Candid.Row
+import Codec.Candid.Generic
 
 main = defaultMain tests
 

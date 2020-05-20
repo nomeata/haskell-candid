@@ -9,9 +9,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-} -- the reason for this isolation
+{-# LANGUAGE UndecidableInstances #-} -- the reason for this being in its own module
 {-# OPTIONS_GHC -Wno-orphans #-}
-module Codec.Candid.Row (AsRecord(..)) where
+module Codec.Candid.Generic (AsRecord(..)) where
 
 import qualified Data.Row as R
 import qualified Data.Row.Records as R
