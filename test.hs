@@ -7,6 +7,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
@@ -23,10 +28,12 @@ import GHC.Word
 import Numeric.Natural
 import Control.Monad
 import GHC.TypeLits
+import GHC.Generics (Generic)
 import Data.Text.Prettyprint.Doc
 
 import Codec.Candid
 import Codec.Candid.Wrappers
+import Codec.Candid.Row
 
 main = defaultMain tests
 
@@ -77,6 +84,11 @@ instance Candid a => Candid (JustRight a) where
     type Rep (JustRight a) = 'VariantT '[ '( 'N "Right", Rep a) ]
     toCandid (JustRight x) = Left (toCandid x)
     fromCandid (Left x) = JustRight (fromCandid x)
+
+data SimpleRecord = SimpleRecord { foo :: Bool, bar :: T.Text }
+    deriving (Generic, Eq, Show)
+    deriving (Serial m)
+    deriving Candid via (AsRecord SimpleRecord)
 
 roundTripTest :: forall a. (CandidArgs a, Eq a, Show a) => a -> Assertion
 roundTripTest v1 = do
@@ -159,6 +171,7 @@ tests = testGroup "tests"
     , testCase "nested record 2" $ roundTripTest (ARecord (True,False), False)
     , testCase "peano" $ roundTripTest $ Unary peano
     , testCase "lists" $ roundTripTest (natList, stringList)
+    , testCase "custom record" $ roundTripTest $ Unary (SimpleRecord True "Test")
     ]
   , testGroup "subtypes"
     [ testCase "nat/int" $ subTypeTest (Unary (42 :: Natural)) (Unary (42 :: Integer))
@@ -170,6 +183,7 @@ tests = testGroup "tests"
     , testCase "tuple/any" $ subTypeTest ((42::Integer, 42::Natural), True) (reservedV, True)
     , testCase "tuple/tuple" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) ((42::Integer, -42::Integer), 100::Integer)
     , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (SingleField (-42) :: SingleField 1 Integer, 100::Integer)
+    , testCase "records" $ subTypeTest (Unary (SimpleRecord True "Test")) (Unary (ARecord True))
     ]
   , testGroup "roundtrip smallchecks"
     [ roundTripProp @ '[ 'BoolT]
@@ -197,6 +211,7 @@ tests = testGroup "tests"
     , roundTripProp @ '[ 'RecT '[ '(N "Hi", Nat8T), '(N "Ho", Nat8T) ] ]
     , roundTripProp @ '[ 'RecT '[ '(N "Hi", Nat8T), '(H 1, Nat8T) ] ]
     , roundTripProp @ '[ 'VariantT '[ '(N "Hi", BoolT), '(N "Ho", BoolT) ] ]
+    , roundTripProp @ '[ 'OtherT ('Other SimpleRecord) ]
     ]
   , testGroup "subtype smallchecks"
     [ subTypProp @ '[ 'NatT ] @ '[ 'IntT ]

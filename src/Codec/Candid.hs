@@ -47,6 +47,8 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Builder as B
 import qualified Data.Map as M
+import qualified Data.Row.Records as R
+import qualified Data.Row.Internal as R
 import Data.Proxy
 import Data.Typeable
 import Data.Bifunctor
@@ -694,6 +696,31 @@ instance (Candid a, Candid b) => Candid (Either a b) where
     fromCandid (Right (Left x)) = Right (fromCandid x)
     fromCandid (Right (Right x)) = case x of {}
 
+-- row-types integration
+
+class KnownFields (RecRep r) => FromRowRec r where
+    type RecRep r :: Fields
+    fromRowRec :: R.Rec r -> Val ('RecT (RecRep r))
+    toRowRec :: Val ('RecT (RecRep r)) -> R.Rec r
+
+instance FromRowRec ('R.R '[]) where
+    type RecRep ('R.R '[]) = '[]
+    fromRowRec _ = ()
+    toRowRec _ = R.empty
+
+instance (Candid t, R.KnownSymbol f, FromRowRec ('R.R xs)) => FromRowRec ('R.R (f 'R.:-> t ': xs)) where
+    type RecRep ('R.R (f 'R.:-> t ': xs)) = '( 'N f, Rep t) ': RecRep ('R.R xs)
+    fromRowRec r = (toCandid (r R..! l), fromRowRec (r R..- l))
+      where l = R.Label @f
+    toRowRec (x, xs) = R.unsafeInjectFront l (fromCandid @t x) (toRowRec @('R.R xs) xs)
+      where l = R.Label @f
+
+instance (FromRowRec r, Typeable r) => Candid (R.Rec r) where
+    type Rep (R.Rec r) = 'RecT (RecRep r)
+    toCandid = fromRowRec
+    fromCandid = toRowRec
+
+
 -- Repetitive stuff for dependently typed programming
 
 -- | Corresponding singleton family
@@ -830,3 +857,4 @@ instance KnownSymbol s => KnownFieldName ('N s) where
     fieldName = SN (Proxy @s)
 instance KnownNat s => KnownFieldName ('H s) where
     fieldName = SH (Proxy @s)
+
