@@ -17,7 +17,6 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE EmptyCase #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- | This (internal) module contains the core stuff; in particularly
@@ -601,18 +600,17 @@ type family IsSeq a :: Bool where
 
 type AsSeq a = If (IsSeq a) a (Unary a)
 
-class (CandidArgs (AsSeq a), IsSeq a ~ b) => CandidArg_ a b where
+class IsSeq a ~ b => AsSeq_ a b where
     asArg :: a -> AsSeq a
     fromArg :: AsSeq a -> a
-
-instance (CandidArgs a, IsSeq a ~ True) => CandidArg_ a True where
+instance IsSeq a ~ 'True => AsSeq_ a 'True where
     asArg = id
     fromArg = id
-instance (Candid a, IsSeq a ~ False) => CandidArg_ a False where
+instance IsSeq a ~ 'False => AsSeq_ a 'False where
     asArg = Unary
     fromArg = unUnary
 
-type CandidArg a = CandidArg_ a (IsSeq a)
+type CandidArg a = (CandidArgs (AsSeq a), AsSeq_ a (IsSeq a))
 
 class KnownArgs (ArgRep a) => CandidArgs a where
     type ArgRep a :: [Type]
