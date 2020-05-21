@@ -88,7 +88,7 @@ data SimpleRecord = SimpleRecord { foo :: Bool, bar :: T.Text }
     deriving (Serial m)
     deriving Candid via (AsRecord SimpleRecord)
 
-roundTripTest :: forall a. (CandidArgs a, Eq a, Show a) => a -> Assertion
+roundTripTest :: forall a. (CandidArg a, Eq a, Show a) => a -> Assertion
 roundTripTest v1 = do
   let bytes1 = encode v1
   v2 <- case decode @a bytes1 of
@@ -98,24 +98,23 @@ roundTripTest v1 = do
 
 roundTripProp :: forall ts. (KnownArgs ts, Serial IO (Seq ts), Eq (Seq ts), Show (Seq ts)) => TestTree
 roundTripProp = testProperty (show (pretty (types @ts))) $ \v ->
-    let exp = CandidSeq @ts v in
-    case decode @(CandidSeq ts) (encode exp) of
-        Right y | y == exp -> Right ("all good" :: String)
+    case decodeT @ts (encodeT @ts v) of
+        Right y | y == v -> Right ("all good" :: String)
         Right y -> Left $
-            show exp ++ " round-tripped to " ++ show y
+            show v ++ " round-tripped to " ++ show y
         Left err -> Left $
-            show exp ++ " failed to decode: " ++ err
+            show v ++ " failed to decode: " ++ err
 
 subTypProp :: forall ts1 ts2.
     (KnownArgs ts1, Serial IO (Seq ts1), Show (Seq ts1)) =>
     KnownArgs ts2 =>
     TestTree
 subTypProp = testProperty (show (pretty (types @ts1) <+> "<:" <+> pretty (types @ts2))) $ \v ->
-    isRight $ decode @(CandidSeq ts2) (encode (CandidSeq @ts1 v))
+    isRight $ decodeT @ts2 (encodeT @ts1 v)
 
 subTypeTest' :: forall a b.
-    (CandidArgs a, Eq a, Show a) =>
-    (CandidArgs b, Eq b, Show b) =>
+    (CandidArg a, Eq a, Show a) =>
+    (CandidArg b, Eq b, Show b) =>
     a -> b -> Assertion
 subTypeTest' v1 v2 = do
   let bytes1 = encode v1
@@ -125,8 +124,8 @@ subTypeTest' v1 v2 = do
   v2 @=? v2'
 
 subTypeTest :: forall a b.
-    (CandidArgs a, Eq a, Show a) =>
-    (CandidArgs b, Eq b, Show b) =>
+    (CandidArg a, Eq a, Show a) =>
+    (CandidArg b, Eq b, Show b) =>
     a -> b -> Assertion
 subTypeTest v1 v2 = do
   subTypeTest' v1 v2

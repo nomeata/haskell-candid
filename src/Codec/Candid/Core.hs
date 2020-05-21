@@ -12,6 +12,8 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE EmptyCase #-}
@@ -27,8 +29,12 @@ module Codec.Candid.Core
     , Fields
     , FieldName(N, H)
     , Candid(..)
+    , CandidArg(..)
     , CandidArgs(..)
     , Unary(..)
+    , encodeT
+    , encodeBuilderT
+    , decodeT
     , encode
     , encodeBuilder
     , decode
@@ -196,18 +202,22 @@ type family Variant (fs :: [(FieldName, Type)]) where
     Variant '[] = Void
     Variant ('(f,t) ': fs) = Either (Val t) (Variant fs)
 
-encode :: CandidArgs a => a -> BS.ByteString
+encodeT :: forall ts. KnownArgs ts => Seq ts -> BS.ByteString
+encodeT = BSL.toStrict . B.toLazyByteString . encodeBuilderT @ts
+
+encode :: CandidArg a => a -> BS.ByteString
 encode = BSL.toStrict . B.toLazyByteString . encodeBuilder
 
-encodeBuilder :: forall a. CandidArgs a => a -> B.Builder
-encodeBuilder x = mconcat
+encodeBuilderT :: forall ts. KnownArgs ts => Seq ts -> B.Builder
+encodeBuilderT x = mconcat
     [ B.stringUtf8 "DIDL"
-    , typTable (args @(ArgRep a))
-    , encodeSeq (args @(ArgRep a)) (toSeq x)
+    , typTable (args @ts)
+    , encodeSeq (args @ts) x
     ]
 
--- Argument sequences, although represented as records
--- are always encoded in order
+encodeBuilder :: forall a. CandidArg a => a -> B.Builder
+encodeBuilder x = encodeBuilderT @(ArgRep (AsSeq a)) (toSeq (asArg x))
+
 encodeSeq :: SArgs ts -> Seq ts -> B.Builder
 encodeSeq SArgsNil () = mempty
 encodeSeq (SArgsCons t ts) (x, xs) = encodeVal t x <> encodeSeq ts xs
@@ -349,13 +359,14 @@ typTable ts = mconcat
             ]
 
 
-
-decode :: forall a. CandidArgs a => BS.ByteString -> Either String a
-decode = G.runGet $ do
+decodeT :: forall ts. KnownArgs ts => BS.ByteString -> Either String (Seq ts)
+decodeT = G.runGet $ do
     decodeMagic
     arg_tys <- decodeTypTable
-    -- get the argument sequence
-    fromSeq <$> decodeParams (args @(ArgRep a)) arg_tys
+    decodeParams (args @ts) arg_tys
+
+decode :: forall a. CandidArg a => BS.ByteString -> Either String a
+decode bytes = fromArg . fromSeq <$> decodeT @(ArgRep (AsSeq a)) bytes
 
 decodeParams :: SArgs ts -> [Type] -> G.Get (Seq ts)
 decodeParams SArgsNil _ = return () -- NB: This is where we ignore extra arguments
@@ -578,6 +589,32 @@ leb128Len = buildLEB128Int . length
 
 -- Using normal Haskell values
 
+type family AsSeq a where
+    AsSeq () = ()
+    AsSeq (t1,t2) = (t1,t2)
+    AsSeq (t1,t2,t3) = (t1,t2,t3)
+    -- TBC
+    AsSeq (Unary t) = Unary t
+    AsSeq t = Unary t
+
+class (CandidArgs b, AsSeq a ~ b) => CandidArg_ a b where
+    asArg :: a -> b
+    default asArg :: AsSeq a ~ a => a -> b
+    asArg = id
+
+    fromArg :: b -> a
+    default fromArg :: AsSeq a ~ a => b -> a
+    fromArg = id
+
+instance CandidArg_ () ()
+instance (Candid a, Candid b) => CandidArg_ (a,b) (a,b)
+instance Candid a => CandidArg_ (Unary a) (Unary a)
+instance (Candid a, AsSeq a ~ Unary a) => CandidArg_ a (Unary a) where
+    asArg = Unary
+    fromArg = unUnary
+
+type CandidArg a = CandidArg_ a (AsSeq a)
+
 class KnownArgs (ArgRep a) => CandidArgs a where
     type ArgRep a :: [Type]
     toSeq :: a -> Seq (ArgRep a)
@@ -589,13 +626,6 @@ class KnownArgs (ArgRep a) => CandidArgs a where
     fromSeq = id
 
 newtype Unary a = Unary {unUnary :: a} deriving (Eq, Show)
-
-{-
-instance KnownArgs ts => CandidArgs (Seq ts) where
-    type ArgRep (Seq ts) = ts
-    toSeq = id
-    fromSeq = id
--}
 
 instance CandidArgs () where
     type ArgRep () = '[]

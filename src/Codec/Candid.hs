@@ -6,6 +6,7 @@ module Codec.Candid
  , Fields
  , FieldName(N, H)
  , Candid(..)
+ , CandidArg(..)
  , CandidArgs(..)
  , Unary(..)
  , encode
@@ -23,6 +24,7 @@ module Codec.Candid
  , AsRecord(..)
  , CandidVal(..)
  , CandidSeq(..)
+ , module Codec.Candid.Core
  ) where
 
 import Codec.Candid.Core
