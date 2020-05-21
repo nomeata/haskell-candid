@@ -36,7 +36,7 @@ import Codec.Candid
 main = defaultMain tests
 
 newtype Peano = Peano (Maybe Peano) deriving (Show, Eq)
-type PeanoT = 'OtherT ('Other Peano)
+type PeanoT = OtherT Peano
 
 instance Candid Peano where
     type Rep Peano = 'OptT PeanoT
@@ -46,15 +46,16 @@ instance Candid Peano where
 peano :: Val PeanoT
 peano = Peano $ Just $ Peano $ Just $ Peano $ Just $ Peano Nothing
 
-instance Candid a => Candid [a] where
-    type Rep [a] = 'OptT ('RecT '[ '( 'H 0, Rep a), '( 'H 1, 'OtherT ('Other [a]))])
-    toCandid [] = Nothing
-    toCandid (x:xs) = Just (toCandid x, (xs, ()))
-    fromCandid Nothing = []
-    fromCandid (Just (x,(xs, ()))) = fromCandid x : xs
+data LinkedList a = Nil | Cons a (LinkedList a) deriving (Eq, Show)
+instance Candid a => Candid (LinkedList a) where
+    type Rep (LinkedList a) = 'OptT ('RecT '[ '( 'H 0, Rep a), '( 'H 1, OtherT (LinkedList a))])
+    toCandid Nil = Nothing
+    toCandid (Cons x xs) = Just (toCandid x, (xs, ()))
+    fromCandid Nothing = Nil
+    fromCandid (Just (x,(xs, ()))) = Cons (fromCandid x) xs
 
-natList :: [Natural]
-natList = [1,2,3,4]
+natList :: LinkedList Natural
+natList = Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil)))
 
 stringList :: [T.Text]
 stringList = [T.pack "HI", T.pack "Ho"]
@@ -208,7 +209,7 @@ tests = testGroup "tests"
     , roundTripProp @ '[ 'RecT '[ '(N "Hi", Nat8T), '(N "Ho", Nat8T) ] ]
     , roundTripProp @ '[ 'RecT '[ '(N "Hi", Nat8T), '(H 1, Nat8T) ] ]
     , roundTripProp @ '[ 'VariantT '[ '(N "Hi", BoolT), '(N "Ho", BoolT) ] ]
-    , roundTripProp @ '[ 'OtherT ('Other SimpleRecord) ]
+    , roundTripProp @ '[ OtherT SimpleRecord ]
     ]
   , testGroup "subtype smallchecks"
     [ subTypProp @ '[ 'NatT ] @ '[ 'IntT ]
