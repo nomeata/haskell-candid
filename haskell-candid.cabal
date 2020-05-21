@@ -49,3 +49,12 @@ test-suite test
   build-depends: vector
   build-depends: prettyprinter
   ghc-options: -rtsopts
+
+test-suite doctest
+  type:          exitcode-stdio-1.0
+  ghc-options:   -threaded
+  main-is:       doctests.hs
+  build-depends: base, candid, doctest >= 0.8
+  build-depends: row-types
+  build-depends: leb128-cereal
+  build-depends: prettyprinter

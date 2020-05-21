@@ -25,10 +25,12 @@
 -- Everything of interest is re-exported by "Codec.Candid".
 module Codec.Candid.Core
     ( Type(..)
+    , OtherT
     , Other(Other)
     , Fields
     , FieldName(N, H)
     , Candid(..)
+    , CandidSeq(..)
     , CandidArg
     , Unary(..)
     , encodeT
@@ -38,7 +40,6 @@ module Codec.Candid.Core
     , encodeBuilder
     , decode
     , Val
-    , Fix(..)
     , Rec
     , Variant
     , Seq
@@ -75,8 +76,8 @@ import Data.Text.Prettyprint.Doc
 import Codec.Candid.Tuples
 
 -- |
--- The type of candid values
--- (possibly coinductively, without named types, i.e. after name resolution)
+-- Candid types
+--
 data Type
     -- prim types
     = NatT | Nat8T | Nat16T | Nat32T | Nat64T
@@ -96,8 +97,13 @@ data Type
     | PrincipalT
     -- short-hands
     | BlobT
+      -- ^ a short-hand for 'VecT' 'Nat8T'
     -- for recursive types
-    | OtherT Other
+    | OtherT_ Other
+      -- ^ internal, use 'OtherT' instead
+
+-- | This allows embedding any type with a 'Candid' instance; this way you can express recursive types.
+type OtherT (t :: *) = 'OtherT_ ('Other t)
 
 -- | A wrapper for arbitrary other types with a Candid instance.
 --
@@ -128,12 +134,12 @@ instance Pretty Type where
     pretty (VecT t) = "vec" <+> pretty t
     pretty (RecT fs) = "record" <+> prettyFields fs
     pretty (VariantT fs) = "variant" <+> prettyFields fs
-    pretty (OtherT (Other _)) = error "Other on term level"
+    pretty (OtherT_ (Other _)) = error "Other on term level"
     pretty BlobT = "blob"
     pretty PrincipalT = "principal"
-    pretty (OtherT (Other_ t)) = pretty t
+    pretty (OtherT_ (Other_ t)) = pretty t
 
-    prettyList = encloseSep lparen rparen comma . map pretty
+    prettyList = encloseSep lparen rparen (comma <> space) . map pretty
 
 prettyFields :: Fields -> Doc ann
 prettyFields fs = braces $ hsep $ punctuate semi $ map prettyField fs
@@ -144,12 +150,14 @@ prettyField (N' n, t) = pretty n <+> colon <+> pretty t -- TODO: encode field na
 prettyField (H _, _) = error "H on term level"
 prettyField (H' n, t) = pretty n <+> colon <+> pretty t
 
+-- | The list of fields of a 'RecT' or 'VariantT'
 type Fields = [(FieldName, Type)]
 
+-- | A Candid fieldname
 data FieldName
-   = N Symbol
+   = N Symbol -- ^ a properly named field
    | N' T.Text -- ^ Use this in terms (usually not needed)
-   | H Nat
+   | H Nat -- ^ a field hash. Should fit in 32 bit. Also used for tuples 
    | H' Word32 -- ^ Use this in terms (mostly internal)
 
 instance Show FieldName where show = prettyFieldName
@@ -187,9 +195,7 @@ type family Val (t :: Type) where
     Val ('VariantT fs) = Variant fs
     Val 'PrincipalT = BS.ByteString
     Val 'BlobT = BS.ByteString
-    Val ('OtherT ('Other t)) = t
-
-newtype Fix a = Fix a
+    Val ('OtherT_ ('Other t)) = t
 
 type family Seq (ts :: [Type]) where
     Seq '[] = ()
@@ -203,12 +209,15 @@ type family Variant (fs :: [(FieldName, Type)]) where
     Variant '[] = Void
     Variant ('(f,t) ': fs) = Either (Val t) (Variant fs)
 
+-- | Encode, given a Candid 'Type' (best used with @TypeApplications@)
 encodeT :: forall ts. KnownArgs ts => Seq ts -> BS.ByteString
 encodeT = BSL.toStrict . B.toLazyByteString . encodeBuilderT @ts
 
+-- | Encode based on Haskell type
 encode :: CandidArg a => a -> BS.ByteString
 encode = BSL.toStrict . B.toLazyByteString . encodeBuilder
 
+-- | Encode to a 'B.Builder', given a Candid 'Type' (best used with @TypeApplications@)
 encodeBuilderT :: forall ts. KnownArgs ts => Seq ts -> B.Builder
 encodeBuilderT x = mconcat
     [ B.stringUtf8 "DIDL"
@@ -216,6 +225,7 @@ encodeBuilderT x = mconcat
     , encodeSeq (args @ts) x
     ]
 
+-- | Encode to a 'B.Builder' based on Haskell type
 encodeBuilder :: forall a. CandidArg a => a -> B.Builder
 encodeBuilder x = encodeBuilderT @(ArgRep (AsTuple a)) (toSeq (asTuple x))
 
@@ -360,12 +370,14 @@ typTable ts = mconcat
             ]
 
 
+-- | Decode, given a Candid 'Type' (best used with @TypeApplications@)
 decodeT :: forall ts. KnownArgs ts => BS.ByteString -> Either String (Seq ts)
 decodeT = G.runGet $ do
     decodeMagic
     arg_tys <- decodeTypTable
     decodeParams (args @ts) arg_tys
 
+-- | Decode based on Haskell type
 decode :: forall a. CandidArg a => BS.ByteString -> Either String a
 decode bytes = fromTuple . fromSeq <$> decodeT @(ArgRep (AsTuple a)) bytes
 
@@ -461,8 +473,8 @@ decodeVariant (SFieldsCons fn st sfs) h t
         | otherwise = Right <$> decodeVariant sfs h t
 
 skipVal :: Type -> G.Get ()
-skipVal (OtherT (Other _ )) = error "Other on term level"
-skipVal (OtherT (Other_ t)) = skipVal t
+skipVal (OtherT_ (Other _ )) = error "Other on term level"
+skipVal (OtherT_ (Other_ t)) = skipVal t
 skipVal BoolT = G.skip 1
 skipVal NatT = void (getLEB128 @Natural)
 skipVal Nat8T = G.skip 1
@@ -590,9 +602,11 @@ leb128Len = buildLEB128Int . length
 
 -- Using normal Haskell values
 
-type CandidArg a = (CandidArgs (AsTuple a), Tuplable a)
+-- | The class of types that can be used as Candid argument sequences.
+-- Essentially all types that are in 'Candid', but tuples need to be treated specially.
+type CandidArg a = (CandidSeq (AsTuple a), Tuplable a)
 
-class KnownArgs (ArgRep a) => CandidArgs a where
+class KnownArgs (ArgRep a) => CandidSeq a where
     type ArgRep a :: [Type]
     toSeq :: a -> Seq (ArgRep a)
     fromSeq :: Seq (ArgRep a) -> a
@@ -602,20 +616,20 @@ class KnownArgs (ArgRep a) => CandidArgs a where
     default fromSeq :: Seq (ArgRep a) ~ a => Seq (ArgRep a) -> a
     fromSeq = id
 
-instance CandidArgs () where
+instance CandidSeq () where
     type ArgRep () = '[]
 
-instance Candid a => CandidArgs (Unary a) where
+instance Candid a => CandidSeq (Unary a) where
     type ArgRep (Unary a) = '[Rep a]
     toSeq (Unary x) = (toCandid x, ())
     fromSeq (x, ()) = Unary $ fromCandid x
 
-instance (Candid a, Candid b) => CandidArgs (a, b) where
+instance (Candid a, Candid b) => CandidSeq (a, b) where
     type ArgRep (a, b) = '[Rep a, Rep b]
     toSeq (x,y) = (toCandid x, (toCandid y, ()))
     fromSeq (x, (y, ())) = (fromCandid x, fromCandid y)
 
-instance (Candid a, Candid b, Candid c, Candid d, Candid e, Candid f) => CandidArgs (a, b, c, d, e, f) where
+instance (Candid a, Candid b, Candid c, Candid d, Candid e, Candid f) => CandidSeq (a, b, c, d, e, f) where
     type ArgRep (a, b, c, d, e, f) = '[ Rep a, Rep b, Rep c, Rep d, Rep e, Rep f]
     toSeq (x1,x2,x3,x4,x5,x6) =
         x1 & x2 & x3 & x4 & x5 & x6 & ()
@@ -626,6 +640,9 @@ instance (Candid a, Candid b, Candid c, Candid d, Candid e, Candid f) => CandidA
         (fromCandid x1, fromCandid x2, fromCandid x3, fromCandid x4, fromCandid x5, fromCandid x6)
 
 
+-- | The class of Haskell types that can be converted to Candid.
+--
+-- You can create intances of this class for your own types; see the overview above for examples. The default instance is mostly for internal use.
 class (Typeable a, KnownType (Rep a)) => Candid a where
     type Rep a :: Type
     toCandid :: a -> Val (Rep a)
@@ -674,6 +691,12 @@ instance Candid a => Candid (V.Vector a) where
     type Rep (V.Vector a) = 'VecT (Rep a)
     toCandid = fmap toCandid
     fromCandid = fmap fromCandid
+
+instance Candid a => Candid [a] where
+    type Rep [a] = 'VecT (Rep a)
+    toCandid = fmap toCandid . V.fromList
+    fromCandid = V.toList <$> fmap fromCandid
+
 
 instance (Candid a, Candid b) => Candid (a, b) where
     type Rep (a, b) = 'RecT '[ TupField 0 a, TupField 1 b]
@@ -758,7 +781,7 @@ data SType (t :: Type) where
     SVariantT :: SFields fs -> SType ('VariantT fs)
     SPrincipalT :: SType 'PrincipalT
     SBlobT :: SType 'BlobT
-    SOtherT :: forall a. Candid a => SType (Rep a) -> SType ('OtherT ('Other a))
+    SOtherT :: forall a. Candid a => SType (Rep a) -> SType ('OtherT_ ('Other a))
 
 deriving instance Show (SType t)
 
@@ -802,7 +825,7 @@ fromSType (SRecT fs) = RecT (fromSFields fs)
 fromSType (SVariantT fs) = VariantT (fromSFields fs)
 fromSType SPrincipalT = PrincipalT
 fromSType SBlobT = BlobT
-fromSType (SOtherT st) = OtherT (Other_ (fromSType st))
+fromSType (SOtherT st) = OtherT_ (Other_ (fromSType st))
 
 fromSFields :: SFields fs -> Fields
 fromSFields SFieldsNil = []
@@ -846,7 +869,7 @@ instance KnownFields fs => KnownType ('RecT fs) where typ = SRecT (fields @fs)
 instance KnownFields fs => KnownType ('VariantT fs) where typ = SVariantT (fields @fs)
 instance KnownType 'PrincipalT where typ = SPrincipalT
 instance KnownType 'BlobT where typ = SBlobT
-instance Candid a => KnownType ('OtherT ('Other a)) where typ = SOtherT (typ @(Rep a))
+instance Candid a => KnownType ('OtherT_ ('Other a)) where typ = SOtherT (typ @(Rep a))
 
 class Typeable fs => KnownFields (fs :: [(FieldName, Type)]) where fields :: SFields fs
 instance KnownFields '[] where fields = SFieldsNil
@@ -858,6 +881,7 @@ instance KnownArgs '[] where args = SArgsNil
 instance (KnownType t, KnownArgs ts) => KnownArgs (t ': ts) where
     args = SArgsCons (typ @t) (args @ts)
 
+-- | Takes Candid types from the type level to the value level, e.g. for pretty-printing with 'pretty'
 types :: forall ts. KnownArgs ts => [Type]
 types = fromSArgs (args @ts)
 

@@ -20,6 +20,7 @@ import Data.Typeable
 
 import Codec.Candid.Core
 
+-- | This newtype encodes a Haskell record type using generic programming. Best used with @DerivingVia@, as shown in the overview.
 newtype AsRecord a = AsRecord { unAsRecord :: a }
 
 instance

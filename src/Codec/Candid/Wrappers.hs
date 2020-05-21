@@ -11,6 +11,7 @@ module Codec.Candid.Wrappers where
 import Data.Typeable
 import Codec.Candid.Core
 
+-- | This newtype allows you to to embed Candid types into Haskell types
 newtype CandidVal (t :: Type) where CandidVal :: Val t -> CandidVal t
 deriving instance Eq (Val t) => Eq (CandidVal t)
 deriving instance Show (Val t) => Show (CandidVal t)
