@@ -17,6 +17,7 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- | This (internal) module contains the core stuff; in particularly
@@ -65,6 +66,7 @@ import Data.Bifunctor
 import Data.Word
 import Data.Int
 import Data.List
+import Data.Type.Bool
 import Data.Void
 import Control.Monad.RWS.Lazy
 import GHC.TypeLits
@@ -589,31 +591,28 @@ leb128Len = buildLEB128Int . length
 
 -- Using normal Haskell values
 
-type family AsSeq a where
-    AsSeq () = ()
-    AsSeq (t1,t2) = (t1,t2)
-    AsSeq (t1,t2,t3) = (t1,t2,t3)
+type family IsSeq a :: Bool where
+    IsSeq () = True
+    IsSeq (t1,t2) = True
+    IsSeq (t1,t2,t3) = True
     -- TBC
-    AsSeq (Unary t) = Unary t
-    AsSeq t = Unary t
+    IsSeq (Unary t) = True
+    IsSeq t = False
 
-class (CandidArgs b, AsSeq a ~ b) => CandidArg_ a b where
-    asArg :: a -> b
-    default asArg :: AsSeq a ~ a => a -> b
+type AsSeq a = If (IsSeq a) a (Unary a)
+
+class (CandidArgs (AsSeq a), IsSeq a ~ b) => CandidArg_ a b where
+    asArg :: a -> AsSeq a
+    fromArg :: AsSeq a -> a
+
+instance (CandidArgs a, IsSeq a ~ True) => CandidArg_ a True where
     asArg = id
-
-    fromArg :: b -> a
-    default fromArg :: AsSeq a ~ a => b -> a
     fromArg = id
-
-instance CandidArg_ () ()
-instance (Candid a, Candid b) => CandidArg_ (a,b) (a,b)
-instance Candid a => CandidArg_ (Unary a) (Unary a)
-instance (Candid a, AsSeq a ~ Unary a) => CandidArg_ a (Unary a) where
+instance (Candid a, IsSeq a ~ False) => CandidArg_ a False where
     asArg = Unary
     fromArg = unUnary
 
-type CandidArg a = CandidArg_ a (AsSeq a)
+type CandidArg a = CandidArg_ a (IsSeq a)
 
 class KnownArgs (ArgRep a) => CandidArgs a where
     type ArgRep a :: [Type]
