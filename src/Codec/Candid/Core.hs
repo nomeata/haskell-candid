@@ -29,8 +29,7 @@ module Codec.Candid.Core
     , Fields
     , FieldName(N, H)
     , Candid(..)
-    , CandidArg(..)
-    , CandidArgs(..)
+    , CandidArg
     , Unary(..)
     , encodeT
     , encodeBuilderT
@@ -65,7 +64,6 @@ import Data.Bifunctor
 import Data.Word
 import Data.Int
 import Data.List
-import Data.Type.Bool
 import Data.Void
 import Control.Monad.RWS.Lazy
 import GHC.TypeLits
@@ -73,6 +71,8 @@ import Data.Serialize.LEB128
 import qualified Data.Serialize.Get as G
 import qualified Data.Serialize.IEEE754 as G
 import Data.Text.Prettyprint.Doc
+
+import Codec.Candid.Tuples
 
 -- |
 -- The type of candid values
@@ -217,7 +217,7 @@ encodeBuilderT x = mconcat
     ]
 
 encodeBuilder :: forall a. CandidArg a => a -> B.Builder
-encodeBuilder x = encodeBuilderT @(ArgRep (AsSeq a)) (toSeq (asArg x))
+encodeBuilder x = encodeBuilderT @(ArgRep (AsTuple a)) (toSeq (asTuple x))
 
 encodeSeq :: SArgs ts -> Seq ts -> B.Builder
 encodeSeq SArgsNil () = mempty
@@ -367,7 +367,7 @@ decodeT = G.runGet $ do
     decodeParams (args @ts) arg_tys
 
 decode :: forall a. CandidArg a => BS.ByteString -> Either String a
-decode bytes = fromArg . fromSeq <$> decodeT @(ArgRep (AsSeq a)) bytes
+decode bytes = fromTuple . fromSeq <$> decodeT @(ArgRep (AsTuple a)) bytes
 
 decodeParams :: SArgs ts -> [Type] -> G.Get (Seq ts)
 decodeParams SArgsNil _ = return () -- NB: This is where we ignore extra arguments
@@ -590,27 +590,7 @@ leb128Len = buildLEB128Int . length
 
 -- Using normal Haskell values
 
-type family IsSeq a :: Bool where
-    IsSeq () = True
-    IsSeq (t1,t2) = True
-    IsSeq (t1,t2,t3) = True
-    -- TBC
-    IsSeq (Unary t) = True
-    IsSeq t = False
-
-type AsSeq a = If (IsSeq a) a (Unary a)
-
-class IsSeq a ~ b => AsSeq_ a b where
-    asArg :: a -> AsSeq a
-    fromArg :: AsSeq a -> a
-instance IsSeq a ~ 'True => AsSeq_ a 'True where
-    asArg = id
-    fromArg = id
-instance IsSeq a ~ 'False => AsSeq_ a 'False where
-    asArg = Unary
-    fromArg = unUnary
-
-type CandidArg a = (CandidArgs (AsSeq a), AsSeq_ a (IsSeq a))
+type CandidArg a = (CandidArgs (AsTuple a), Tuplable a)
 
 class KnownArgs (ArgRep a) => CandidArgs a where
     type ArgRep a :: [Type]
@@ -621,8 +601,6 @@ class KnownArgs (ArgRep a) => CandidArgs a where
     toSeq = id
     default fromSeq :: Seq (ArgRep a) ~ a => Seq (ArgRep a) -> a
     fromSeq = id
-
-newtype Unary a = Unary {unUnary :: a} deriving (Eq, Show)
 
 instance CandidArgs () where
     type ArgRep () = '[]

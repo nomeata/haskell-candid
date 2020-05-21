@@ -15,6 +15,7 @@ extra-source-files:  CHANGELOG.md
 
 library
   exposed-modules: Codec.Candid
+  exposed-modules: Codec.Candid.Tuples
   other-modules: Codec.Candid.Core
   other-modules: Codec.Candid.Wrappers
   other-modules: Codec.Candid.Generic
