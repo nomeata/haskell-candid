@@ -32,8 +32,6 @@ import GHC.Generics (Generic)
 import Data.Text.Prettyprint.Doc
 
 import Codec.Candid
-import Codec.Candid.Wrappers
-import Codec.Candid.Generic
 
 main = defaultMain tests
 

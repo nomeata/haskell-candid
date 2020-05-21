@@ -9,7 +9,7 @@
 module Codec.Candid.Wrappers where
 
 import Data.Typeable
-import Codec.Candid
+import Codec.Candid.Core
 
 newtype CandidVal (t :: Type) where CandidVal :: Val t -> CandidVal t
 deriving instance Eq (Val t) => Eq (CandidVal t)

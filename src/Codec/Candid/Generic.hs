@@ -18,7 +18,7 @@ import qualified Data.Row.Records as R
 import qualified GHC.Generics as G
 import Data.Typeable
 
-import Codec.Candid
+import Codec.Candid.Core
 
 newtype AsRecord a = AsRecord { unAsRecord :: a }
 
