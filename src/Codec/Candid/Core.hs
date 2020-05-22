@@ -40,7 +40,7 @@ module Codec.Candid.Core
     , encodeBuilder
     , decode
     , Val
-    , Rec
+    , Record
     , Variant
     , Seq
     , KnownType
@@ -191,7 +191,7 @@ type family Val (t :: Type) where
     Val 'EmptyT = Void
     Val ('OptT t) = Maybe (Val t)
     Val ('VecT t) = V.Vector (Val t)
-    Val ('RecT fs) = Rec fs
+    Val ('RecT fs) = Record fs
     Val ('VariantT fs) = Variant fs
     Val 'PrincipalT = BS.ByteString
     Val 'BlobT = BS.ByteString
@@ -201,9 +201,9 @@ type family Seq (ts :: [Type]) where
     Seq '[] = ()
     Seq (t ': ts) = (Val t, Seq ts)
 
-type family Rec (fs :: Fields) where
-    Rec '[] = ()
-    Rec ('(f,t)':fs) = (Val t, Rec fs)
+type family Record (fs :: Fields) where
+    Record '[] = ()
+    Record ('(f,t)':fs) = (Val t, Record fs)
 
 type family Variant (fs :: [(FieldName, Type)]) where
     Variant '[] = Void
@@ -273,7 +273,7 @@ encodeBytes :: BS.ByteString -> B.Builder
 encodeBytes bytes = buildLEB128Int (BS.length bytes) <> B.byteString bytes
 
 -- Encodes the fields, sorting happens later
-encodeRec :: SFields fs -> Rec fs -> [(Word32, B.Builder)]
+encodeRec :: SFields fs -> Record fs -> [(Word32, B.Builder)]
 encodeRec SFieldsNil () = []
 encodeRec (SFieldsCons n t fs) (x, xs) =
     (hashFieldName (fromSFieldName n), encodeVal t x) : encodeRec fs xs
@@ -436,7 +436,7 @@ decodeVal SPrincipalT PrincipalT = G.getWord8 >>= \case
 decodeVal SBlobT (VecT Nat8T) = decodeBytes
 decodeVal s t = fail $ "unexpected type " ++ take 20 (show (pretty t)) ++  " when decoding " ++ take 20 (show s)
 
-decodeRec :: SFields fs -> Fields -> G.Get (Rec fs)
+decodeRec :: SFields fs -> Fields -> G.Get (Record fs)
 decodeRec SFieldsNil [] = return ()
 decodeRec (SFieldsCons fn _ _) [] = fail $ "missing field " <> prettyFieldName (fromSFieldName fn)
 decodeRec sfs ((h,t):dfs) =
@@ -457,7 +457,7 @@ findField :: SFields fs ->
         a ->
         (forall t' fs'.
             SType t' -> SFields fs' ->
-            (Val t' -> Rec fs' -> Rec fs) -> a
+            (Val t' -> Record fs' -> Record fs) -> a
         ) ->
         a
 findField SFieldsNil _ k1 _ = k1

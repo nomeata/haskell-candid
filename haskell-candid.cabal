@@ -19,6 +19,7 @@ library
   other-modules: Codec.Candid.Core
   other-modules: Codec.Candid.Wrappers
   other-modules: Codec.Candid.Generic
+  other-modules: Codec.Candid.Service
   build-depends: base >=4.12 && <5
   build-depends: text
   build-depends: vector
@@ -28,6 +29,7 @@ library
   build-depends: cereal
   build-depends: leb128-cereal
   build-depends: containers
+  build-depends: unordered-containers
   build-depends: prettyprinter
   build-depends: row-types
   hs-source-dirs: src

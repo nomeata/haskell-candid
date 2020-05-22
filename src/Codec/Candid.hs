@@ -37,6 +37,67 @@ module Codec.Candid
  , AsRecord(..)
  , CandidVal(..)
 
+-- * Candid services
+
+{- |
+Very likely you want to either implement or use whole Candid interfaces. In order to apply the encoding/decoding in one go, you can use 'fromCandidService' and 'toCandidService'. These convert between a raw service ('RawService', takes a method name and bytes, and return bytes), and a typed 'CandidService' (expressed as an 'Data.Row.Rec' record).
+
+Let us create a simple service:
+
+>>> :set -XOverloadedLabels
+>>> import Data.Row
+>>> import Data.Row.Internal
+>>> import Data.IORef
+>>> c <- newIORef 0
+>>> let service = #get .== (\() -> readIORef c) .+ #inc .== (\d -> modifyIORef c (d +))
+>>> (service .! #get) ()
+0
+>>> (service .! #inc) 5
+>>> (service .! #get) ()
+5
+
+For convenience, we name its type
+
+>>> :t service
+service
+  :: Rec
+       ('R
+          '[ "get" ':-> (() -> IO Integer), "inc" ':-> (Integer -> IO ())])
+>>> :set -XTypeOperators -XDataKinds -XFlexibleContexts
+>>> type Interface = 'R '[ "get" ':-> (() -> IO Integer), "inc" ':-> (Integer -> IO ())]
+
+Now we can turn this into a raw service operating on bytes:
+
+>>> let raw = fromCandidService (error . show) error service
+>>> raw (T.pack "get") (BS.pack "DUDE")
+*** Exception: Failed reading: Expected magic bytes "DIDL"
+...
+>>> raw (T.pack "get") (BS.pack "DIDL\NUL\NUL")
+"DIDL\NUL\SOH|\ENQ"
+>>> raw (T.pack "inc") (BS.pack "DIDL\NUL\SOH|\ENQ")
+"DIDL\NUL\NUL"
+>>> (service .! #get) ()
+10
+
+And finally, we can turn this raw function  back into a typed interface:
+
+>>> let service' :: Rec Interface = toCandidService error raw
+>>> (service .! #get) ()
+10
+>>> (service .! #inc) 5
+>>> (service .! #get) ()
+15
+
+In a real application you would more likely pass some networking code to 'toCandidService'.
+
+
+-}
+
+ , CandidService
+ , RawService
+ , toCandidService
+ , fromCandidService
+
 -- Convenience re-exports
 -- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837
 -- , Generic
@@ -50,21 +111,26 @@ module Codec.Candid
  , KnownFields
  , KnownArgs
  , Val
- , Rec
+ , Record
  , Variant
  , Seq
  , types
+ , CandidMethod
 --
  ) where
 
 import Codec.Candid.Core
 import Codec.Candid.Generic
 import Codec.Candid.Wrappers
+import Codec.Candid.Service
 
 -- $setup
 -- >>> import Data.Text (Text)
+-- >>> import qualified Data.Text as T
 -- >>> import Data.Void (Void)
 -- >>> import Data.Text.Prettyprint.Doc (pretty)
+-- >>> import qualified Data.ByteString.Char8 as BS
+-- >>> :set -XScopedTypeVariables
 
 {- $overview
 
