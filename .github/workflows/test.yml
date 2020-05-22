@@ -18,4 +18,7 @@ jobs:
         cabal --version
         ghc --version
         cabal update
+        # build first, so that the .ghc.environment file is written
+        cabal build -w ghc-${{ matrix.ghc }}
+        # then the doctest has a chance of succeeding
         cabal v2-test -w ghc-${{ matrix.ghc }}
