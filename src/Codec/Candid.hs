@@ -115,7 +115,7 @@ In a real application you would more likely pass some networking code to 'toCand
  , Variant
  , Seq
  , types
- , CandidMethod
+ , CandidMethod(..)
 --
  ) where
 

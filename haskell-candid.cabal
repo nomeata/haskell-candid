@@ -31,7 +31,7 @@ library
   build-depends: containers
   build-depends: unordered-containers
   build-depends: prettyprinter
-  build-depends: row-types
+  build-depends: row-types == 0.3.*
   hs-source-dirs: src
   default-language: Haskell2010
   ghc-options: -Wall -Wno-name-shadowing
@@ -57,6 +57,6 @@ test-suite doctest
   ghc-options:   -threaded
   main-is:       doctests.hs
   build-depends: base, candid, doctest >= 0.8
-  build-depends: row-types
+  build-depends: row-types == 0.3.*
   build-depends: leb128-cereal
   build-depends: prettyprinter
