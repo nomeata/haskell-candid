@@ -127,7 +127,6 @@ import Codec.Candid.Wrappers
 import Codec.Candid.Service
 
 -- $setup
--- >>> :set +m
 -- >>> import Data.Text (Text)
 -- >>> import qualified Data.Text as T
 -- >>> import Data.Void (Void)
@@ -207,11 +206,13 @@ If you want to use your own types directly, you have to declare an instance of t
 
 >>> :set -XTypeFamilies
 >>> newtype Age = Age Integer
->>> instance Candid Age where
->>>     type Rep Age = 'IntT
->>>     toCandid (Age i) = i
->>>     fromCandid = Age
->>>
+>>> :{
+instance Candid Age where
+    type Rep Age = 'IntT
+    toCandid (Age i) = i
+    fromCandid = Age
+:}
+
 >>> encode (Age 42)
 "DIDL\NUL\SOH|*"
 
@@ -219,11 +220,13 @@ This is more or less the only way to introduce recursive types. In order to refe
 
 >>> newtype Peano = Peano (Maybe Peano) deriving (Show, Eq)
 >>> type PeanoT = OtherT Peano
->>> instance Candid Peano where
->>>     type Rep Peano = 'OptT PeanoT
->>>     toCandid (Peano x) = x
->>>     fromCandid = Peano
->>>
+>>> :{
+instance Candid Peano where
+    type Rep Peano = 'OptT PeanoT
+    toCandid (Peano x) = x
+    fromCandid = Peano
+:}
+
 >>> peano = Peano $ Just $ Peano $ Just $ Peano $ Just $ Peano Nothing
 >>> encode peano
 "DIDL\SOHn\NUL\SOH\NUL\SOH\SOH\SOH\NUL"
@@ -234,10 +237,12 @@ Especially for Haskell record types, you can use magic involving generic types t
 
 >>> :set -XDerivingVia -XDeriveGeneric -XUndecidableInstances
 >>> import GHC.Generics (Generic)
->>> data SimpleRecord = SimpleRecord { foo :: [Bool], bar :: Maybe Integer }
->>>     deriving Generic
->>>     deriving Candid via (AsRecord SimpleRecord)
->>>
+>>> :{
+data SimpleRecord = SimpleRecord { foo :: [Bool], bar :: Maybe Integer }
+    deriving Generic
+    deriving Candid via (AsRecord SimpleRecord)
+:}
+
 >>> pretty (typeVal @(Rep SimpleRecord))
 record {bar : opt int; foo : vec bool}
 >>> encode (SimpleRecord { foo = [True, False], bar = Just 100 })
@@ -246,9 +251,11 @@ record {bar : opt int; foo : vec bool}
 Unfortunately, this feature requires @UndecidableInstances@.
 
 This works for variants too:
->>> data Shape = Point () | Sphere Double | Rectangle (Double, Double)
->>>     deriving Generic
->>>     deriving Candid via (AsVariant Shape)
+>>> :{
+data Shape = Point () | Sphere Double | Rectangle (Double, Double)
+    deriving Generic
+    deriving Candid via (AsVariant Shape)
+:}
 
 >>> pretty (typeVal @(Rep Shape))
 variant {Point; Rectangle : record {0 : float; 1 : float}; Sphere : float}
