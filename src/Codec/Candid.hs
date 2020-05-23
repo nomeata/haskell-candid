@@ -60,10 +60,7 @@ Let us create a simple service:
 For convenience, we name its type
 
 >>> :t service
-service
-  :: Rec
-       ('R
-          '[ "get" ':-> (() -> IO Integer), "inc" ':-> (Integer -> IO ())])
+service :: Rec ('R '[ "get" ':-> (() -> IO Integer), "inc" ':-> (Integer -> IO ())])
 >>> :set -XTypeOperators -XDataKinds -XFlexibleContexts
 >>> type Interface = 'R '[ "get" ':-> (() -> IO Integer), "inc" ':-> (Integer -> IO ())]
 
@@ -127,6 +124,7 @@ import Codec.Candid.Wrappers
 import Codec.Candid.Service
 
 -- $setup
+-- >>> :set -dppr-cols=200
 -- >>> import Data.Text (Text)
 -- >>> import qualified Data.Text as T
 -- >>> import Data.Void (Void)
