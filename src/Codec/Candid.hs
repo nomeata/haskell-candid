@@ -270,6 +270,4 @@ Because data constructors are capitalized in Haskell, you cannot derive enums or
 * Reading or writing interface descriptions
 * Service and function types
 * Future types
-* Generic variants
-* Support for converting whole services (name sets of methods with argument and result types)
 -}
