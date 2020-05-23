@@ -46,7 +46,8 @@ module Codec.Candid.Core
     , KnownType
     , KnownArgs
     , KnownFields
-    , types
+    , typeVal
+    , typesVal
     ) where
 
 import Numeric.Natural
@@ -59,6 +60,7 @@ import qualified Data.ByteString.Builder as B
 import qualified Data.Map as M
 import qualified Data.Row.Records as R
 import qualified Data.Row.Internal as R
+import qualified Data.Row.Variants as V
 import Data.Proxy
 import Data.Typeable
 import Data.Bifunctor
@@ -132,8 +134,8 @@ instance Pretty Type where
     pretty EmptyT = "empty"
     pretty (OptT t) = "opt" <+> pretty t
     pretty (VecT t) = "vec" <+> pretty t
-    pretty (RecT fs) = "record" <+> prettyFields fs
-    pretty (VariantT fs) = "variant" <+> prettyFields fs
+    pretty (RecT fs) = "record" <+> prettyFields False fs
+    pretty (VariantT fs) = "variant" <+> prettyFields True fs
     pretty (OtherT_ (Other _)) = error "Other on term level"
     pretty BlobT = "blob"
     pretty PrincipalT = "principal"
@@ -141,14 +143,16 @@ instance Pretty Type where
 
     prettyList = encloseSep lparen rparen (comma <> space) . map pretty
 
-prettyFields :: Fields -> Doc ann
-prettyFields fs = braces $ hsep $ punctuate semi $ map prettyField fs
+prettyFields :: Bool -> Fields -> Doc ann
+prettyFields in_variant fs = braces $ hsep $ punctuate semi $ map (prettyField in_variant) fs
 
-prettyField :: (FieldName, Type) -> Doc ann
-prettyField (N _, _) = error "N on term level"
-prettyField (N' n, t) = pretty n <+> colon <+> pretty t -- TODO: encode field names
-prettyField (H _, _) = error "H on term level"
-prettyField (H' n, t) = pretty n <+> colon <+> pretty t
+prettyField :: Bool -> (FieldName, Type) -> Doc ann
+prettyField _ (N _, _) = error "N on term level"
+prettyField True (N' n, NullT) = pretty n
+prettyField _ (N' n, t) = pretty n <+> colon <+> pretty t -- TODO: encode field names
+prettyField _ (H _, _) = error "H on term level"
+prettyField True (H' n, NullT) = pretty n
+prettyField _ (H' n, t) = pretty n <+> colon <+> pretty t
 
 -- | The list of fields of a 'RecT' or 'VariantT'
 type Fields = [(FieldName, Type)]
@@ -697,6 +701,9 @@ instance Candid a => Candid [a] where
     toCandid = fmap toCandid . V.fromList
     fromCandid = V.toList <$> fmap fromCandid
 
+-- | Maybe a bit opinionated, but 'null' seems to be the unit of Candid
+instance Candid () where
+    type Rep () = 'NullT
 
 instance (Candid a, Candid b) => Candid (a, b) where
     type Rep (a, b) = 'RecT '[ TupField 0 a, TupField 1 b]
@@ -751,6 +758,32 @@ instance (FromRowRec r, Typeable r) => Candid (R.Rec r) where
     type Rep (R.Rec r) = 'RecT (RecRep r)
     toCandid = fromRowRec
     fromCandid = toRowRec
+
+class KnownFields (VarRep r) => FromRowVar r where
+    type VarRep r :: Fields
+    fromRowVar :: V.Var r -> Val ('VariantT (VarRep r))
+    toRowVar :: Val ('VariantT (VarRep r)) -> V.Var r
+
+instance FromRowVar ('R.R '[]) where
+    type VarRep ('R.R '[]) = '[]
+    fromRowVar = V.impossible
+    toRowVar = absurd
+
+instance (Candid t, R.KnownSymbol f, FromRowVar ('R.R xs)) => FromRowVar ('R.R (f 'R.:-> t ': xs)) where
+    type VarRep ('R.R (f 'R.:-> t ': xs)) = '( 'N f, Rep t) ': VarRep ('R.R xs)
+    fromRowVar r = case V.trial r l of
+        Left x -> Left (toCandid x)
+        Right r' -> Right (fromRowVar @('R.R xs) r')
+      where l = R.Label @f
+    toRowVar (Left x) = V.unsafeMakeVar l (fromCandid x)
+      where l = R.Label @f
+    toRowVar (Right xs) = V.unsafeInjectFront (toRowVar @('R.R xs) xs)
+
+instance (FromRowVar r, Typeable r) => Candid (V.Var r) where
+    type Rep (V.Var r) = 'VariantT (VarRep r)
+    toCandid = fromRowVar
+    fromCandid = toRowVar
+
 
 
 -- Repetitive stuff for dependently typed programming
@@ -881,9 +914,13 @@ instance KnownArgs '[] where args = SArgsNil
 instance (KnownType t, KnownArgs ts) => KnownArgs (t ': ts) where
     args = SArgsCons (typ @t) (args @ts)
 
+-- | Takes a Candid type from the type level to the value level, e.g. for pretty-printing with 'pretty'
+typeVal :: forall t. KnownType t => Type
+typeVal = fromSType (typ @t)
+
 -- | Takes Candid types from the type level to the value level, e.g. for pretty-printing with 'pretty'
-types :: forall ts. KnownArgs ts => [Type]
-types = fromSArgs (args @ts)
+typesVal :: forall ts. KnownArgs ts => [Type]
+typesVal = fromSArgs (args @ts)
 
 class Typeable fn => KnownFieldName (fn :: FieldName) where fieldName :: SFieldName fn
 instance KnownSymbol s => KnownFieldName ('N s) where

@@ -35,6 +35,7 @@ module Codec.Candid
 -- * Generic programming utilities
 
  , AsRecord(..)
+ , AsVariant(..)
  , CandidVal(..)
 
 -- * Candid services
@@ -114,7 +115,8 @@ In a real application you would more likely pass some networking code to 'toCand
  , Record
  , Variant
  , Seq
- , types
+ , typeVal
+ , typesVal
  , CandidMethod(..)
 --
  ) where
@@ -187,7 +189,7 @@ Here, no type annotations are needed, the library can infer them from the types 
 >>> :kind! ArgRep ([Bool], Maybe Integer)
 ArgRep ([Bool], Maybe Integer) :: [Type]
 = '[ 'VecT 'BoolT, 'OptT 'IntT]
->>> pretty (types @(ArgRep ([Bool], Maybe Integer)))
+>>> pretty (typesVal @(ArgRep ([Bool], Maybe Integer)))
 (vec bool, opt int)
 
 This library is integrated with the @row-types@ library, so you can use their
@@ -241,10 +243,27 @@ data SimpleRecord = SimpleRecord { foo :: [Bool], bar :: Maybe Integer }
     deriving Candid via (AsRecord SimpleRecord)
 :}
 
+>>> pretty (typeVal @(Rep SimpleRecord))
+record {bar : opt int; foo : vec bool}
 >>> encode (SimpleRecord { foo = [True, False], bar = Just 100 })
 "DIDL\ETXl\STX\211\227\170\STX\SOH\134\142\183\STX\STXn|m~\SOH\NUL\SOH\228\NUL\STX\SOH\NUL"
 
 Unfortunately, this feature requires @UndecidableInstances@.
+
+This works for variants too:
+>>> :{
+data Shape = Point () | Sphere Double | Rectangle (Double, Double)
+    deriving Generic
+    deriving Candid via (AsVariant Shape)
+:}
+
+>>> pretty (typeVal @(Rep Shape))
+variant {Point; Rectangle : record {0 : float; 1 : float}; Sphere : float}
+>>> encode (Rectangle (100,100))
+"DIDL\STXk\ETX\176\200\244\205\ENQ\DEL\143\232\190\218\v\SOH\173\198\172\140\SIrl\STX\NULr\SOHr\SOH\NUL\SOH\NUL\NUL\NUL\NUL\NUL\NULY@\NUL\NUL\NUL\NUL\NUL\NULY@"
+
+Because data constructors are capitalized in Haskell, you cannot derive enums or variants with lower-case names. Also, nullary data constructors are not supported by @row-types@, and thus here, even though they would nicely map onto variants with arguments of type `null`.
+
 
 = Missing features
 

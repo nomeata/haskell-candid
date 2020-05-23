@@ -11,10 +11,11 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-} -- the reason for this being in its own module
 {-# OPTIONS_GHC -Wno-orphans #-}
-module Codec.Candid.Generic (AsRecord(..)) where
+module Codec.Candid.Generic (AsRecord(..), AsVariant(..)) where
 
 import qualified Data.Row as R
 import qualified Data.Row.Records as R
+import qualified Data.Row.Variants as V
 import qualified GHC.Generics as G
 import Data.Typeable
 
@@ -25,22 +26,45 @@ newtype AsRecord a = AsRecord { unAsRecord :: a }
 
 instance
     ( Typeable a
-    , Candid (R.Rec (NativeRow a))
-    , R.ToNativeExact a (NativeRow a)
-    , R.FromNative a (NativeRow a)
+    , Candid (R.Rec (NativeRowR a))
+    , R.ToNativeExact a (NativeRowR a)
+    , R.FromNative a (NativeRowR a)
     ) => Candid (AsRecord a) where
-    type Rep (AsRecord a) = Rep (R.Rec (NativeRow a))
-    toCandid = toCandid @(R.Rec (NativeRow a)) . R.fromNative . unAsRecord
-    fromCandid = AsRecord . R.toNativeExact . fromCandid @(R.Rec (NativeRow a))
+    type Rep (AsRecord a) = Rep (R.Rec (NativeRowR a))
+    toCandid = toCandid @(R.Rec (NativeRowR a)) . R.fromNative . unAsRecord
+    fromCandid = AsRecord . R.toNativeExact . fromCandid @(R.Rec (NativeRowR a))
+
+-- | This newtype encodes a Haskell data type as a variant using generic programming. Best used with @DerivingVia@, as shown in the overview.
+newtype AsVariant a = AsVariant { unAsVariant :: a }
+
+instance
+    ( Typeable a
+    , Candid (V.Var (NativeRowV a))
+    , V.ToNative a (NativeRowV a)
+    , V.FromNativeExact a (NativeRowV a)
+    ) => Candid (AsVariant a) where
+    type Rep (AsVariant a) = Rep (V.Var (NativeRowV a))
+    toCandid = toCandid @(V.Var (NativeRowV a)) . V.fromNativeExact . unAsVariant
+    fromCandid = AsVariant . V.toNative . fromCandid @(V.Var (NativeRowV a))
 
 -- Extracted from https://github.com/target/row-types/pull/50/files#diff-28283e767b45c83675d1beb91ac71bb4R583
-type family NativeRow t where
-  NativeRow t = NativeRowG (G.Rep t)
+type family NativeRowR t where
+  NativeRowR t = NativeRowRG (G.Rep t)
 
-type family NativeRowG t where
-  NativeRowG (G.M1 G.D m cs) = NativeRowG cs
-  NativeRowG (G.M1 G.C m cs) = NativeRowG cs
-  NativeRowG G.U1 = R.Empty
-  NativeRowG (l G.:*: r) = NativeRowG l R..+ NativeRowG r
-  NativeRowG (G.M1 G.S ('G.MetaSel ('Just name) p s l) (G.Rec0 t)) = name R..== t
+type family NativeRowRG t where
+  NativeRowRG (G.M1 G.D m cs) = NativeRowRG cs
+  NativeRowRG (G.M1 G.C m cs) = NativeRowRG cs
+  NativeRowRG G.U1 = R.Empty
+  NativeRowRG (l G.:*: r) = NativeRowRG l R..+ NativeRowRG r
+  NativeRowRG (G.M1 G.S ('G.MetaSel ('Just name) p s l) (G.Rec0 t)) = name R..== t
 
+
+
+type family NativeRowV t where
+  NativeRowV t = NativeRowVG (G.Rep t)
+
+type family NativeRowVG t where
+  NativeRowVG (G.M1 G.D m cs) = NativeRowVG cs
+  NativeRowVG G.V1 = V.Empty
+  NativeRowVG (l G.:+: r) = NativeRowVG l V..+ NativeRowVG r
+  NativeRowVG (G.C1 ('G.MetaCons name fixity sels) (G.S1 m (G.Rec0 t))) = name V..== t
