@@ -51,10 +51,10 @@ Let us create a simple service:
 >>> import Data.IORef
 >>> c <- newIORef 0
 >>> let service = #get .== (\() -> readIORef c) .+ #inc .== (\d -> modifyIORef c (d +))
->>> (service .! #get) ()
+>>> service .! #get $ ()
 0
->>> (service .! #inc) 5
->>> (service .! #get) ()
+>>> service .! #inc $ 5
+>>> service .! #get $ ()
 5
 
 For convenience, we name its type
@@ -77,16 +77,16 @@ Now we can turn this into a raw service operating on bytes:
 "DIDL\NUL\SOH|\ENQ"
 >>> raw (T.pack "inc") (BS.pack "DIDL\NUL\SOH|\ENQ")
 "DIDL\NUL\NUL"
->>> (service .! #get) ()
+>>> service .! #get $ ()
 10
 
 And finally, we can turn this raw function  back into a typed interface:
 
 >>> let service' :: Rec Interface = toCandidService error raw
->>> (service .! #get) ()
+>>> service .! #get $ ()
 10
->>> (service .! #inc) 5
->>> (service .! #get) ()
+>>> service .! #inc $ 5
+>>> service .! #get $ ()
 15
 
 In a real application you would more likely pass some networking code to 'toCandidService'.
