@@ -10,7 +10,7 @@ jobs:
         - '8.8.3'
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     - name: Build
       run: |
         ls -l /opt/ghc/
@@ -22,3 +22,28 @@ jobs:
         cabal build -w ghc-${{ matrix.ghc }}
         # then the doctest has a chance of succeeding
         cabal v2-test -w ghc-${{ matrix.ghc }}
+  docs:
+    strategy:
+      matrix:
+        ghc:
+        - '8.8.3'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: |
+        ls -l /opt/ghc/
+        export PATH=/opt/ghc/bin:$PATH
+        cabal --version
+        ghc --version
+        cabal update
+        cabal haddock --haddock-hyperlink-source --haddock-quickjump --haddock-html-location='https://hackage.haskell.org/package/$pkg-$version/docs'
+        mv dist-newstyle/build/*/*/*/doc/html/candid gh-page
+    - name: Deploy to Github Pages
+      if: github.ref == 'refs/heads/master'
+      uses: JamesIves/github-pages-deploy-action@releases/v3
+      with:
+        ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+        BRANCH: gh-pages
+        FOLDER: gh-page
+        SINGLE_COMMIT: true
