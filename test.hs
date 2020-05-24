@@ -98,7 +98,7 @@ roundTripTest v1 = do
   assertEqual "values" v1 v2
 
 roundTripProp :: forall ts. (KnownArgs ts, Serial IO (Seq ts), Eq (Seq ts), Show (Seq ts)) => TestTree
-roundTripProp = testProperty (show (pretty (types @ts))) $ \v ->
+roundTripProp = testProperty (show (pretty (typesVal @ts))) $ \v ->
     case decodeT @ts (encodeT @ts v) of
         Right y | y == v -> Right ("all good" :: String)
         Right y -> Left $
@@ -110,7 +110,7 @@ subTypProp :: forall ts1 ts2.
     (KnownArgs ts1, Serial IO (Seq ts1), Show (Seq ts1)) =>
     KnownArgs ts2 =>
     TestTree
-subTypProp = testProperty (show (pretty (types @ts1) <+> "<:" <+> pretty (types @ts2))) $ \v ->
+subTypProp = testProperty (show (pretty (typesVal @ts1) <+> "<:" <+> pretty (typesVal @ts2))) $ \v ->
     isRight $ decodeT @ts2 (encodeT @ts1 v)
 
 subTypeTest' :: forall a b.
