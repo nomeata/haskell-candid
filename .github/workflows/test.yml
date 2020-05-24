@@ -49,6 +49,7 @@ jobs:
         cabal update
         cabal haddock -w ghc-${{ matrix.ghc }} --haddock-hyperlink-source --haddock-quickjump --haddock-html-location='https://hackage.haskell.org/package/$pkg-$version/docs'
         mv dist-newstyle/build/*/*/*/doc/html/candid gh-page
+        touch gh-page/.nojekyll
     - name: Deploy to Github Pages
       if: github.ref == 'refs/heads/master'
       uses: JamesIves/github-pages-deploy-action@releases/v3
