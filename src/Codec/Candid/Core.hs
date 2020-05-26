@@ -28,7 +28,7 @@ module Codec.Candid.Core
     , OtherT
     , Other(Other)
     , Fields
-    , FieldName(N, H)
+    , FieldName(..)
     , Candid(..)
     , CandidSeq(..)
     , CandidArg

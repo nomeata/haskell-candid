@@ -20,12 +20,14 @@ library
   other-modules: Codec.Candid.Wrappers
   other-modules: Codec.Candid.Generic
   other-modules: Codec.Candid.Service
+  other-modules: Codec.Candid.Parse
   build-depends: base >=4.12 && <5
   build-depends: text
   build-depends: vector
   build-depends: bytestring
   build-depends: mtl
   build-depends: hex-text
+  build-depends: parsec
   build-depends: cereal
   build-depends: leb128-cereal
   build-depends: containers
@@ -50,6 +52,7 @@ test-suite test
   build-depends: text
   build-depends: vector
   build-depends: prettyprinter
+  build-depends: unordered-containers
   ghc-options: -rtsopts
 
 test-suite doctest

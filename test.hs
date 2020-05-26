@@ -17,6 +17,7 @@ import qualified Data.Text as T
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B
 import qualified Data.Vector as V
+import qualified Data.HashMap.Lazy as HM
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.SmallCheck
@@ -154,6 +155,13 @@ instance (Monad m, Serial m a) => Serial m (V.Vector a) where
 instance Monad m => Serial m Void where
     series = mzero
 
+parseTest :: T.Text -> [(T.Text, ([Type], [Type]))] -> TestTree
+parseTest t e = testCase (T.unpack t) $
+    -- We don't have Eq on Type, so lets pretty-print
+    case parseService t of
+        Left err -> assertFailure err
+        Right s -> show (pretty (HM.toList s)) @?= show (pretty e)
+
 tests = testGroup "tests"
   [ testGroup "encode tests"
     [ testCase "empty" $ encode () @?= B.pack "DIDL\0\0"
@@ -222,6 +230,15 @@ tests = testGroup "tests"
     , subTypProp @ '[ 'NatT ] @ '[ 'ReservedT ]
     , subTypProp @ '[ 'BlobT ] @ '[ 'ReservedT ]
     , subTypProp @ '[ 'PrincipalT ] @ '[ 'ReservedT ]
+    ]
+  , testGroup "candid parsing" $
+    let (=:) = (,) in
+    [ parseTest "service : {}" []
+    , parseTest "service : { foo : (text) -> (text) }" [ "foo" =: ([TextT],[TextT]) ]
+    , parseTest "service : { foo : (text,) -> (text,); }" [ "foo" =: ([TextT],[TextT]) ]
+    , parseTest "service : { foo : (opt text) -> () }" [ "foo" =: ([OptT TextT],[]) ]
+    , parseTest "service : { foo : (record { x : null; 5 : nat8 }) -> () }"
+        [ "foo" =: ([RecT [(N' "x", NullT), (H' 5, Nat8T)]],[]) ]
     ]
   ]
 

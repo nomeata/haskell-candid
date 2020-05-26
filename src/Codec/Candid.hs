@@ -21,7 +21,7 @@ module Codec.Candid
  , Type(..)
  , OtherT
  , Fields
- , FieldName(N, H)
+ , FieldName(..)
 
 -- * Custom types
 
@@ -100,6 +100,11 @@ In a real application you would more likely pass some networking code to 'toCand
 -- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837
 -- , Generic
 
+-- * Parsing .did files
+
+ , Service
+ , parseService
+
 -- * Mostly plumbing
 --
 -- | These exports are usually not interesting
@@ -122,6 +127,7 @@ import Codec.Candid.Core
 import Codec.Candid.Generic
 import Codec.Candid.Wrappers
 import Codec.Candid.Service
+import Codec.Candid.Parse
 
 -- $setup
 -- >>> :set -dppr-cols=200
