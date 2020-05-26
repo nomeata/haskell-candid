@@ -248,22 +248,30 @@ tests = testGroup "tests"
         [ m "foo" [RecT [(N' "x", NullT), (H' 5, Nat8T)]] [] ]
     ]
   , testGroup "Using TH interface" $
-    [ testCase "direct" $ do
+    [ testCase "demo1: direct" $ do
         x <- greet1 .! #greet $ "World"
         x @?= "Hello World"
-    , testCase "raw" $ do
+    , testCase "demo1: via toCandidService" $ do
         x <- greet2 .! #greet $ "World"
         x @?= "World"
+    , testCase "demo2" $ do
+        x <- demo2 .! #greet $ ("World", True)
+        x @?= "WorldTrue"
     ]
   ]
 
 instance Monad m => Serial m BS.ByteString where
     series = BS.pack <$> series
 
-type DemoInterface m = [candid| service : { "greet": (text) -> (text); } |]
+type Demo1 m = [candid| service : { "greet": (text) -> (text); } |]
 
-greet1 :: Monad m => Rec (DemoInterface m)
+greet1 :: Monad m => Rec (Demo1 m)
 greet1 = #greet .== \who -> return $ "Hello " <> who
 
-greet2 :: forall m. Monad m => Rec (DemoInterface m)
+greet2 :: forall m. Monad m => Rec (Demo1 m)
 greet2 = toCandidService error (\_ x -> return x)
+
+type Demo2 m = [candid| service : { "greet": (text, bool) -> (text); } |]
+
+demo2 :: Monad m => Rec (Demo2 m)
+demo2 = #greet .== \(who, b) -> return $ who <> T.pack (show b)
