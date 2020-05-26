@@ -20,7 +20,9 @@ library
   other-modules: Codec.Candid.Wrappers
   other-modules: Codec.Candid.Generic
   other-modules: Codec.Candid.Service
+  other-modules: Codec.Candid.ServiceT
   other-modules: Codec.Candid.Parse
+  other-modules: Codec.Candid.TH
   build-depends: base >=4.12 && <5
   build-depends: text
   build-depends: vector
@@ -34,6 +36,7 @@ library
   build-depends: unordered-containers
   build-depends: row-types == 0.3.*
   build-depends: prettyprinter
+  build-depends: template-haskell
   hs-source-dirs: src
   default-language: Haskell2010
   ghc-options: -Wall -Wno-name-shadowing
@@ -53,6 +56,7 @@ test-suite test
   build-depends: vector
   build-depends: prettyprinter
   build-depends: unordered-containers
+  build-depends: row-types == 0.3.*
   ghc-options: -rtsopts
 
 test-suite doctest

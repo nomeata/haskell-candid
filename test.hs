@@ -6,12 +6,15 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
@@ -31,6 +34,7 @@ import Control.Monad
 import GHC.TypeLits
 import GHC.Generics (Generic)
 import Data.Text.Prettyprint.Doc
+import Data.Row
 
 import Codec.Candid
 
@@ -155,12 +159,12 @@ instance (Monad m, Serial m a) => Serial m (V.Vector a) where
 instance Monad m => Serial m Void where
     series = mzero
 
-parseTest :: T.Text -> [(T.Text, ([Type], [Type]))] -> TestTree
-parseTest t e = testCase (T.unpack t) $
+parseTest :: String -> DidFile -> TestTree
+parseTest c e = testCase c $
     -- We don't have Eq on Type, so lets pretty-print
-    case parseService t of
+    case parseDid c of
         Left err -> assertFailure err
-        Right s -> show (pretty (HM.toList s)) @?= show (pretty e)
+        Right s -> show (pretty s) @?= show (pretty e)
 
 tests = testGroup "tests"
   [ testGroup "encode tests"
@@ -232,16 +236,40 @@ tests = testGroup "tests"
     , subTypProp @ '[ 'PrincipalT ] @ '[ 'ReservedT ]
     ]
   , testGroup "candid parsing" $
-    let (=:) = (,) in
+    let m x y z = (x, y, z) in
     [ parseTest "service : {}" []
-    , parseTest "service : { foo : (text) -> (text) }" [ "foo" =: ([TextT],[TextT]) ]
-    , parseTest "service : { foo : (text,) -> (text,); }" [ "foo" =: ([TextT],[TextT]) ]
-    , parseTest "service : { foo : (opt text) -> () }" [ "foo" =: ([OptT TextT],[]) ]
+    , parseTest "service : { foo : (text) -> (text) }"
+        [ m "foo" [TextT] [TextT] ]
+    , parseTest "service : { foo : (text,) -> (text,); }"
+        [ m "foo" [TextT] [TextT] ]
+    , parseTest "service : { foo : (opt text) -> () }"
+        [ m "foo" [OptT TextT] []  ]
     , parseTest "service : { foo : (record { x : null; 5 : nat8 }) -> () }"
-        [ "foo" =: ([RecT [(N' "x", NullT), (H' 5, Nat8T)]],[]) ]
+        [ m "foo" [RecT [(N' "x", NullT), (H' 5, Nat8T)]] [] ]
+    ]
+  , testGroup "TH parsing" $
+    [ testCase "greet argument" $
+        show (pretty (typesVal @(Args (DemoInterface .! "greet")))) @?= "(text)"
+    , testCase "greet result" $
+        show (pretty (typesVal @(Res (DemoInterface .! "greet")))) @?= "(text)"
+    ]
+  , testGroup "Using TH interface" $
+    [ testCase "direct" $ do
+        x <- asMeth (greet1 .! #greet) ("World", ())
+        x @?= ("Hello World", ())
+    , testCase "raw" $ do
+        x <- asMeth (greet2 .! #greet) ("World", ())
+        x @?= ("World", ())
     ]
   ]
 
 instance Monad m => Serial m BS.ByteString where
     series = BS.pack <$> series
 
+type DemoInterface = [candid| service : { "greet": (text) -> (text); } |]
+
+greet1 :: Monad m => Impl m DemoInterface
+greet1 = #greet .== ToMeth (\(who, ()) -> return $ ("Hello " <> who, ()))
+
+greet2 :: forall m. Monad m => Impl m DemoInterface
+greet2 = toCandidServiceT @m @DemoInterface error (\_ x -> return x)

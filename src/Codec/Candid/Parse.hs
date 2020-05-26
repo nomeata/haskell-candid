@@ -2,21 +2,23 @@ module Codec.Candid.Parse where
 
 import qualified Data.Text as T
 import Text.Parsec
-import Text.Parsec.Text
+import Text.Parsec.String
 import Data.Bifunctor
 import Data.Word
 import Data.Char
 import Data.Functor
-import qualified Data.HashMap.Strict as HM
 
 import Codec.Candid.Core
 
-type Service = HM.HashMap T.Text ([Type], [Type])
+-- | A candid service, as a list of methods
+--
+-- (no support for annotations yet)
+type DidFile = [ (T.Text, [Type], [Type]) ]
 
-parseService :: T.Text -> Either String Service
-parseService = first show . parse fileP "Candid service"
+parseDid :: String -> Either String DidFile
+parseDid = first show . parse fileP "Candid service"
 
-fileP :: Parser Service
+fileP :: Parser DidFile
 fileP = spaces *> many defP *> actorP
 
 defP :: Parser ()
@@ -28,14 +30,18 @@ typeP = s "type" *> fail "type definitions not yet supported"
 importP :: Parser ()
 importP = s "import" *> fail "imports not yet supported"
 
-actorP :: Parser Service
+actorP :: Parser DidFile
 actorP = s "service" *> optional idP *> s ":" *> actorTypeP -- TODO could be a type id
 
-actorTypeP :: Parser Service
-actorTypeP = HM.fromList <$> braceSemi methTypeP
+actorTypeP :: Parser DidFile
+actorTypeP = braceSemi methTypeP
 
-methTypeP :: Parser (T.Text, ([Type], [Type]))
-methTypeP = (,) <$> nameP <* s ":" <*> funcTypeP -- TODO could be a type id
+methTypeP :: Parser (T.Text, [Type], [Type])
+methTypeP = do
+    n <- nameP
+    s ":"
+    (ts1, ts2) <- funcTypeP  -- TODO could be a type id
+    return (n, ts1, ts2)
 
 funcTypeP :: Parser ([Type], [Type])
 funcTypeP = (,) <$> seqP <* s "->" <*> seqP <* many funcAnnP
@@ -44,7 +50,10 @@ funcAnnP :: Parser () -- TODO: Annotations are dropped
 funcAnnP = s "oneway" <|> s "query"
 
 nameP :: Parser T.Text
-nameP = T.pack <$> idP -- TODO: Quoted strings
+nameP = fmap T.pack (
+    l (between (char '"') (char '"') (many1 (noneOf "\""))) -- TODO: Escape sequence
+    <|> idP
+    ) <?> "name"
 
 seqP :: Parser [Type]
 seqP = parenComma argTypeP
