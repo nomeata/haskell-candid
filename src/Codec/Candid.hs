@@ -96,17 +96,6 @@ In a real application you would more likely pass some networking code to 'toCand
  , toCandidService
  , fromCandidService
 
--- * Alternative Services interface
-
- , Args
- , Res
- , Impl
- , ServiceT
- , CandidServiceT
- , toCandidServiceT
- , ToMeth(..)
- -- , fromCandidServiceT
-
 -- Convenience re-exports
 -- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837
 -- , Generic
@@ -140,7 +129,6 @@ import Codec.Candid.Core
 import Codec.Candid.Generic
 import Codec.Candid.Wrappers
 import Codec.Candid.Service
-import Codec.Candid.ServiceT
 import Codec.Candid.Parse
 import Codec.Candid.TH
 

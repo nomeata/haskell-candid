@@ -247,29 +247,23 @@ tests = testGroup "tests"
     , parseTest "service : { foo : (record { x : null; 5 : nat8 }) -> () }"
         [ m "foo" [RecT [(N' "x", NullT), (H' 5, Nat8T)]] [] ]
     ]
-  , testGroup "TH parsing" $
-    [ testCase "greet argument" $
-        show (pretty (typesVal @(Args (DemoInterface .! "greet")))) @?= "(text)"
-    , testCase "greet result" $
-        show (pretty (typesVal @(Res (DemoInterface .! "greet")))) @?= "(text)"
-    ]
   , testGroup "Using TH interface" $
     [ testCase "direct" $ do
-        x <- asMeth (greet1 .! #greet) ("World", ())
-        x @?= ("Hello World", ())
+        x <- greet1 .! #greet $ "World"
+        x @?= "Hello World"
     , testCase "raw" $ do
-        x <- asMeth (greet2 .! #greet) ("World", ())
-        x @?= ("World", ())
+        x <- greet2 .! #greet $ "World"
+        x @?= "World"
     ]
   ]
 
 instance Monad m => Serial m BS.ByteString where
     series = BS.pack <$> series
 
-type DemoInterface = [candid| service : { "greet": (text) -> (text); } |]
+type DemoInterface m = [candid| service : { "greet": (text) -> (text); } |]
 
-greet1 :: Monad m => Impl m DemoInterface
-greet1 = #greet .== ToMeth (\(who, ()) -> return $ ("Hello " <> who, ()))
+greet1 :: Monad m => Rec (DemoInterface m)
+greet1 = #greet .== \who -> return $ "Hello " <> who
 
-greet2 :: forall m. Monad m => Impl m DemoInterface
-greet2 = toCandidServiceT @m @DemoInterface error (\_ x -> return x)
+greet2 :: forall m. Monad m => Rec (DemoInterface m)
+greet2 = toCandidService error (\_ x -> return x)
