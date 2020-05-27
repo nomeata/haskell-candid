@@ -91,10 +91,16 @@ Candid is inherently typed, so before encoding or decoding, we have to declare t
  , parseDid
  , candid
  , candidFile
+ , candidType
 
 -- Convenience re-exports
 -- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837
 -- , Generic
+
+-- * Special Data types
+
+ , Principal(..)
+ , Reserved(..)
 
 -- ** Mostly plumbing
 --
@@ -120,6 +126,7 @@ import Codec.Candid.Wrappers
 import Codec.Candid.Service
 import Codec.Candid.Parse
 import Codec.Candid.TH
+import Codec.Candid.Data
 
 -- $setup
 -- >>> :set -dppr-cols=200

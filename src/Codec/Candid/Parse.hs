@@ -17,10 +17,16 @@ type DidFile = [ (T.Text, [Type], [Type]) ]
 
 -- | Parses a Candid description (@.did@) from a string
 parseDid :: String -> Either String DidFile
-parseDid = first show . parse fileP "Candid service"
+parseDid = first show . parse (allInput fileP) "Candid service"
+
+parseDidType :: String -> Either String Type
+parseDidType = first show . parse (allInput dataTypeP) "Candid type"
+
+allInput :: Parser a -> Parser a
+allInput = between spaces eof
 
 fileP :: Parser DidFile
-fileP = spaces *> many defP *> actorP
+fileP = many defP *> actorP
 
 defP :: Parser ()
 defP = typeP <|> importP
@@ -85,6 +91,7 @@ primTypeP = choice
     , ReservedT <$ k "reserved"
     , EmptyT <$ k "empty"
     , BlobT <$ k "blob"
+    , PrincipalT <$ k "principal"
     ]
 
 constTypeP :: Parser Type

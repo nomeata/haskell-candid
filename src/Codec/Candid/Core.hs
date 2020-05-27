@@ -77,6 +77,7 @@ import qualified Data.Serialize.IEEE754 as G
 import Data.Text.Prettyprint.Doc
 
 import Codec.Candid.Tuples
+import Codec.Candid.Data
 
 -- |
 -- Candid types
@@ -192,13 +193,13 @@ type family Val (t :: Type) where
     Val 'BoolT = Bool
     Val 'TextT = T.Text
     Val 'NullT = ()
-    Val 'ReservedT = ()
+    Val 'ReservedT = Reserved
     Val 'EmptyT = Void
     Val ('OptT t) = Maybe (Val t)
     Val ('VecT t) = V.Vector (Val t)
     Val ('RecT fs) = Record fs
     Val ('VariantT fs) = Variant fs
-    Val 'PrincipalT = BS.ByteString
+    Val 'PrincipalT = Principal
     Val 'BlobT = BS.ByteString
     Val ('OtherT_ ('Other t)) = t
 
@@ -256,7 +257,7 @@ encodeVal SFloat32T n = B.floatLE n
 encodeVal SFloat64T n = B.doubleLE n
 encodeVal STextT t = encodeBytes (T.encodeUtf8 t)
 encodeVal SNullT () = mempty
-encodeVal SReservedT () = mempty
+encodeVal SReservedT Reserved = mempty
 encodeVal (SOptT _) Nothing = B.word8 0
 encodeVal (SOptT t) (Just x) = B.word8 1 <> encodeVal t x
 encodeVal (SVecT t) xs =
@@ -270,7 +271,7 @@ encodeVal (SVariantT fs) x =
     (pos, b) = encodeVariant fs x
     m = map fst $ sortOn snd $ zip [0..] (map (hashFieldName . fst) (fromSFields fs))
     Just i = elemIndex pos m
-encodeVal SPrincipalT s = B.int8 1 <> encodeBytes s
+encodeVal SPrincipalT (Principal s) = B.int8 1 <> encodeBytes s
 encodeVal SBlobT b = encodeBytes b
 encodeVal (SOtherT st) x = encodeVal st (toCandid x)
 
@@ -418,7 +419,7 @@ decodeVal STextT TextT = do
         Left err -> fail (show err)
         Right t -> return t
 decodeVal SNullT NullT = return ()
-decodeVal SReservedT t = skipVal t
+decodeVal SReservedT t = Reserved <$ skipVal t
 decodeVal (SOptT _) NullT = return Nothing
 decodeVal (SOptT st) (OptT t) = G.getWord8 >>= \case
     0 -> return Nothing
@@ -436,7 +437,7 @@ decodeVal (SVariantT sfs) (VariantT fs) = do
 decodeVal (SOtherT st) t = fromCandid <$> decodeVal st t
 decodeVal SPrincipalT PrincipalT = G.getWord8 >>= \case
     0 -> fail "reference encountered"
-    1 -> decodeBytes
+    1 -> Principal <$> decodeBytes
     _ -> fail "Invalid principal value"
 decodeVal SBlobT (VecT Nat8T) = decodeBytes
 decodeVal s t = fail $ "unexpected type " ++ take 20 (show (pretty t)) ++  " when decoding " ++ take 20 (show s)
@@ -674,6 +675,8 @@ instance Candid Double where type Rep Double = 'Float64T
 instance Candid Void where type Rep Void = 'EmptyT
 instance Candid T.Text where type Rep T.Text = 'TextT
 instance Candid BS.ByteString where type Rep BS.ByteString = 'BlobT
+instance Candid Principal where type Rep Principal = 'PrincipalT
+instance Candid Reserved where type Rep Reserved = 'ReservedT
 
 instance Candid BSL.ByteString where
     type Rep BSL.ByteString = 'BlobT

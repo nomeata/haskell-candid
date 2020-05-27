@@ -144,9 +144,6 @@ subTypeTest v1 v2 = do
 nullV :: CandidVal 'NullT
 nullV = CandidVal ()
 
-reservedV :: CandidVal 'ReservedT
-reservedV = CandidVal ()
-
 emptyRec :: CandidVal ('RecT '[])
 emptyRec = CandidVal ()
 
@@ -189,8 +186,8 @@ tests = testGroup "tests"
     , testCase "rec" $ subTypeTest (ARecord True, True) (emptyRec, True)
     , testCase "tuple" $ subTypeTest ((42::Integer,-42::Integer), 100::Integer) (emptyRec, 100::Integer)
     , testCase "variant" $ subTypeTest' (Right 42 :: Either Bool Natural, True) (JustRight (42 :: Natural), True)
-    , testCase "rec/any" $ subTypeTest (ARecord True, True) (reservedV, True)
-    , testCase "tuple/any" $ subTypeTest ((42::Integer, 42::Natural), True) (reservedV, True)
+    , testCase "rec/any" $ subTypeTest (ARecord True, True) (Reserved, True)
+    , testCase "tuple/any" $ subTypeTest ((42::Integer, 42::Natural), True) (Reserved, True)
     , testCase "tuple/tuple" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) ((42::Integer, -42::Integer), 100::Integer)
     , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (SingleField (-42) :: SingleField 1 Integer, 100::Integer)
     , testCase "records" $ subTypeTest (Unary (SimpleRecord True "Test")) (Unary (ARecord True))
@@ -262,6 +259,12 @@ tests = testGroup "tests"
 
 instance Monad m => Serial m BS.ByteString where
     series = BS.pack <$> series
+
+instance Monad m => Serial m Principal where
+    series = Principal <$> series
+
+instance Monad m => Serial m Reserved where
+    series = Reserved <$ series @m @()
 
 type Demo1 m = [candid| service : { "greet": (text) -> (text); } |]
 

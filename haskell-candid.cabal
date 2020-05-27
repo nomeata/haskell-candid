@@ -22,6 +22,7 @@ library
   other-modules: Codec.Candid.Service
   other-modules: Codec.Candid.Parse
   other-modules: Codec.Candid.TH
+  other-modules: Codec.Candid.Data
   build-depends: base >=4.12 && <5
   build-depends: text
   build-depends: vector
