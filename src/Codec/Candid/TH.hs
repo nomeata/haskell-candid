@@ -19,10 +19,12 @@ import Language.Haskell.TH.Syntax (lookupTypeName)
 import Codec.Candid.Core
 import Codec.Candid.Parse
 
+-- | This quasi-quoter turns a Candid description into a Haskell type. It assumes a type variable @m@ to be in scope.
 candid :: QuasiQuoter
 candid = QuasiQuoter { quoteExp = err, quotePat = err, quoteDec = err, quoteType = quoteCandidType }
   where err _ = fail "[candid| … |] can only be used as a type"
 
+-- | As 'candid', but takes a filename
 candidFile :: QuasiQuoter
 candidFile = quoteFile candid
 

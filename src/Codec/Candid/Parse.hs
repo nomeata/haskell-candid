@@ -10,11 +10,12 @@ import Data.Functor
 
 import Codec.Candid.Core
 
--- | A candid service, as a list of methods
+-- | A candid service, as a list of methods with argument and result types
 --
--- (no support for annotations yet)
+-- (no support for annotations like query yet)
 type DidFile = [ (T.Text, [Type], [Type]) ]
 
+-- | Parses a Candid description (@.did@) from a string
 parseDid :: String -> Either String DidFile
 parseDid = first show . parse fileP "Candid service"
 

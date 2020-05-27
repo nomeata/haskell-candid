@@ -96,16 +96,48 @@ In a real application you would more likely pass some networking code to 'toCand
  , toCandidService
  , fromCandidService
 
--- Convenience re-exports
--- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837
--- , Generic
-
 -- * Parsing .did files
+
+{- |
+
+In the example above, we wrote the type of the service in Haskell. But very
+likely you want to talk to a service whose is given to you in the form of a
+@.did@ files, like
+
+> service : {
+>   get : () -> (int);
+>   inc : (int) -> ();
+> }
+
+You can parse such a description:
+
+>>> pretty <$> parseDid "service : { get : () -> (int); inc : (int) -> (); }"
+Right [(get, (), (int)), (inc, (int), ())]
+
+And you can even, using Template Haskell, turn this into a proper Haskell type. The 'candid' antiquotation produces a type, and expects a free type variable @m@ for the monad you want to use.
+
+>>> :set -XQuasiQuotes
+>>> import Data.Row
+>>> import Data.Row.Internal
+>>> type Counter m = [candid| service : { get : () -> (int); inc : (int) -> (); } |]
+>>> :info Counter
+type Counter (m :: * -> *) = 'R '[ "get" ':-> (() -> m Integer), "inc" ':-> (Integer -> m ())] :: Row *
+...
+
+You can then use this with 'toCandidService' to talk to a service.
+
+If you want to read the description from a @.did@ file, you can use 'candidFile'.
+
+-}
 
  , DidFile
  , parseDid
  , candid
  , candidFile
+
+-- Convenience re-exports
+-- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837
+-- , Generic
 
 -- * Mostly plumbing
 --
@@ -149,7 +181,7 @@ Candid is inherently typed, so before encoding or decoding, we have to declare t
 
 This is useful when you want to quickly target a specific Candid type that does not use recursion (and ideally also no records or variants).
 
-The 'Type' type directly matches the types presented in the Candid specification. We can pass these types directly to the `encodeT` and `decodeT` functions, using `TypeApplication`.
+The 'Type' type directly matches the types presented in the Candid specification. We can pass these types directly to the 'encodeT' and 'decodeT' functions, using @TypeApplication@.
 
 >>> :set -XTypeApplications -XDataKinds -XOverloadedStrings
 >>> encodeT @[BoolT, OptT TextT] (True, (Just "Hello", ()))
@@ -269,7 +301,7 @@ variant {Point; Rectangle : record {0 : float; 1 : float}; Sphere : float}
 >>> encode (Rectangle (100,100))
 "DIDL\STXk\ETX\176\200\244\205\ENQ\DEL\143\232\190\218\v\SOH\173\198\172\140\SIrl\STX\NULr\SOHr\SOH\NUL\SOH\NUL\NUL\NUL\NUL\NUL\NULY@\NUL\NUL\NUL\NUL\NUL\NULY@"
 
-Because data constructors are capitalized in Haskell, you cannot derive enums or variants with lower-case names. Also, nullary data constructors are not supported by @row-types@, and thus here, even though they would nicely map onto variants with arguments of type `null`.
+Because data constructors are capitalized in Haskell, you cannot derive enums or variants with lower-case names. Also, nullary data constructors are not supported by @row-types@, and thus here, even though they would nicely map onto variants with arguments of type '@null@.
 
 
 = Missing features
