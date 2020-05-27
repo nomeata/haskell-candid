@@ -1,2 +1,2 @@
 import Test.DocTest
-main = doctest ["-isrc", "src/Codec/Candid.hs"]
+main = doctest ["-isrc", "src/Codec/Candid.hs", "--fast"]

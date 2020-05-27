@@ -10,11 +10,51 @@ __Warning 2:__ The author couldn’t resist turning this into a little Haskell-t
 
 module Codec.Candid
  (
--- * Overview
+-- * Tutorial
 
--- $overview
+{- |
 
--- * Candid Types
+Candid is inherently typed, so before encoding or decoding, we have to declare the Candid type to use. There are multiple ways of doing that:
+
+-}
+
+-- ** Using 'Type'
+
+-- $type
+
+-- ** Haskell types
+
+-- $haskell_types
+
+-- ** Custom types
+
+-- $own_type
+
+-- ** Generic types
+
+-- $generic
+
+-- ** Candid services
+
+-- $services
+
+-- ** Importing Candid
+
+-- $import
+
+-- ** Missing features
+
+{- |
+
+* Reading or writing interface descriptions
+* Service and function types
+* Future types
+
+-}
+
+-- * Reference
+
+-- ** Candid Types
    encodeT
  , encodeBuilderT
  , decodeT
@@ -23,7 +63,7 @@ module Codec.Candid
  , Fields
  , FieldName(..)
 
--- * Custom types
+-- ** Custom types
 
  , encode
  , encodeBuilder
@@ -32,15 +72,200 @@ module Codec.Candid
  , CandidArg
  , Unary(..)
 
--- * Generic programming utilities
+-- ** Generics
 
  , AsRecord(..)
  , AsVariant(..)
  , CandidVal(..)
 
--- * Candid services
+-- ** Candid services
 
-{- |
+ , CandidService
+ , RawService
+ , toCandidService
+ , fromCandidService
+
+-- ** Parsing .did files
+
+ , DidFile
+ , parseDid
+ , candid
+ , candidFile
+
+-- Convenience re-exports
+-- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837
+-- , Generic
+
+-- ** Mostly plumbing
+--
+-- | These exports are usually not interesting
+
+ , Other(Other)
+ , KnownType
+ , KnownFields
+ , KnownArgs
+ , Val
+ , Record
+ , Variant
+ , Seq
+ , typeVal
+ , typesVal
+ , CandidMethod(..)
+--
+ ) where
+
+import Codec.Candid.Core
+import Codec.Candid.Generic
+import Codec.Candid.Wrappers
+import Codec.Candid.Service
+import Codec.Candid.Parse
+import Codec.Candid.TH
+
+-- $setup
+-- >>> :set -dppr-cols=200
+-- >>> import Data.Text (Text)
+-- >>> import qualified Data.Text as T
+-- >>> import Data.Void (Void)
+-- >>> import Data.Text.Prettyprint.Doc (pretty)
+-- >>> import qualified Data.ByteString.Char8 as BS
+-- >>> :set -XScopedTypeVariables
+
+{- $type
+
+This is useful when you want to quickly target a specific Candid type that does not use recursion (and ideally also no records or variants).
+
+The 'Type' type directly matches the types presented in the Candid specification. We can pass these types directly to the 'encodeT' and 'decodeT' functions, using @TypeApplication@.
+
+>>> :set -XTypeApplications -XDataKinds -XOverloadedStrings
+>>> encodeT @[BoolT, OptT TextT] (True, (Just "Hello", ()))
+"DIDL\SOHnq\STX~\NUL\SOH\SOH\ENQHello"
+>>> type MyType = [BoolT, OptT TextT]
+>>> decodeT @MyType (encodeT @MyType (True, (Just "Hello", ())))
+Right (True,(Just "Hello",()))
+
+In the second line we used a normal type alias to give a name to this type.
+
+As you can see the type of Haskell values you pass in depends on the Candid type description. This is implemented by the type families 'Val' and (for argument sequences) 'Seq':
+
+>>> :kind! Seq [BoolT, OptT TextT]
+Seq [BoolT, OptT TextT] :: *
+= (Bool, (Maybe Text, ()))
+
+This uses nested pairs to express Candid argument sequences.
+
+Records and variants are represented a bit unwieldy, as nested pairs or 'Either's:
+
+>>> :kind! Val (RecT '[ '(N "foo", BoolT), '(N "bar", OptT TextT)])
+Val (RecT '[ '(N "foo", BoolT), '(N "bar", OptT TextT)]) :: *
+= (Bool, (Maybe Text, ()))
+
+>>> :kind! Val (VariantT '[ '(N "foo", BoolT), '(N "bar", OptT TextT)])
+Val (VariantT '[ '(N "foo", BoolT), '(N "bar", OptT TextT)]) :: *
+= Either Bool (Either (Maybe Text) Void)
+
+This is not very convenient, so consider the following alternative ways.
+
+-}
+
+{- $haskell_types
+
+Instead of using Candid types ('Type') to declare the interface, you can use normal Haskell types. Any type that is an instance of 'Candid' can be used:
+
+>>> encode ([True, False], Just 100)
+"DIDL\STXm~n|\STX\NUL\SOH\STX\SOH\NUL\SOH\228\NUL"
+>>> decode (encode ([True, False], Just 100)) == Right ([True, False], Just 100)
+True
+
+Here, no type annotations are needed, the library can infer them from the types of the Haskell values. The type families 'Rep' (for values) and 'ArgRep' (for argument sequences) indicate the corresponding Candid types:
+
+>>> :type +d ([True, False], Just 100)
+([True, False], Just 100) :: ([Bool], Maybe Integer)
+>>> :kind! ArgRep ([Bool], Maybe Integer)
+ArgRep ([Bool], Maybe Integer) :: [Type]
+= '[ 'VecT 'BoolT, 'OptT 'IntT]
+>>> pretty (typesVal @(ArgRep ([Bool], Maybe Integer)))
+(vec bool, opt int)
+
+This library is integrated with the @row-types@ library, so you can use their
+records directly:
+
+>>> :set -XOverloadedLabels
+>>> import Data.Row ((.==),(.+))
+>>> encode (#foo .== [True, False] .+ #bar .== Just 100)
+"DIDL\ETXl\STX\211\227\170\STX\SOH\134\142\183\STX\STXn|m~\SOH\NUL\SOH\228\NUL\STX\SOH\NUL"
+
+-}
+
+{- $own_type
+
+If you want to use your own types directly, you have to declare an instance of the 'Candid' type class. In this instance, you indicate which Candid 'Type' your type should serialize to, and provide conversion functions to the corresponding 'Val'.
+
+>>> :set -XTypeFamilies
+>>> newtype Age = Age Integer
+>>> :{
+instance Candid Age where
+    type Rep Age = 'IntT
+    toCandid (Age i) = i
+    fromCandid = Age
+:}
+
+>>> encode (Age 42)
+"DIDL\NUL\SOH|*"
+
+This is more or less the only way to introduce recursive types. In order to refer to them inside the 'Rep' equation, you can wrap it in 'OtherT':
+
+>>> newtype Peano = Peano (Maybe Peano) deriving (Show, Eq)
+>>> type PeanoT = OtherT Peano
+>>> :{
+instance Candid Peano where
+    type Rep Peano = 'OptT PeanoT
+    toCandid (Peano x) = x
+    fromCandid = Peano
+:}
+
+>>> peano = Peano $ Just $ Peano $ Just $ Peano $ Just $ Peano Nothing
+>>> encode peano
+"DIDL\SOHn\NUL\SOH\NUL\SOH\SOH\SOH\NUL"
+-}
+
+{- $generic
+
+Especially for Haskell record types, you can use magic involving generic types to create the 'Candid' instance automatically. The best way is using the @DerivingVia@ langauge extension,using the 'AsRecord' new type to indicate that this strategy should be used:
+
+>>> :set -XDerivingVia -XDeriveGeneric -XUndecidableInstances
+>>> import GHC.Generics (Generic)
+>>> :{
+data SimpleRecord = SimpleRecord { foo :: [Bool], bar :: Maybe Integer }
+    deriving Generic
+    deriving Candid via (AsRecord SimpleRecord)
+:}
+
+>>> pretty (typeVal @(Rep SimpleRecord))
+record {bar : opt int; foo : vec bool}
+>>> encode (SimpleRecord { foo = [True, False], bar = Just 100 })
+"DIDL\ETXl\STX\211\227\170\STX\SOH\134\142\183\STX\STXn|m~\SOH\NUL\SOH\228\NUL\STX\SOH\NUL"
+
+Unfortunately, this feature requires @UndecidableInstances@.
+
+This works for variants too:
+
+>>> :{
+data Shape = Point () | Sphere Double | Rectangle (Double, Double)
+    deriving Generic
+    deriving Candid via (AsVariant Shape)
+:}
+
+>>> pretty (typeVal @(Rep Shape))
+variant {Point; Rectangle : record {0 : float; 1 : float}; Sphere : float}
+>>> encode (Rectangle (100,100))
+"DIDL\STXk\ETX\176\200\244\205\ENQ\DEL\143\232\190\218\v\SOH\173\198\172\140\SIrl\STX\NULr\SOHr\SOH\NUL\SOH\NUL\NUL\NUL\NUL\NUL\NULY@\NUL\NUL\NUL\NUL\NUL\NULY@"
+
+Because data constructors are capitalized in Haskell, you cannot derive enums or variants with lower-case names. Also, nullary data constructors are not supported by @row-types@, and thus here, even though they would nicely map onto variants with arguments of type '@null@.
+
+-}
+
+{- $services
+
 Very likely you want to either implement or use whole Candid interfaces. In order to apply the encoding/decoding in one go, you can use 'fromCandidService' and 'toCandidService'. These convert between a raw service ('RawService', takes a method name and bytes, and return bytes), and a typed 'CandidService' (expressed as an 'Data.Row.Rec' record).
 
 Let us create a simple service:
@@ -88,17 +313,9 @@ And finally, we can turn this raw function  back into a typed interface:
 
 In a real application you would more likely pass some networking code to 'toCandidService'.
 
-
 -}
 
- , CandidService
- , RawService
- , toCandidService
- , fromCandidService
-
--- * Parsing .did files
-
-{- |
+{- $import
 
 In the example above, we wrote the type of the service in Haskell. But very
 likely you want to talk to a service whose is given to you in the form of a
@@ -117,7 +334,6 @@ Right [(get, (), (int)), (inc, (int), ())]
 And you can even, using Template Haskell, turn this into a proper Haskell type. The 'candid' antiquotation produces a type, and expects a free type variable @m@ for the monad you want to use.
 
 >>> :set -XQuasiQuotes
->>> import Data.Row
 >>> import Data.Row.Internal
 >>> type Counter m = [candid| service : { get : () -> (int); inc : (int) -> (); } |]
 >>> :info Counter
@@ -128,185 +344,5 @@ You can then use this with 'toCandidService' to talk to a service.
 
 If you want to read the description from a @.did@ file, you can use 'candidFile'.
 
--}
 
- , DidFile
- , parseDid
- , candid
- , candidFile
-
--- Convenience re-exports
--- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837
--- , Generic
-
--- * Mostly plumbing
---
--- | These exports are usually not interesting
-
- , Other(Other)
- , KnownType
- , KnownFields
- , KnownArgs
- , Val
- , Record
- , Variant
- , Seq
- , typeVal
- , typesVal
- , CandidMethod(..)
---
- ) where
-
-import Codec.Candid.Core
-import Codec.Candid.Generic
-import Codec.Candid.Wrappers
-import Codec.Candid.Service
-import Codec.Candid.Parse
-import Codec.Candid.TH
-
--- $setup
--- >>> :set -dppr-cols=200
--- >>> import Data.Text (Text)
--- >>> import qualified Data.Text as T
--- >>> import Data.Void (Void)
--- >>> import Data.Text.Prettyprint.Doc (pretty)
--- >>> import qualified Data.ByteString.Char8 as BS
--- >>> :set -XScopedTypeVariables
-
-{- $overview
-
-Candid is inherently typed, so before encoding or decoding, we have to declare the Candid type to use. There are multiple ways of doing that:
-
-== Using 'Type'
-
-This is useful when you want to quickly target a specific Candid type that does not use recursion (and ideally also no records or variants).
-
-The 'Type' type directly matches the types presented in the Candid specification. We can pass these types directly to the 'encodeT' and 'decodeT' functions, using @TypeApplication@.
-
->>> :set -XTypeApplications -XDataKinds -XOverloadedStrings
->>> encodeT @[BoolT, OptT TextT] (True, (Just "Hello", ()))
-"DIDL\SOHnq\STX~\NUL\SOH\SOH\ENQHello"
->>> type MyType = [BoolT, OptT TextT]
->>> decodeT @MyType (encodeT @MyType (True, (Just "Hello", ())))
-Right (True,(Just "Hello",()))
-
-In the second line we used a normal type alias to give a name to this type.
-
-As you can see the type of Haskell values you pass in depends on the Candid type description. This is implemented by the type families 'Val' and (for argument sequences) 'Seq':
-
->>> :kind! Seq [BoolT, OptT TextT]
-Seq [BoolT, OptT TextT] :: *
-= (Bool, (Maybe Text, ()))
-
-This uses nested pairs to express Candid argument sequences.
-
-Records and variants are represented a bit unwieldy, as nested pairs or 'Either's:
-
->>> :kind! Val (RecT '[ '(N "foo", BoolT), '(N "bar", OptT TextT)])
-Val (RecT '[ '(N "foo", BoolT), '(N "bar", OptT TextT)]) :: *
-= (Bool, (Maybe Text, ()))
-
->>> :kind! Val (VariantT '[ '(N "foo", BoolT), '(N "bar", OptT TextT)])
-Val (VariantT '[ '(N "foo", BoolT), '(N "bar", OptT TextT)]) :: *
-= Either Bool (Either (Maybe Text) Void)
-
-This is not very convenient, so consider the following alternative ways.
-
-== Using existing Haskell types
-
-Instead of using Candid types ('Type') to declare the interface, you can use normal Haskell types. Any type that is an instance of 'Candid' can be used:
-
->>> encode ([True, False], Just 100)
-"DIDL\STXm~n|\STX\NUL\SOH\STX\SOH\NUL\SOH\228\NUL"
->>> decode (encode ([True, False], Just 100)) == Right ([True, False], Just 100)
-True
-
-Here, no type annotations are needed, the library can infer them from the types of the Haskell values. The type families 'Rep' (for values) and 'ArgRep' (for argument sequences) indicate the corresponding Candid types:
-
->>> :type +d ([True, False], Just 100)
-([True, False], Just 100) :: ([Bool], Maybe Integer)
->>> :kind! ArgRep ([Bool], Maybe Integer)
-ArgRep ([Bool], Maybe Integer) :: [Type]
-= '[ 'VecT 'BoolT, 'OptT 'IntT]
->>> pretty (typesVal @(ArgRep ([Bool], Maybe Integer)))
-(vec bool, opt int)
-
-This library is integrated with the @row-types@ library, so you can use their
-records directly:
-
->>> :set -XOverloadedLabels
->>> import Data.Row ((.==),(.+))
->>> encode (#foo .== [True, False] .+ #bar .== Just 100)
-"DIDL\ETXl\STX\211\227\170\STX\SOH\134\142\183\STX\STXn|m~\SOH\NUL\SOH\228\NUL\STX\SOH\NUL"
-
-== Using your own types
-
-If you want to use your own types directly, you have to declare an instance of the 'Candid' type class. In this instance, you indicate which Candid 'Type' your type should serialize to, and provide conversion functions to the corresponding 'Val'.
-
->>> :set -XTypeFamilies
->>> newtype Age = Age Integer
->>> :{
-instance Candid Age where
-    type Rep Age = 'IntT
-    toCandid (Age i) = i
-    fromCandid = Age
-:}
-
->>> encode (Age 42)
-"DIDL\NUL\SOH|*"
-
-This is more or less the only way to introduce recursive types. In order to refer to them inside the 'Rep' equation, you can wrap it in 'OtherT':
-
->>> newtype Peano = Peano (Maybe Peano) deriving (Show, Eq)
->>> type PeanoT = OtherT Peano
->>> :{
-instance Candid Peano where
-    type Rep Peano = 'OptT PeanoT
-    toCandid (Peano x) = x
-    fromCandid = Peano
-:}
-
->>> peano = Peano $ Just $ Peano $ Just $ Peano $ Just $ Peano Nothing
->>> encode peano
-"DIDL\SOHn\NUL\SOH\NUL\SOH\SOH\SOH\NUL"
-
-== Using your own types, generically
-
-Especially for Haskell record types, you can use magic involving generic types to create the 'Candid' instance automatically. The best way is using the @DerivingVia@ langauge extension,using the 'AsRecord' new type to indicate that this strategy should be used:
-
->>> :set -XDerivingVia -XDeriveGeneric -XUndecidableInstances
->>> import GHC.Generics (Generic)
->>> :{
-data SimpleRecord = SimpleRecord { foo :: [Bool], bar :: Maybe Integer }
-    deriving Generic
-    deriving Candid via (AsRecord SimpleRecord)
-:}
-
->>> pretty (typeVal @(Rep SimpleRecord))
-record {bar : opt int; foo : vec bool}
->>> encode (SimpleRecord { foo = [True, False], bar = Just 100 })
-"DIDL\ETXl\STX\211\227\170\STX\SOH\134\142\183\STX\STXn|m~\SOH\NUL\SOH\228\NUL\STX\SOH\NUL"
-
-Unfortunately, this feature requires @UndecidableInstances@.
-
-This works for variants too:
->>> :{
-data Shape = Point () | Sphere Double | Rectangle (Double, Double)
-    deriving Generic
-    deriving Candid via (AsVariant Shape)
-:}
-
->>> pretty (typeVal @(Rep Shape))
-variant {Point; Rectangle : record {0 : float; 1 : float}; Sphere : float}
->>> encode (Rectangle (100,100))
-"DIDL\STXk\ETX\176\200\244\205\ENQ\DEL\143\232\190\218\v\SOH\173\198\172\140\SIrl\STX\NULr\SOHr\SOH\NUL\SOH\NUL\NUL\NUL\NUL\NUL\NULY@\NUL\NUL\NUL\NUL\NUL\NULY@"
-
-Because data constructors are capitalized in Haskell, you cannot derive enums or variants with lower-case names. Also, nullary data constructors are not supported by @row-types@, and thus here, even though they would nicely map onto variants with arguments of type '@null@.
-
-
-= Missing features
-
-* Reading or writing interface descriptions
-* Service and function types
-* Future types
 -}
