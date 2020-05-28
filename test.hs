@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -12,6 +13,7 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -40,54 +42,56 @@ import Codec.Candid
 
 main = defaultMain tests
 
-newtype Peano = Peano (Maybe Peano) deriving (Show, Eq)
-type PeanoT = OtherT Peano
+newtype Peano = Peano (Maybe Peano)
+    deriving (Show, Eq)
+    deriving Candid via (Maybe Peano)
 
-instance Candid Peano where
-    type Rep Peano = 'OptT PeanoT
-    toCandid (Peano x) = x
-    fromCandid = Peano
-
-peano :: Val PeanoT
+peano :: Peano
 peano = Peano $ Just $ Peano $ Just $ Peano $ Just $ Peano Nothing
 
-data LinkedList a = Nil | Cons a (LinkedList a) deriving (Eq, Show)
-instance Candid a => Candid (LinkedList a) where
-    type Rep (LinkedList a) = 'OptT ('RecT '[ '( 'H 0, Rep a), '( 'H 1, OtherT (LinkedList a))])
-    toCandid Nil = Nothing
-    toCandid (Cons x xs) = Just (toCandid x, (xs, ()))
-    fromCandid Nothing = Nil
-    fromCandid (Just (x,(xs, ()))) = Cons (fromCandid x) xs
+newtype LinkedList a = LinkedList (Maybe (a, LinkedList a))
+    deriving (Show, Eq)
+    deriving newtype Candid
+
+cons x y = LinkedList $ Just (x, y)
+nil = LinkedList Nothing
 
 natList :: LinkedList Natural
-natList = Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil)))
+natList = cons 1 (cons 2 (cons 3 (cons 4 nil)))
 
 stringList :: [T.Text]
 stringList = [T.pack "HI", T.pack "Ho"]
 
 newtype ARecord a = ARecord { foo :: a }
+    deriving (Eq, Show, Generic)
+    deriving anyclass (Serial m)
+
+deriving via (AsRecord (ARecord a))
+    instance Candid a => Candid (ARecord a)
+
+data EmptyRecord = EmptyRecord
+    deriving (Eq, Show, Generic, Serial m)
+    deriving Candid via (AsRecord EmptyRecord)
+
+newtype MiddleField a = MiddleField a
     deriving (Eq, Show)
 
-instance Candid a => Candid (ARecord a) where
-    type Rep (ARecord a) = 'RecT '[ '( 'N "foo", Rep a) ]
-    toCandid (ARecord x) = (toCandid x, ())
-    fromCandid (x, ()) = ARecord (fromCandid x)
-
-newtype SingleField (n::Nat) a = SingleField a
-    deriving (Eq, Show)
-
-instance (KnownNat n, Candid a) => Candid (SingleField n a) where
-    type Rep (SingleField n a) = 'RecT '[ '( 'H n, Rep a) ]
-    toCandid (SingleField x) = (toCandid x, ())
-    fromCandid (x, ()) = SingleField (fromCandid x)
+instance Candid a => Candid (MiddleField a) where
+    asType = RecT [(H 1, asType' @a) ]
+    toCandid (MiddleField x) = RecV [(H 1, toCandid x)]
+    fromCandid (RecV xs) = case lookupField (H 1) xs of
+        Just v -> MiddleField <$> fromCandid v
+        Nothing -> Left "Did not field hash 1"
 
 newtype JustRight a = JustRight a
     deriving (Eq, Show)
 
 instance Candid a => Candid (JustRight a) where
-    type Rep (JustRight a) = 'VariantT '[ '( 'N "Right", Rep a) ]
-    toCandid (JustRight x) = Left (toCandid x)
-    fromCandid (Left x) = JustRight (fromCandid x)
+    asType = VariantT [(N "Right", asType' @a)]
+    toCandid (JustRight x) = VariantV (N "Right") (toCandid x)
+    fromCandid (VariantV f x)
+        | candidHash f == candidHash (N "Right") = JustRight <$> fromCandid x
+    fromCandid v = Left "Unexpected value"
 
 data SimpleRecord = SimpleRecord { foo :: Bool, bar :: T.Text }
     deriving (Generic, Eq, Show)
@@ -102,21 +106,22 @@ roundTripTest v1 = do
     Right v -> return v
   assertEqual "values" v1 v2
 
-roundTripProp :: forall ts. (KnownArgs ts, Serial IO (Seq ts), Eq (Seq ts), Show (Seq ts)) => TestTree
-roundTripProp = testProperty (show (pretty (typesVal @ts))) $ \v ->
-    case decodeT @ts (encodeT @ts v) of
+roundTripProp :: forall a. (CandidArg a, Serial IO a, Show a, Eq a) => TestTree
+roundTripProp = testProperty desc $ \v ->
+    case decode @a (encode @a v) of
         Right y | y == v -> Right ("all good" :: String)
         Right y -> Left $
             show v ++ " round-tripped to " ++ show y
         Left err -> Left $
             show v ++ " failed to decode: " ++ err
+  where
+    desc = show $ pretty (tieKnot (typeDesc @a))
 
-subTypProp :: forall ts1 ts2.
-    (KnownArgs ts1, Serial IO (Seq ts1), Show (Seq ts1)) =>
-    KnownArgs ts2 =>
-    TestTree
-subTypProp = testProperty (show (pretty (typesVal @ts1) <+> "<:" <+> pretty (typesVal @ts2))) $ \v ->
-    isRight $ decodeT @ts2 (encodeT @ts1 v)
+subTypProp :: forall a b.  (CandidArg a, Serial IO a, Show a, CandidArg b) => TestTree
+subTypProp = testProperty desc $ \v ->
+    isRight $ decode @b (encode @a v)
+  where
+    desc = show $ pretty (tieKnot (typeDesc @a)) <+> "<:" <+> pretty (tieKnot (typeDesc @b))
 
 subTypeTest' :: forall a b.
     (CandidArg a, Eq a, Show a) =>
@@ -141,12 +146,6 @@ subTypeTest v1 v2 = do
     Left err -> return ()
     Right _ -> assertFailure "converse subtype test succeeded"
 
-nullV :: CandidVal 'NullT
-nullV = CandidVal ()
-
-emptyRec :: CandidVal ('RecT '[])
-emptyRec = CandidVal ()
-
 instance Monad m => Serial m T.Text where
     series = T.pack <$> series
 
@@ -158,10 +157,9 @@ instance Monad m => Serial m Void where
 
 parseTest :: String -> DidFile -> TestTree
 parseTest c e = testCase c $
-    -- We don't have Eq on Type, so lets pretty-print
     case parseDid c of
         Left err -> assertFailure err
-        Right s -> show (pretty s) @?= show (pretty e)
+        Right s -> s @?= e
 
 tests = testGroup "tests"
   [ testGroup "encode tests"
@@ -182,55 +180,57 @@ tests = testGroup "tests"
     ]
   , testGroup "subtypes"
     [ testCase "nat/int" $ subTypeTest (Unary (42 :: Natural)) (Unary (42 :: Integer))
-    , testCase "null/opt" $ subTypeTest (Unary nullV) (Unary (Nothing @Integer))
-    , testCase "rec" $ subTypeTest (ARecord True, True) (emptyRec, True)
-    , testCase "tuple" $ subTypeTest ((42::Integer,-42::Integer), 100::Integer) (emptyRec, 100::Integer)
-    , testCase "variant" $ subTypeTest' (Right 42 :: Either Bool Natural, True) (JustRight (42 :: Natural), True)
+    , testCase "null/opt" $ subTypeTest (Unary ()) (Unary (Nothing @Integer))
+    , testCase "rec" $ subTypeTest (ARecord True, True) (EmptyRecord, True)
+    , testCase "tuple" $ subTypeTest ((42::Integer,-42::Integer), 100::Integer) (EmptyRecord, 100::Integer)
+    , testCase "variant" $ subTypeTest' (JustRight (42 :: Natural), True) (Right 42 :: Either Bool Natural, True)
     , testCase "rec/any" $ subTypeTest (ARecord True, True) (Reserved, True)
     , testCase "tuple/any" $ subTypeTest ((42::Integer, 42::Natural), True) (Reserved, True)
     , testCase "tuple/tuple" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) ((42::Integer, -42::Integer), 100::Integer)
-    , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (SingleField (-42) :: SingleField 1 Integer, 100::Integer)
+    , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (MiddleField (-42) :: MiddleField Integer, 100::Integer)
     , testCase "records" $ subTypeTest (Unary (SimpleRecord True "Test")) (Unary (ARecord True))
     ]
   , testGroup "roundtrip smallchecks"
-    [ roundTripProp @ '[ 'BoolT]
-    , roundTripProp @ '[ 'NatT]
-    , roundTripProp @ '[ 'Nat8T]
-    , roundTripProp @ '[ 'Nat16T]
-    , roundTripProp @ '[ 'Nat32T]
-    , roundTripProp @ '[ 'Nat64T]
-    , roundTripProp @ '[ 'IntT]
-    , roundTripProp @ '[ 'Int8T]
-    , roundTripProp @ '[ 'Int16T]
-    , roundTripProp @ '[ 'Int32T]
-    , roundTripProp @ '[ 'Int64T]
-    , roundTripProp @ '[ 'Float32T]
-    , roundTripProp @ '[ 'Float64T]
-    , roundTripProp @ '[ 'TextT]
-    , roundTripProp @ '[ 'NullT]
-    , roundTripProp @ '[ 'ReservedT]
-    , roundTripProp @ '[ 'PrincipalT]
-    , roundTripProp @ '[ 'BlobT]
-    , roundTripProp @ '[ 'OptT TextT]
-    , roundTripProp @ '[ 'VecT TextT]
-    , roundTripProp @ '[ 'RecT '[] ]
-    , roundTripProp @ '[ 'RecT '[ '(N "Hi", Nat8T) ] ]
-    , roundTripProp @ '[ 'RecT '[ '(N "Hi", Nat8T), '(N "Ho", Nat8T) ] ]
-    , roundTripProp @ '[ 'RecT '[ '(N "Hi", Nat8T), '(H 1, Nat8T) ] ]
-    , roundTripProp @ '[ 'VariantT '[ '(N "Hi", BoolT), '(N "Ho", BoolT) ] ]
-    , roundTripProp @ '[ OtherT SimpleRecord ]
+    [ roundTripProp @Bool
+    , roundTripProp @Natural
+    , roundTripProp @Word8
+    , roundTripProp @Word16
+    , roundTripProp @Word32
+    , roundTripProp @Word64
+    , roundTripProp @Integer
+    , roundTripProp @Int8
+    , roundTripProp @Int16
+    , roundTripProp @Int32
+    , roundTripProp @Int64
+    , roundTripProp @Float
+    , roundTripProp @Double
+    , roundTripProp @T.Text
+    , roundTripProp @()
+    , roundTripProp @Reserved
+    , roundTripProp @Principal
+    , roundTripProp @BS.ByteString
+    , roundTripProp @(Maybe T.Text)
+    , roundTripProp @(V.Vector T.Text)
+    , roundTripProp @EmptyRecord
+    , roundTripProp @(ARecord T.Text)
+    , roundTripProp @(Either Bool T.Text)
+    , roundTripProp @SimpleRecord
     ]
   , testGroup "subtype smallchecks"
-    [ subTypProp @ '[ 'NatT ] @ '[ 'IntT ]
+    [ subTypProp @Natural @Natural
+    {-
     , subTypProp @ '[ 'RecT '[ '(N "Hi", Nat8T), '(H 1, Nat8T) ] ] @ '[ 'ReservedT ]
     , subTypProp @ '[ 'RecT '[ '(N "Hi", Nat8T), '(H 1, Nat8T) ] ] @ '[ 'RecT '[]]
     , subTypProp @ '[ 'RecT '[ '(N "Hi", Nat8T), '(H 1, Nat8T) ] ] @ '[ 'RecT '[ '(H 1, Nat8T)]]
     , subTypProp @ '[ 'RecT '[ '(H 0, TextT), '(H 1, Nat8T), '(H 2, BoolT) ] ] @ '[ 'RecT '[ '(H 1, Nat8T)]]
     , subTypProp @ '[ 'VariantT '[ '(N "Hi", BoolT) ] ] @ '[ 'VariantT '[ '(N "Hi", BoolT), '(N "Ho", TextT) ] ]
     , subTypProp @ '[ 'VariantT '[ '(N "Ho", TextT) ] ] @ '[ 'VariantT '[ '(N "Hi", BoolT), '(N "Ho", TextT) ] ]
-    , subTypProp @ '[ 'NatT ] @ '[ 'ReservedT ]
-    , subTypProp @ '[ 'BlobT ] @ '[ 'ReservedT ]
-    , subTypProp @ '[ 'PrincipalT ] @ '[ 'ReservedT ]
+    -}
+    , subTypProp @Natural @Reserved
+    , subTypProp @BS.ByteString @Reserved
+    , subTypProp @BS.ByteString @(V.Vector Word8)
+    , subTypProp @(V.Vector Word8) @BS.ByteString
+    , subTypProp @Principal @Reserved
     ]
   , testGroup "candid parsing" $
     let m x y z = (x, y, z) in
@@ -242,7 +242,7 @@ tests = testGroup "tests"
     , parseTest "service : { foo : (opt text) -> () }"
         [ m "foo" [OptT TextT] []  ]
     , parseTest "service : { foo : (record { x : null; 5 : nat8 }) -> () }"
-        [ m "foo" [RecT [(N' "x", NullT), (H' 5, Nat8T)]] [] ]
+        [ m "foo" [RecT [(N "x", NullT), (H 5, Nat8T)]] [] ]
     ]
   , testGroup "Using TH interface" $
     [ testCase "demo1: direct" $ do

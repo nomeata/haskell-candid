@@ -55,13 +55,14 @@ Candid is inherently typed, so before encoding or decoding, we have to declare t
 -- * Reference
 
 -- ** Candid Types
-   encodeT
- , encodeBuilderT
- , decodeT
- , Type(..)
- , OtherT
+   Type(..)
  , Fields
  , FieldName(..)
+
+-- ** Candid Values
+ , Value(..)
+ , candidHash
+ , lookupField
 
 -- ** Custom types
 
@@ -70,13 +71,16 @@ Candid is inherently typed, so before encoding or decoding, we have to declare t
  , decode
  , Candid(..)
  , CandidArg
+ , typeDesc
+ , TypeDesc
+ , tieKnot
+ , asType'
  , Unary(..)
 
 -- ** Generics
 
  , AsRecord(..)
  , AsVariant(..)
- , CandidVal(..)
 
 -- ** Candid services
 
@@ -106,27 +110,17 @@ Candid is inherently typed, so before encoding or decoding, we have to declare t
 --
 -- | These exports are usually not interesting
 
- , Other(Other)
- , KnownType
- , KnownFields
- , KnownArgs
- , Val
- , Record
- , Variant
- , Seq
- , typeVal
- , typesVal
  , CandidMethod(..)
 --
  ) where
 
 import Codec.Candid.Core
 import Codec.Candid.Generic
-import Codec.Candid.Wrappers
 import Codec.Candid.Service
 import Codec.Candid.Parse
 import Codec.Candid.TH
 import Codec.Candid.Data
+import Codec.Candid.Types
 
 -- $setup
 -- >>> :set -dppr-cols=200

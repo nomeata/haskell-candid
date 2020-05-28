@@ -18,9 +18,9 @@ import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Lib
 import Language.Haskell.TH.Syntax (lookupTypeName)
 
-import Codec.Candid.Core
 import Codec.Candid.Parse
-import Codec.Candid.Data 
+import Codec.Candid.Data
+import Codec.Candid.Types
 
 -- | This quasi-quoter turns a Candid description into a Haskell type. It assumes a type variable @m@ to be in scope.
 candid :: QuasiQuoter
@@ -57,24 +57,22 @@ quoteCandidType s = case parseDidType s of
 typListT :: [TypeQ] -> TypeQ
 typListT = foldr (appT . appT promotedConsT) promotedNilT
 
-args :: [Type] -> TypeQ
+args :: [Type Void] -> TypeQ
 args [] = [t| () |]
 args [t] = typ t
 args ts = foldl appT (tupleT (length ts)) (map typ ts)
 
 
-row :: TypeQ -> TypeQ -> TypeQ -> Fields -> TypeQ
+row :: TypeQ -> TypeQ -> TypeQ -> Fields Void -> TypeQ
 row eq add = foldr (\(fn, t) rest -> [t|
     $add ($eq $(fieldName fn) $(typ t)) $rest
   |])
 
 fieldName :: FieldName -> TypeQ
-fieldName (N' s) = litT (strTyLit (T.unpack s))
-fieldName (N _) = fail "N in term"
-fieldName (H' _) = error "Cannot handle numeric record field names"
-fieldName (H _) = fail "H in term"
+fieldName (N s) = litT (strTyLit (T.unpack s))
+fieldName (H _) = fail "Cannot handle numeric record field names"
 
-typ :: Type -> TypeQ
+typ :: Type Void -> TypeQ
 typ NatT = [t| Natural |]
 typ Nat8T = [t| Word8 |]
 typ Nat16T = [t| Word16 |]
@@ -98,4 +96,4 @@ typ (OptT t) = [t| Maybe $( typ t ) |]
 typ (VecT t) = [t| V.Vector $( typ t ) |]
 typ (RecT fs) = [t| R.Rec $(row [t| (R..==) |] [t| (R..+) |] [t| R.Empty |] fs) |]
 typ (VariantT fs) = [t| V.Var $(row [t| (V..==) |] [t| (V..+) |] [t| V.Empty |] fs) |]
-typ (OtherT_ _) = error "Unexpected OtherT"
+typ (RefT v) = absurd v

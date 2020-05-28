@@ -4,7 +4,7 @@ module Codec.Candid.Data where
 import qualified Data.ByteString as BS
 
 data Reserved = Reserved
- deriving (Eq, Show)
+ deriving (Eq, Ord, Show)
 
 newtype Principal = Principal { rawPrincipal :: BS.ByteString }
- deriving (Eq, Show)
+ deriving (Eq, Ord, Show)

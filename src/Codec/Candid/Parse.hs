@@ -7,19 +7,20 @@ import Data.Bifunctor
 import Data.Word
 import Data.Char
 import Data.Functor
+import Data.Void
 
-import Codec.Candid.Core
+import Codec.Candid.Types
 
 -- | A candid service, as a list of methods with argument and result types
 --
 -- (no support for annotations like query yet)
-type DidFile = [ (T.Text, [Type], [Type]) ]
+type DidFile = [ (T.Text, [Type Void], [Type Void]) ]
 
 -- | Parses a Candid description (@.did@) from a string
 parseDid :: String -> Either String DidFile
 parseDid = first show . parse (allInput fileP) "Candid service"
 
-parseDidType :: String -> Either String Type
+parseDidType :: String -> Either String (Type Void)
 parseDidType = first show . parse (allInput dataTypeP) "Candid type"
 
 allInput :: Parser a -> Parser a
@@ -43,14 +44,14 @@ actorP = s "service" *> optional idP *> s ":" *> actorTypeP -- TODO could be a t
 actorTypeP :: Parser DidFile
 actorTypeP = braceSemi methTypeP
 
-methTypeP :: Parser (T.Text, [Type], [Type])
+methTypeP :: Parser (T.Text, [(Type Void)], [(Type Void)])
 methTypeP = do
     n <- nameP
     s ":"
     (ts1, ts2) <- funcTypeP  -- TODO could be a type id
     return (n, ts1, ts2)
 
-funcTypeP :: Parser ([Type], [Type])
+funcTypeP :: Parser ([(Type Void)], [(Type Void)])
 funcTypeP = (,) <$> seqP <* s "->" <*> seqP <* many funcAnnP
 
 funcAnnP :: Parser () -- TODO: Annotations are dropped
@@ -62,16 +63,16 @@ nameP = fmap T.pack (
     <|> idP
     ) <?> "name"
 
-seqP :: Parser [Type]
+seqP :: Parser [Type Void]
 seqP = parenComma argTypeP
 
-argTypeP :: Parser Type
+argTypeP :: Parser (Type Void)
 argTypeP = dataTypeP <|> (nameP *> s ":" *> dataTypeP)
 
-dataTypeP :: Parser Type
+dataTypeP :: Parser (Type Void)
 dataTypeP = primTypeP <|> constTypeP -- TODO: Ids, reftypes
 
-primTypeP :: Parser Type
+primTypeP :: Parser (Type Void)
 primTypeP = choice
     [ NatT <$ k "nat"
     , Nat8T <$ k "nat8"
@@ -94,7 +95,7 @@ primTypeP = choice
     , PrincipalT <$ k "principal"
     ]
 
-constTypeP :: Parser Type
+constTypeP :: Parser (Type Void)
 constTypeP = choice
   [ OptT <$ k "opt" <*> dataTypeP
   , VecT <$ k "vec" <*> dataTypeP
@@ -102,10 +103,10 @@ constTypeP = choice
   , VariantT <$ k "variant" <*> braceSemi fieldTypeP
   ]
 
-fieldTypeP :: Parser (FieldName, Type)
+fieldTypeP :: Parser (FieldName, Type Void)
 fieldTypeP = choice -- TODO : variant shorthands
-  [ (,) <$> (H' <$> natP) <* s ":" <*> dataTypeP
-  , (,) <$> (N' <$> nameP) <* s ":" <*> dataTypeP
+  [ (,) <$> (H <$> natP) <* s ":" <*> dataTypeP
+  , (,) <$> (N <$> nameP) <* s ":" <*> dataTypeP
   ]
 
 idP :: Parser String

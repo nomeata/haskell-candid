@@ -17,12 +17,12 @@ library
   exposed-modules: Codec.Candid
   exposed-modules: Codec.Candid.Tuples
   other-modules: Codec.Candid.Core
-  other-modules: Codec.Candid.Wrappers
   other-modules: Codec.Candid.Generic
   other-modules: Codec.Candid.Service
   other-modules: Codec.Candid.Parse
   other-modules: Codec.Candid.TH
   other-modules: Codec.Candid.Data
+  other-modules: Codec.Candid.Types
   build-depends: base >=4.12 && <5
   build-depends: text
   build-depends: vector
