@@ -263,6 +263,9 @@ tests = testGroup "tests"
     [ t (BoolV True) "true"
     , t (BoolV False) "false"
     , t (NatV 1) "1"
+    , t (IntV 1) "+1"
+    , t (IntV 0) "+0"
+    , t (IntV (-1)) "-1"
     , t (Nat8V 1) "(1 : nat8)"
     , t (RecV [(N "bar", TextV "baz")]) "record {bar = \"baz\"}"
     ]
@@ -287,9 +290,7 @@ tests = testGroup "tests"
   , testGroup "dynamic values (AST)" $
     let t :: forall a. (HasCallStack, CandidArg a, Eq a, Show a) => String -> a -> TestTree
         t s e = testCase s $ do
-          vs <- either assertFailure return $ parseValues s
-          b <- either assertFailure return $ encodeDynValues vs
-          let bytes = BSL.toStrict (B.toLazyByteString b)
+          bytes <- either assertFailure return $ encodeTextual s
           x <- either assertFailure return $ decode @a bytes
           x @?= e
 

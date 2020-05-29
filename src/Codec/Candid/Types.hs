@@ -152,7 +152,8 @@ data Value
 
 instance Pretty Value where
   pretty (NatV v) = pretty v
-  pretty (IntV v) = pretty v
+  pretty (IntV v) | v >= 0 = "+" <> pretty v
+                  | otherwise = pretty v
   pretty (Nat8V v) = prettyAnn v Nat8T
   pretty (Nat16V v) = prettyAnn v Nat16T
   pretty (Nat32V v) = prettyAnn v Nat32T

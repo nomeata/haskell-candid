@@ -105,6 +105,7 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 
  , decodeVals
  , encodeDynValues
+ , encodeTextual
  , DidFile
  , parseDid
  , parseValue
@@ -128,6 +129,7 @@ import Codec.Candid.TH
 import Codec.Candid.TypTable
 import Codec.Candid.Decode
 import Codec.Candid.Encode
+import Codec.Candid.EncodeTextual
 
 -- $setup
 -- >>> :set -dppr-cols=200
@@ -324,6 +326,27 @@ If you want to read the description from a @.did@ file, you can use 'candidFile'
 
 {- $dynamic
 
-TODO
+Sometimes one needs to interact with Candid in a dynamic way, without static type information.
+
+This library allows the parsing and pretty-printing of candid values. The binary value was copied from above:
+>>> import Data.Row
+>>> :set -XDataKinds -XTypeOperators
+>>> let bytes = encode (#bar .== Just 100 .+ #foo .== [True,False])
+>>> let Right vs = decodeVals bytes
+>>> pretty vs
+(record {4895187 = opt +100; 5097222 = vec {true; false}})
+
+As you can see, the binary format does not preserve the field names. Future versions of this library will allow you to specify the (dynamic) 'Type' at which you want to decode these values, to overcome that problem.
+
+Conversely, you can encode from the textual representation:
+>>> let Right bytes = encodeTextual "record { foo = vec { true; false }; bar = opt +100 }"
+>>> bytes
+"DIDL\ETXl\STX\211\227\170\STX\STX\134\142\183\STX\SOHm~n|\SOH\NUL\SOH\228\NUL\STX\SOH\NUL"
+>>> decode @(Rec ("bar" .== Maybe Integer .+ "foo" .== [Bool])) bytes
+Right (#bar .== Just 100 .+ #foo .== [True,False])
+
+
+
 
 -}
+
