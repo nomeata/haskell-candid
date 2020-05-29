@@ -21,7 +21,7 @@
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B
-import qualified Data.Vector as V
+import qualified Data.Vector as V hiding (singleton)
 import qualified Data.HashMap.Lazy as HM
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -37,7 +37,8 @@ import GHC.TypeLits
 import GHC.Generics (Generic)
 import Data.Text.Prettyprint.Doc
 import Data.Row
-import Data.Row.Variants
+import qualified Data.Row.Records as R
+import qualified Data.Row.Variants as V
 
 import Codec.Candid
 
@@ -87,8 +88,8 @@ newtype JustRight a = JustRight a
 
 instance Candid a => Candid (JustRight a) where
     asType = asType @(Var ("Right" .== a))
-    toCandid (JustRight x) = toCandid (singleton (Label @"Right") x)
-    fromCandid x = JustRight . snd . unSingleton <$> fromCandid @(Var ("Right" .== a)) x
+    toCandid (JustRight x) = toCandid (V.singleton (Label @"Right") x)
+    fromCandid x = JustRight . snd . V.unSingleton <$> fromCandid @(Var ("Right" .== a)) x
 
 data SimpleRecord = SimpleRecord { foo :: Bool, bar :: T.Text }
     deriving (Generic, Eq, Show)
@@ -215,14 +216,14 @@ tests = testGroup "tests"
     ]
   , testGroup "subtype smallchecks"
     [ subTypProp @Natural @Natural
-    {-
-    , subTypProp @ '[ 'RecT '[ '(N "Hi", Nat8T), '(H 1, Nat8T) ] ] @ '[ 'ReservedT ]
-    , subTypProp @ '[ 'RecT '[ '(N "Hi", Nat8T), '(H 1, Nat8T) ] ] @ '[ 'RecT '[]]
-    , subTypProp @ '[ 'RecT '[ '(N "Hi", Nat8T), '(H 1, Nat8T) ] ] @ '[ 'RecT '[ '(H 1, Nat8T)]]
-    , subTypProp @ '[ 'RecT '[ '(H 0, TextT), '(H 1, Nat8T), '(H 2, BoolT) ] ] @ '[ 'RecT '[ '(H 1, Nat8T)]]
-    , subTypProp @ '[ 'VariantT '[ '(N "Hi", BoolT) ] ] @ '[ 'VariantT '[ '(N "Hi", BoolT), '(N "Ho", TextT) ] ]
-    , subTypProp @ '[ 'VariantT '[ '(N "Ho", TextT) ] ] @ '[ 'VariantT '[ '(N "Hi", BoolT), '(N "Ho", TextT) ] ]
-    -}
+    , subTypProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @Reserved
+    , subTypProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @(Rec ("Hi" .== Reserved))
+    , subTypProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @(Rec ("Hi" .== Word8))
+    , subTypProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @(Rec ("_1_" .== Word8))
+    , subTypProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8 .+ "_2_" .== Bool)) @(Rec ("_1_" .== Word8))
+    , subTypProp @(Maybe (Rec ("Hi" .== Word8 .+ "_1_" .== Word8 .+ "_0_" .== Bool))) @(Maybe (Bool,Word8))
+    , subTypProp @(Var ("Hi" .== Word8)) @(Var ("Hi" .== Word8 .+ "Ho" .== T.Text))
+    , subTypProp @(Var ("Ho" .== T.Text)) @(Var ("Hi" .== Word8 .+ "Ho" .== T.Text))
     , subTypProp @Natural @Reserved
     , subTypProp @BS.ByteString @Reserved
     , subTypProp @BS.ByteString @(V.Vector Word8)
@@ -264,6 +265,12 @@ instance Monad m => Serial m Principal where
 
 instance Monad m => Serial m Reserved where
     series = Reserved <$ series @m @()
+
+instance (Monad m, Forall r (Serial m), AllUniqueLabels r) => Serial m (Rec r) where
+    series = R.fromLabelsA @(Serial m) (\l -> series)
+
+instance (Monad m, Forall r (Serial m), AllUniqueLabels r) => Serial m (Var r) where
+    series = V.fromLabels @(Serial m) (\l -> series)
 
 type Demo1 m = [candid| service : { "greet": (text) -> (text); } |]
 

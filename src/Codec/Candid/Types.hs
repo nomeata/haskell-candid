@@ -16,6 +16,7 @@ import Text.Read
 import Numeric.Natural
 import Control.Monad
 import Data.Bifunctor
+import Data.Char
 
 import Data.Text.Prettyprint.Doc
 
@@ -153,7 +154,13 @@ newtype FieldName = N T.Text
   deriving (Eq, Ord, Show)
 
 instance Pretty FieldName where
-    pretty (N n) = dquotes (pretty n) -- TODO: Escape field names
+    pretty (N n)
+        | Just (h,r) <- T.uncons n
+        , h == '_' || isAscii h && isLetter h
+        , T.all (\c -> c == '_' || isAscii c && isAlphaNum c) r
+        = pretty n
+        | otherwise
+        = dquotes (pretty n) -- TODO: Escape field names
 
 hashFieldName :: FieldName -> Word32
 hashFieldName f = either id candidHash $ unescapeFieldName f
