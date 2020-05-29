@@ -15,6 +15,8 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS -Wno-orphans #-}
 -- | This (internal) module contains the core stuff; in particularly
@@ -43,6 +45,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Builder as B
 import qualified Data.Map as M
+import Data.Row
 import qualified Data.Row.Records as R
 import qualified Data.Row.Internal as R
 import qualified Data.Row.Variants as V
@@ -408,253 +411,230 @@ instance CandidSeq () where
 
 instance Candid a => CandidSeq (Unary a) where
     asTypes = [asType' @a]
-    seqVal (Unary x) = [ toCandid x ]
-    fromVals (x:_) = Unary <$> fromCandid x -- Subtyping
+    seqVal (Unary x) = [ toCandidVal x ]
+    fromVals (x:_) = Unary <$> fromCandidVal x -- Subtyping
     fromVals _ = error "Not enough arguments"
 
 instance (Candid a, Candid b) => CandidSeq (a, b) where
     asTypes = [asType' @a, asType' @b]
-    seqVal (x, y) = [ toCandid x, toCandid y ]
-    fromVals (x:y:_) = (,) <$> fromCandid x <*> fromCandid y
+    seqVal (x, y) = [ toCandidVal x, toCandidVal y ]
+    fromVals (x:y:_) = (,) <$> fromCandidVal x <*> fromCandidVal y
     fromVals _ = error "Not enough arguments"
 
 -- | The class of Haskell types that can be converted to Candid.
 --
 -- You can create intances of this class for your own types; see the overview above for examples. The default instance is mostly for internal use.
-class Typeable a => Candid a where
+class Typeable a => CandidVal a where
     asType :: Type (Ref TypeRep Type)
-    toCandid :: a -> Value
-    fromCandid :: Value -> Either String a
+    toCandidVal' :: a -> Value
+    fromCandidVal' :: Value -> Either String a
+
+class (Typeable a, CandidVal (AsCandid a)) => Candid a where
+    type AsCandid a
+    toCandid :: a -> AsCandid a
+    fromCandid :: AsCandid a -> a
+
+    type AsCandid a = a
+    default toCandid :: a ~ AsCandid a => a -> AsCandid a
+    toCandid = id
+    default fromCandid :: a ~ AsCandid a => AsCandid a -> a
+    fromCandid = id
+
+toCandidVal :: Candid a => a -> Value
+toCandidVal = toCandidVal' . toCandid
+
+fromCandidVal :: Candid a => Value -> Either String a
+fromCandidVal = fmap fromCandid . fromCandidVal'
 
 asType' :: forall a.  Candid a => Type (Ref TypeRep Type)
-asType' = RefT (Ref (typeRep (Proxy @a)) (asType @a))
+asType' = RefT (Ref (typeRep (Proxy @(AsCandid a))) (asType @(AsCandid a)))
 
-instance Candid Bool where
+instance Candid Bool
+instance CandidVal Bool where
     asType = BoolT
-    toCandid = BoolV
-    fromCandid (BoolV b) = Right b
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = BoolV
+    fromCandidVal' (BoolV b) = Right b
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Natural where
+instance Candid Natural
+instance CandidVal Natural where
     asType = NatT
-    toCandid = NatV
-    fromCandid (NatV n) = Right n
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = NatV
+    fromCandidVal' (NatV n) = Right n
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Word8 where
+instance Candid Word8
+instance CandidVal Word8 where
     asType = Nat8T
-    toCandid = Nat8V
-    fromCandid (Nat8V n) = Right n
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = Nat8V
+    fromCandidVal' (Nat8V n) = Right n
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Word16 where
+instance Candid Word16
+instance CandidVal Word16 where
     asType = Nat16T
-    toCandid = Nat16V
-    fromCandid (Nat16V n) = Right n
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = Nat16V
+    fromCandidVal' (Nat16V n) = Right n
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Word32 where
+instance Candid Word32
+instance CandidVal Word32 where
     asType = Nat32T
-    toCandid = Nat32V
-    fromCandid (Nat32V n) = Right n
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = Nat32V
+    fromCandidVal' (Nat32V n) = Right n
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Word64 where
+instance Candid Word64
+instance CandidVal Word64 where
     asType = Nat64T
-    toCandid = Nat64V
-    fromCandid (Nat64V n) = Right n
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = Nat64V
+    fromCandidVal' (Nat64V n) = Right n
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Integer where
+instance Candid Integer
+instance CandidVal Integer where
     asType = IntT
-    toCandid = IntV
-    fromCandid (NatV n) = Right (fromIntegral n)
-    fromCandid (IntV n) = Right n
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = IntV
+    fromCandidVal' (NatV n) = Right (fromIntegral n)
+    fromCandidVal' (IntV n) = Right n
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Int8 where
+instance Candid Int8
+instance CandidVal Int8 where
     asType = Int8T
-    toCandid = Int8V
-    fromCandid (Int8V n) = Right n
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = Int8V
+    fromCandidVal' (Int8V n) = Right n
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Int16 where
+instance Candid Int16
+instance CandidVal Int16 where
     asType = Int16T
-    toCandid = Int16V
-    fromCandid (Int16V n) = Right n
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = Int16V
+    fromCandidVal' (Int16V n) = Right n
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Int32 where
+instance Candid Int32
+instance CandidVal Int32 where
     asType = Int32T
-    toCandid = Int32V
-    fromCandid (Int32V n) = Right n
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = Int32V
+    fromCandidVal' (Int32V n) = Right n
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Int64 where
+instance Candid Int64
+instance CandidVal Int64 where
     asType = Int64T
-    toCandid = Int64V
-    fromCandid (Int64V n) = Right n
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = Int64V
+    fromCandidVal' (Int64V n) = Right n
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Float where
+instance Candid Float
+instance CandidVal Float where
     asType = Float32T
-    toCandid = Float32V
-    fromCandid (Float32V n) = Right n
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = Float32V
+    fromCandidVal' (Float32V n) = Right n
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Double where
+instance Candid Double
+instance CandidVal Double where
     asType = Float64T
-    toCandid = Float64V
-    fromCandid (Float64V n) = Right n
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = Float64V
+    fromCandidVal' (Float64V n) = Right n
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Void where
+instance Candid Void
+instance CandidVal Void where
     asType = EmptyT
-    toCandid = absurd
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = absurd
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid T.Text where
+instance Candid T.Text
+instance CandidVal T.Text where
     asType = TextT
-    toCandid = TextV
-    fromCandid (TextV t) = return t
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = TextV
+    fromCandidVal' (TextV t) = return t
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid BS.ByteString where
+instance Candid BS.ByteString
+instance CandidVal BS.ByteString where
     asType = BlobT
-    toCandid = BlobV
+    toCandidVal' = BlobV
     -- should avoid going through vector here somehow
-    fromCandid (VecV v) =  BS.pack . V.toList <$> mapM (fromCandid @Word8) v
-    fromCandid (BlobV t) = return t
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' (VecV v) =  BS.pack . V.toList <$> mapM (fromCandidVal @Word8) v
+    fromCandidVal' (BlobV t) = return t
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid BSL.ByteString where
-    asType = asType @BS.ByteString
-    toCandid = toCandid . BSL.toStrict
-    fromCandid x = BSL.fromStrict <$> fromCandid x
-
-
-instance Candid Principal where
+instance Candid Principal
+instance CandidVal Principal where
     asType = PrincipalT
-    toCandid = PrincipalV
-    fromCandid (PrincipalV t) = return t
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = PrincipalV
+    fromCandidVal' (PrincipalV t) = return t
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid Reserved where
+instance Candid Reserved
+instance CandidVal Reserved where
     asType = ReservedT
-    toCandid Reserved = ReservedV
-    fromCandid _ = return Reserved
+    toCandidVal' Reserved = ReservedV
+    fromCandidVal' _ = return Reserved
 
-instance Candid a => Candid (Maybe a) where
+instance Candid a => Candid (Maybe a)
+instance Candid a => CandidVal (Maybe a) where
     asType = OptT (asType' @a)
-    toCandid = OptV . fmap toCandid
-    fromCandid (OptV x) = traverse fromCandid x
-    fromCandid NullV = return Nothing
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = OptV . fmap toCandidVal
+    fromCandidVal' (OptV x) = traverse fromCandidVal x
+    fromCandidVal' NullV = return Nothing
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-
-instance Candid a => Candid (V.Vector a) where
+instance Candid a => Candid (V.Vector a)
+instance Candid a => CandidVal (V.Vector a) where
     asType = VecT (asType' @a)
-    toCandid = VecV . fmap toCandid
-    fromCandid (VecV x) = traverse fromCandid x
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
-
-instance Candid a => Candid [a] where
-    asType = asType @(V.Vector a)
-    toCandid = toCandid . V.fromList
-    fromCandid x = V.toList <$> fromCandid x
+    toCandidVal' = VecV . fmap toCandidVal
+    fromCandidVal' (VecV x) = traverse fromCandidVal x
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
 -- | Maybe a bit opinionated, but 'null' seems to be the unit of Candid
-instance Candid () where
+instance Candid ()
+instance CandidVal () where
     asType = NullT
-    toCandid () = NullV
-    fromCandid NullV = Right ()
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
-
-instance (Candid a, Candid b) => Candid (a, b) where
-    asType = tupT [asType' @a, asType' @b]
-    toCandid (x,y) = tupV [toCandid x, toCandid y]
-    fromCandid (RecV m) = do
-        x <- fromTupField 0 m >>= fromCandid
-        y <- fromTupField 1 m >>= fromCandid
-        return (x, y)
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
-
-instance (Candid a, Candid b, Candid c) => Candid (a, b, c) where
-    asType = tupT [asType' @a, asType' @b, asType' @c]
-    toCandid (x,y,z) = tupV [toCandid x, toCandid y, toCandid z]
-    fromCandid (RecV m) = do
-        x <- fromTupField 0 m >>= fromCandid
-        y <- fromTupField 1 m >>= fromCandid
-        z <- fromTupField 2 m >>= fromCandid
-        return (x, y, z)
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' () = NullV
+    fromCandidVal' NullV = Right ()
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
 fromField :: FieldName -> [(FieldName, a)] -> Either String a
 fromField f m = case lookupField f m of
     Just v -> return v
     Nothing -> Left $ "Could not find field " ++ show (pretty f)
 
-fromTupField :: Word32 -> [(FieldName, a)] -> Either String a
-fromTupField = fromField . escapeFieldHash
-
-{-
-instance (Candid a, Candid b, Candid c) => Candid (a, b, c) where
-    type Rep (a, b, c) = 'RecT '[ TupField 0 a, TupField 1 b, TupField 2 c]
-    toCandid (x,y,z) = (toCandid x, (toCandid y, (toCandid z, ())))
-    fromCandid (x, (y, (z, ()))) = (fromCandid x, fromCandid y, fromCandid z)
-
-instance (Candid a, Candid b, Candid c, Candid d, Candid e, Candid f) => Candid (a, b, c, d, e, f) where
-    type Rep (a, b, c, d, e, f) = 'RecT '[ TupField 0 a, TupField 1 b, TupField 2 c, TupField 3 d, TupField 4 e, TupField 5 f]
-    toCandid (x1,x2,x3,x4,x5,x6) =
-        x1 & x2 & x3 & x4 & x5 & x6 & ()
-      where
-        infixr &
-        x & r = (toCandid x, r)
-    fromCandid (x1, (x2, (x3, (x4, (x5, (x6, ())))))) =
-        (fromCandid x1, fromCandid x2, fromCandid x3, fromCandid x4, fromCandid x5, fromCandid x6)
-
-type TupField n a = '( 'H n, Rep a)
-
--}
-instance (Candid a, Candid b) => Candid (Either a b) where
-    asType = VariantT [(N "Left", asType' @a), (N "Right", asType' @b) ]
-    toCandid (Left x) = VariantV (N "Left") (toCandid x)
-    toCandid (Right x) = VariantV (N "Right") (toCandid x)
-    fromCandid (VariantV f x)
-        | hashFieldName f == hashFieldName (N "Left") = Left <$> fromCandid x
-        | hashFieldName f == hashFieldName (N "Right") = Right <$> fromCandid x
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
-
 -- row-types integration
 
 class FromRowRec r where
     asTypesRec :: Fields (Ref TypeRep Type)
-    fromRowRec :: R.Rec r -> [(FieldName, Value)]
-    toRowRec :: [(FieldName, Value)] -> Either String (R.Rec r)
+    fromRowRec :: Rec r -> [(FieldName, Value)]
+    toRowRec :: [(FieldName, Value)] -> Either String (Rec r)
 
 
 instance FromRowRec ('R.R '[]) where
     asTypesRec = []
     fromRowRec _ = mempty
-    toRowRec _ = return R.empty
+    toRowRec _ = return empty
 
 instance (Candid t, R.KnownSymbol f, FromRowRec ('R.R xs)) => FromRowRec ('R.R (f 'R.:-> t ': xs)) where
     asTypesRec = (N (R.toKey l), asType' @t) : asTypesRec @('R.R xs)
-      where l = R.Label @f
-    fromRowRec r = (N (R.toKey l), toCandid (r R..! l)) : fromRowRec (r R..- l)
-      where l = R.Label @f
+      where l = Label @f
+    fromRowRec r = (N (R.toKey l), toCandidVal (r .! l)) : fromRowRec (r .- l)
+      where l = Label @f
     toRowRec m = do
         v <- fromField (N (R.toKey l)) m
-        x <- fromCandid @t v
+        x <- fromCandidVal @t v
         r' <- toRowRec @('R.R xs) m
         return $ R.unsafeInjectFront l x r'
-      where l = R.Label @f
+      where l = Label @f
 
-instance (FromRowRec r, Typeable r) => Candid (R.Rec r) where
+instance (FromRowRec r, Typeable r) => Candid (Rec r)
+instance (FromRowRec r, Typeable r) => CandidVal (Rec r) where
     asType = RecT (asTypesRec @r)
-    toCandid = RecV . fromRowRec
-    fromCandid (RecV m) = toRowRec m
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = RecV . fromRowRec
+    fromCandidVal' (RecV m) = toRowRec m
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
 class FromRowVar r where
     asTypesVar :: Fields (Ref TypeRep Type)
@@ -670,19 +650,52 @@ instance (Candid t, R.KnownSymbol f, FromRowVar ('R.R xs)) => FromRowVar ('R.R (
     asTypesVar = (N (R.toKey l), asType' @t) : asTypesVar @('R.R xs)
       where l = R.Label @f
     fromRowVar r = case V.trial r l of
-        Left x -> (N (R.toKey l), toCandid x)
+        Left x -> (N (R.toKey l), toCandidVal x)
         Right r' -> fromRowVar @('R.R xs) r'
       where l = R.Label @f
     toRowVar f v
         | hashFieldName f == hashFieldName (N (R.toKey l))
-        = V.unsafeMakeVar l <$> fromCandid v
+        = V.unsafeMakeVar l <$> fromCandidVal v
         | otherwise
         = V.unsafeInjectFront <$> toRowVar @('R.R xs) f v
       where l = R.Label @f
 
-instance (FromRowVar r, Typeable r) => Candid (V.Var r) where
+instance (FromRowVar r, Typeable r) => Candid (V.Var r)
+instance (FromRowVar r, Typeable r) => CandidVal (V.Var r) where
     asType = VariantT (asTypesVar @r)
-    toCandid = uncurry VariantV . fromRowVar
-    fromCandid (VariantV f v) = toRowVar f v
-    fromCandid v = Left $ "Unexpected " ++ show (pretty v)
+    toCandidVal' = uncurry VariantV . fromRowVar
+    fromCandidVal' (VariantV f v) = toRowVar f v
+    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+
+-- Derived forms
+
+instance Candid BSL.ByteString where
+    type AsCandid BSL.ByteString = BS.ByteString
+    toCandid = BSL.toStrict
+    fromCandid = BSL.fromStrict
+
+instance (Candid a, Candid b) => Candid (a, b) where
+    type AsCandid (a,b) = Rec ("_0_" .== a .+ "_1_" .== b)
+    toCandid (a,b) = #_0_ .== a .+ #_1_ .== b
+    fromCandid r = (r .! #_0_, r .! #_1_)
+
+instance (Candid a, Candid b, Candid c) => Candid (a, b, c) where
+    type AsCandid (a,b,c) = Rec ("_0_" .== a .+ "_1_" .== b .+ "_2_" .== c)
+    toCandid (a,b,c) = #_0_ .== a .+ #_1_ .== b .+ #_2_ .== c
+    fromCandid r = (r .! #_0_, r .! #_1_, r .! #_2_)
+
+
+instance Candid a => Candid [a] where
+    type AsCandid [a] = V.Vector a
+    toCandid = V.fromList
+    fromCandid = V.toList
+
+
+instance (Candid a, Candid b) => Candid (Either a b) where
+    type AsCandid (Either a b) = V.Var ("Left" V..== a V..+ "Right" V..== b)
+    toCandid (Left x) = IsJust (Label @"Left") x
+    toCandid (Right x) = IsJust (Label @"Right") x
+    fromCandid v = switch v $ empty
+        .+ Label @"Left" .== Left
+        .+ Label @"Right" .== Right
 

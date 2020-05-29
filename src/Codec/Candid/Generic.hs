@@ -30,9 +30,9 @@ instance
     , R.ToNativeExact a (NativeRowR a)
     , R.FromNative a (NativeRowR a)
     ) => Candid (AsRecord a) where
-    asType = asType @(R.Rec (NativeRowR a))
+    type AsCandid (AsRecord a) = AsCandid (R.Rec (NativeRowR a))
     toCandid = toCandid @(R.Rec (NativeRowR a)) . R.fromNative . unAsRecord
-    fromCandid x = AsRecord . R.toNativeExact <$> fromCandid @(R.Rec (NativeRowR a)) x
+    fromCandid = AsRecord . R.toNativeExact . fromCandid @(R.Rec (NativeRowR a))
 
 -- | This newtype encodes a Haskell data type as a variant using generic programming. Best used with @DerivingVia@, as shown in the overview.
 newtype AsVariant a = AsVariant { unAsVariant :: a }
@@ -43,9 +43,9 @@ instance
     , V.ToNative a (NativeRowV a)
     , V.FromNativeExact a (NativeRowV a)
     ) => Candid (AsVariant a) where
-    asType = asType @(V.Var (NativeRowV a))
+    type AsCandid (AsVariant a) = AsCandid (V.Var (NativeRowV a))
     toCandid = toCandid @(V.Var (NativeRowV a)) . V.fromNativeExact . unAsVariant
-    fromCandid x = AsVariant . V.toNative <$> fromCandid @(V.Var (NativeRowV a)) x
+    fromCandid = AsVariant . V.toNative . fromCandid @(V.Var (NativeRowV a))
 
 -- Extracted from https://github.com/target/row-types/pull/50/files#diff-28283e767b45c83675d1beb91ac71bb4R583
 type family NativeRowR t where

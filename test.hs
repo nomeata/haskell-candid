@@ -79,17 +79,17 @@ newtype MiddleField a = MiddleField a
     deriving (Eq, Show)
 
 instance Candid a => Candid (MiddleField a) where
-    asType = asType @(Rec ("_1_" .== a))
-    toCandid (MiddleField x) = toCandid (#_1_ .== x)
-    fromCandid x = (\r -> MiddleField (r .! #_1_)) <$> fromCandid @(Rec ("_1_" .== a)) x
+    type AsCandid (MiddleField a) = Rec ("_1_" .== a)
+    toCandid (MiddleField x) = #_1_ .== x
+    fromCandid r = MiddleField (r .! #_1_)
 
 newtype JustRight a = JustRight a
     deriving (Eq, Show)
 
 instance Candid a => Candid (JustRight a) where
-    asType = asType @(Var ("Right" .== a))
-    toCandid (JustRight x) = toCandid (V.singleton (Label @"Right") x)
-    fromCandid x = JustRight . snd . V.unSingleton <$> fromCandid @(Var ("Right" .== a)) x
+    type AsCandid (JustRight a) = Var ("Right" .== a)
+    toCandid (JustRight x) = V.singleton (Label @"Right") x
+    fromCandid = JustRight . snd . V.unSingleton
 
 data SimpleRecord = SimpleRecord { foo :: Bool, bar :: T.Text }
     deriving (Generic, Eq, Show)
