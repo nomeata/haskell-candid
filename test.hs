@@ -279,37 +279,39 @@ tests = testGroup "tests"
     , t (JustRight (3 :: Word8)) "(variant {2089909180 = (3 : nat8)})"
     , t () "()"
     , t (Unary ()) "(null)"
-    , t (Unary (True, False)) "((true, false))"
-    , t (Unary (True, (True, False))) "((true, (true, false)))"
-    , t (#_0_ .== True .+ #_1_ .== False) "((true, false))"
+    , t (Unary (True, False)) "(record {true; false})"
+    , t (Unary (True, (True, False))) "(record {true; record {true; false}})"
+    , t (#_0_ .== True .+ #_1_ .== False) "(record {true; false})"
     ]
 
   , testGroup "dynamic values (AST)" $
-    let t :: forall a. (HasCallStack, CandidArg a, Eq a, Show a) => [Value] -> a -> TestTree
-        t vs e = testCase (show (pretty vs)) $ do
+    let t :: forall a. (HasCallStack, CandidArg a, Eq a, Show a) => String -> a -> TestTree
+        t s e = testCase s $ do
+          vs <- either assertFailure return $ parseValues s
           b <- either assertFailure return $ encodeDynValues vs
           let bytes = BSL.toStrict (B.toLazyByteString b)
           x <- either assertFailure return $ decode @a bytes
           x @?= e
 
-        t' :: HasCallStack => [Value] -> TestTree
-        t' vs = testCase ("Bad: " <> show (pretty vs)) $ case encodeDynValues vs of
+        t' :: HasCallStack => String -> TestTree
+        t' s = testCase ("Bad: " <> s) $ do
+          vs <- either assertFailure return $ parseValues s
+          case encodeDynValues vs of
             Left err -> return ()
             Right _ -> assertFailure "Ill-typed value encoded?"
     in
-    [ t [BoolV True] True
-    , t [BoolV False] False
-    , t [NatV 1] (1 :: Natural)
-    , t [Nat8V 1] (1 :: Word8)
-    , t [RecV [(N "bar", TextV "baz")]] (#bar .== ("baz":: T.Text))
-    , t [VecV (V.fromList [])] (V.fromList [] :: V.Vector Void)
-    , t [VecV (V.fromList [NatV 4, IntV 4])] (V.fromList [4 :: Integer,4])
-    , t [VecV (V.fromList [NatV 4, ReservedV])] (V.fromList [Reserved, Reserved])
-    , t [VecV (V.fromList [RecV [], TupV []])] (V.fromList [R.empty, R.empty])
-    , t [VecV (V.fromList [RecV [], TupV [BoolV True]])] (V.fromList [R.empty, R.empty])
-    , t [VecV (V.fromList [VariantV (N "a") (BoolV True), VariantV (N "b") NullV])]
+    [ t "true" True
+    , t "false" False
+    , t "1" (1 :: Natural)
+    , t "1 : nat8" (1 :: Word8)
+    , t "record { bar = \"baz\" }" (#bar .== ("baz":: T.Text))
+    , t "vec {}" (V.fromList [] :: V.Vector Void)
+    , t "vec {4; +4}" (V.fromList [4 :: Integer,4])
+    , t "vec {4; null : reserved}" (V.fromList [Reserved, Reserved])
+    , t "vec {record {}; record {0 = true}}" (V.fromList [R.empty, R.empty])
+    , t "vec {variant {a = true}; variant {b = null}}"
         (V.fromList [IsJust #a True, IsJust #b () :: V.Var ("a" V..== Bool V..+ "b" V..== ())])
-    , t' [VecV (V.fromList [BoolV True, NatV 4])]
+    , t' "vec {true; 4}"
     ]
 
   , testGroup "candid type parsing" $

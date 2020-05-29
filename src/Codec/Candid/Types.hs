@@ -173,7 +173,7 @@ instance Pretty Value where
   pretty (OptV Nothing) = pretty NullV
   pretty (OptV (Just v)) = "opt" <+> pretty v
   pretty (VecV vs) = "vec" <+> prettyBraceSemi (map pretty (V.toList vs))
-  pretty (TupV vs) = prettyList vs
+  pretty (TupV vs) = "record" <+> prettyBraceSemi (map pretty vs)
   pretty (RecV vs) = "record" <+> prettyBraceSemi (map go vs)
     where go (fn, v) = pretty fn <+> "=" <+> pretty v
   pretty (VariantV f NullV) = "variant" <+> braces (pretty f)

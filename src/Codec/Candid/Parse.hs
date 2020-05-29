@@ -1,12 +1,13 @@
 module Codec.Candid.Parse where
 
 import qualified Data.Text as T
+import qualified Data.Vector as V
 import Text.Parsec
 import Text.Parsec.String
 import Data.Bifunctor
-import Data.Word
 import Data.Char
 import Data.Functor
+import Numeric.Natural
 import Data.Void
 
 import Codec.Candid.Types
@@ -22,6 +23,13 @@ parseDid = first show . parse (allInput fileP) "Candid service"
 
 parseDidType :: String -> Either String (Type Void)
 parseDidType = first show . parse (allInput dataTypeP) "Candid type"
+
+parseValue :: String -> Either String Value
+parseValue = first show . parse (allInput valueP) "Candid value"
+
+parseValues :: String -> Either String [Value]
+parseValues = first show . parse (allInput valuesP) "Candid values (argument sequence)"
+
 
 allInput :: Parser a -> Parser a
 allInput = between spaces eof
@@ -58,10 +66,10 @@ funcAnnP :: Parser () -- TODO: Annotations are dropped
 funcAnnP = s "oneway" <|> s "query"
 
 nameP :: Parser T.Text
-nameP = fmap T.pack (
-    l (between (char '"') (char '"') (many1 (noneOf "\""))) -- TODO: Escape sequence
-    <|> idP
-    ) <?> "name"
+nameP = textP <|> T.pack <$> idP <?> "name"
+
+textP :: Parser T.Text -- TODO: Escape sequence
+textP = T.pack <$> l (between (char '"') (char '"') (many1 (noneOf "\""))) <?> "text"
 
 seqP :: Parser [Type Void]
 seqP = parenComma argTypeP
@@ -105,7 +113,7 @@ constTypeP = choice
 
 fieldTypeP :: Parser (FieldName, Type Void)
 fieldTypeP = choice -- TODO : variant shorthands
-  [ (,) <$> (escapeFieldHash <$> natP) <* s ":" <*> dataTypeP
+  [ (,) <$> (escapeFieldHash . fromIntegral <$> natP) <* s ":" <*> dataTypeP
   , (,) <$> (escapeFieldName <$> nameP) <* s ":" <*> dataTypeP
   ]
 
@@ -115,6 +123,55 @@ idP = l ((:)
   <*> many (satisfy (\c -> isAscii c && isAlphaNum c || c == '_'))
   ) <?> "id"
 
+valuesP :: Parser [Value]
+valuesP = (parenComma annValueP <?> "argument sequence")
+       <|> ((:[]) <$> annValueP) -- for convenience
+
+annValueP :: Parser Value
+annValueP = do
+  v <- valueP
+  s ":" *> do
+        t <- dataTypeP
+        smartAnnV v t
+   <|> return v
+
+smartAnnV :: Value -> Type Void -> Parser Value
+smartAnnV (NatV n) Nat8T = return $ Nat8V (fromIntegral n)
+smartAnnV (NatV n) Nat16T = return $ Nat16V (fromIntegral n)
+smartAnnV (NatV n) Nat32T = return $ Nat32V (fromIntegral n)
+smartAnnV (NatV n) Nat64T = return $ Nat64V (fromIntegral n)
+smartAnnV (IntV n) Int8T = return $ Int8V (fromIntegral n)
+smartAnnV (IntV n) Int16T = return $ Int16V (fromIntegral n)
+smartAnnV (IntV n) Int32T = return $ Int32V (fromIntegral n)
+smartAnnV (IntV n) Int64T = return $ Int64V (fromIntegral n)
+smartAnnV v ReservedT = return $ AnnV v ReservedT
+smartAnnV _ _ = fail "Annotations are only supported around number literals"
+
+
+valueP :: Parser Value
+valueP = choice
+  [ parens annValueP
+  , IntV . fromIntegral <$> (char '+' *> natP)
+  , IntV . negate . fromIntegral <$> (char '-' *> natP)
+  , NatV <$> natP
+  -- TODO: Floats
+  , BoolV True <$ k "true"
+  , BoolV False <$ k "false"
+  , TextV <$> textP
+  , NullV <$ k "null"
+  , OptV . Just <$ k "opt" <*> valueP
+  , VecV . V.fromList <$ k "vec" <*> braceSemi annValueP
+  , RecV <$ k "record" <*> braceSemi fieldValP
+  , uncurry VariantV <$ k "variant" <*> braces fieldValP
+  -- TODO: Principal
+  -- TODO: Blob
+  ]
+
+fieldValP :: Parser (FieldName, Value)
+fieldValP = choice -- TODO : variant shorthands
+  [ (,) <$> (escapeFieldHash . fromIntegral <$> natP) <* s "=" <*> annValueP
+  , (,) <$> (escapeFieldName <$> nameP) <* s "=" <*> annValueP
+  ]
 
 -- A lexeme
 l :: Parser a -> Parser a
@@ -130,10 +187,14 @@ k str = try (void (l (string str <* no)) <?> str)
   where
     no = notFollowedBy (satisfy (\c -> isAscii c && isAlphaNum c || c == '_'))
 
-natP :: Parser Word32
+natP :: Parser Natural
 natP = l (read <$> many1 digit <?> "number")
 
+braces :: Parser a -> Parser a
+braces = between (s "{") (s "}")
 braceSemi :: Parser a -> Parser [a]
-braceSemi p = between (s "{") (s "}") $ sepEndBy p (s ";")
+braceSemi p = braces $ sepEndBy p (s ";")
+parens :: Parser a -> Parser a
+parens = between (s "(") (s ")")
 parenComma :: Parser a -> Parser [a]
-parenComma p = between (s "(") (s ")") $ sepEndBy p (s ",")
+parenComma p = parens $ sepEndBy p (s ",")

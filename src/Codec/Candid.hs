@@ -107,6 +107,8 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
  , encodeDynValues
  , DidFile
  , parseDid
+ , parseValue
+ , parseValues
 
 
 -- Convenience re-exports
