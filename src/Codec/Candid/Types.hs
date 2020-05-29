@@ -235,3 +235,26 @@ escapeFieldName n = N n
 
 escapeFieldHash :: Word32 -> FieldName
 escapeFieldHash n =  N $ "_" <> T.pack (show n) <> "_"
+
+-- Put here because used for both decoding and encoding
+primTyp :: Integer -> Maybe (Type a)
+primTyp (-1)  = Just NullT
+primTyp (-2)  = Just BoolT
+primTyp (-3)  = Just NatT
+primTyp (-4)  = Just IntT
+primTyp (-5)  = Just Nat8T
+primTyp (-6)  = Just Nat16T
+primTyp (-7)  = Just Nat32T
+primTyp (-8)  = Just Nat64T
+primTyp (-9)  = Just Int8T
+primTyp (-10) = Just Int16T
+primTyp (-11) = Just Int32T
+primTyp (-12) = Just Int64T
+primTyp (-13) = Just Float32T
+primTyp (-14) = Just Float64T
+primTyp (-15) = Just TextT
+primTyp (-16) = Just ReservedT
+primTyp (-17) = Just EmptyT
+primTyp (-24) = Just PrincipalT
+primTyp _     = Nothing
+

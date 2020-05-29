@@ -1,8 +1,6 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -10,11 +8,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -45,14 +40,13 @@ import Data.List
 import Data.Void
 import Control.Monad.RWS.Lazy
 import Data.Serialize.LEB128
-import qualified Data.Serialize.Get as G
-import qualified Data.Serialize.IEEE754 as G
 import Data.Text.Prettyprint.Doc
 
 import Codec.Candid.Tuples
 import Codec.Candid.Data
 import Codec.Candid.TypTable
 import Codec.Candid.Types
+import Codec.Candid.Decode
 
 -- | Encode based on Haskell type
 encode :: CandidArg a => a -> BS.ByteString
@@ -203,141 +197,16 @@ typTable (SeqDesc m (ts :: [Type k])) = mconcat
               sortOn fst tis -- TODO: Check duplicates maybe?
             ]
 
--- | Decode to value representation
-decodeVals :: BS.ByteString -> Either String [Value]
-decodeVals = G.runGet $ do
-    decodeMagic
-    arg_tys <- decodeTypTable
-    mapM decodeVal (tieKnot arg_tys)
-
--- | Decode to Haskell type
-decode :: forall a. CandidArg a => BS.ByteString -> Either String a
-decode = decodeVals >=> fromVals >=> return . fromTuple
-
-decodeVal :: Type Void -> G.Get Value
-decodeVal BoolT = G.getWord8 >>= \case
-    0 -> return $ BoolV False
-    1 -> return $ BoolV True
-    _ -> fail "Invalid boolean value"
-decodeVal NatT = NatV <$> getLEB128
-decodeVal Nat8T = Nat8V <$> G.getWord8
-decodeVal Nat16T = Nat16V <$> G.getWord16le
-decodeVal Nat32T = Nat32V <$> G.getWord32le
-decodeVal Nat64T = Nat64V <$> G.getWord64le
-decodeVal IntT = IntV <$> getSLEB128
-decodeVal Int8T = Int8V <$> G.getInt8
-decodeVal Int16T = Int16V <$> G.getInt16le
-decodeVal Int32T = Int32V <$> G.getInt32le
-decodeVal Int64T = Int64V <$> G.getInt64le
-decodeVal Float32T = Float32V <$> G.getFloat32le
-decodeVal Float64T = Float64V <$> G.getFloat64le
-decodeVal TextT = TextV <$> do
-    bs <- decodeBytes
-    case T.decodeUtf8' bs of
-        Left err -> fail (show err)
-        Right t -> return t
-decodeVal NullT = return NullV
-decodeVal ReservedT = return ReservedV
-decodeVal (OptT t) = G.getWord8 >>= \case
-    0 -> return $ OptV Nothing
-    1 -> OptV . Just <$> decodeVal t
-    _ -> fail "Invalid optional value"
-decodeVal (VecT t) = do
-    n <- getLEB128Int
-    VecV . V.fromList <$> replicateM n (decodeVal t)
-decodeVal (RecT fs) = RecV <$> mapM (\(_,(fn, t)) -> (fn,) <$> decodeVal t) fs'
-  where
-    fs' = sortOn fst [ (hashFieldName n, (n,t)) | (n,t) <- fs ]
-decodeVal (VariantT fs) = do
-        i <- getLEB128Int
-        unless (i <= length fs) $ fail "variant index out of bound"
-        let (fn, t) = fs !! i
-        VariantV fn <$> decodeVal t
-decodeVal PrincipalT = G.getWord8 >>= \case
-    0 -> fail "reference encountered"
-    1 -> PrincipalV . Principal <$> decodeBytes
-    _ -> fail "Invalid principal value"
-decodeVal BlobT = error "shorthand encountered while decoding"
-decodeVal EmptyT = fail "Empty value"
-decodeVal (RefT v) = absurd v
-
-decodeBytes :: G.Get BS.ByteString
-decodeBytes = getLEB128Int >>= G.getByteString
-
-decodeMagic :: G.Get ()
-decodeMagic = do
-    magic <- G.getBytes 4
-    unless (magic == T.encodeUtf8 (T.pack "DIDL")) $ fail "Expected magic bytes \"DIDL\""
-
-getLEB128Int :: G.Get Int
-getLEB128Int = fromIntegral <$> getLEB128 @Natural
-
-decodeSeq :: G.Get a -> G.Get [a]
-decodeSeq act = do
-    len <- getLEB128Int
-    replicateM len act
-
-decodeTypTable :: G.Get SeqDesc
-decodeTypTable = do
-    len <- getLEB128
-    table <- replicateM (fromIntegral len) (decodeTypTableEntry len)
-    ts <- decodeSeq (decodeTypRef len)
-    return $ SeqDesc (M.fromList (zip [0..] table)) ts
-
-decodeTypTableEntry :: Natural -> G.Get (Type Int)
-decodeTypTableEntry max = getSLEB128 @Integer >>= \case
-    -18 -> OptT <$> decodeTypRef max
-    -19 -> VecT <$> decodeTypRef max
-    -20 -> RecT <$> decodeTypFields max
-    -21 -> VariantT <$> decodeTypFields max
-    _ -> fail "Unknown structural type"
-
-decodeTypRef :: Natural -> G.Get (Type Int)
-decodeTypRef max = do
-    i <- getSLEB128
-    when (i > fromIntegral max) $ fail "Type reference out of range"
-    if i < 0
-    then case primTyp i of
-        Just t -> return t
-        Nothing -> fail  $ "Unknown prim typ " ++ show i
-    else return $ RefT (fromIntegral i)
-
-decodeTypFields :: Natural -> G.Get (Fields Int)
-decodeTypFields max = decodeSeq (decodeTypField max)
-
-decodeTypField :: Natural -> G.Get (FieldName, Type Int)
-decodeTypField max = do
-    h <- getLEB128
-    t <- decodeTypRef max
-    return (escapeFieldHash h, t)
-
-primTyp :: Integer -> Maybe (Type a)
-primTyp (-1)  = Just NullT
-primTyp (-2)  = Just BoolT
-primTyp (-3)  = Just NatT
-primTyp (-4)  = Just IntT
-primTyp (-5)  = Just Nat8T
-primTyp (-6)  = Just Nat16T
-primTyp (-7)  = Just Nat32T
-primTyp (-8)  = Just Nat64T
-primTyp (-9)  = Just Int8T
-primTyp (-10) = Just Int16T
-primTyp (-11) = Just Int32T
-primTyp (-12) = Just Int64T
-primTyp (-13) = Just Float32T
-primTyp (-14) = Just Float64T
-primTyp (-15) = Just TextT
-primTyp (-16) = Just ReservedT
-primTyp (-17) = Just EmptyT
-primTyp (-24) = Just PrincipalT
-primTyp _     = Nothing
-
-
 buildLEB128Int :: Int -> B.Builder
 buildLEB128Int = buildLEB128 @Natural . fromIntegral
 
 leb128Len :: [a] -> B.Builder
 leb128Len = buildLEB128Int . length
+
+
+-- | Decode to Haskell type
+decode :: forall a. CandidArg a => BS.ByteString -> Either String a
+decode = decodeVals >=> fromVals >=> return . fromTuple
 
 -- Using normal Haskell values
 

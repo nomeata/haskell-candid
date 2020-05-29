@@ -24,6 +24,7 @@ library
   other-modules: Codec.Candid.Data
   other-modules: Codec.Candid.Types
   other-modules: Codec.Candid.TypTable
+  other-modules: Codec.Candid.Decode
   build-depends: base >=4.12 && <5
   build-depends: text
   build-depends: vector
