@@ -277,9 +277,9 @@ tests = testGroup "tests"
     , t (JustRight (3 :: Word8)) "(variant {2089909180 = (3 : nat8)})"
     , t () "()"
     , t (Unary ()) "(null)"
-    , t (Unary (True, False)) "(record {0 = true; 1 = false})"
-    , t (Unary (True, (True, False))) "(record {0 = true; 1 = record {0 = true; 1 = false}})"
-    , t (#_0_ .== True .+ #_1_ .== False) "(record {0 = true; 1 = false})"
+    , t (Unary (True, False)) "((true, false))"
+    , t (Unary (True, (True, False))) "((true, (true, false)))"
+    , t (#_0_ .== True .+ #_1_ .== False) "((true, false))"
     ]
 
   , testGroup "candid type parsing" $

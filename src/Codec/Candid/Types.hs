@@ -143,6 +143,7 @@ data Value
   | OptV (Maybe Value)
   | VecV (V.Vector Value)
   | RecV [(FieldName, Value)]
+  | TupV [Value]
   | VariantV FieldName Value
   | PrincipalV Principal
   | BlobV BS.ByteString
@@ -172,6 +173,7 @@ instance Pretty Value where
   pretty (OptV Nothing) = pretty NullV
   pretty (OptV (Just v)) = "opt" <+> pretty v
   pretty (VecV vs) = "vec" <+> prettyBraceSemi (map pretty (V.toList vs))
+  pretty (TupV vs) = prettyList vs
   pretty (RecV vs) = "record" <+> prettyBraceSemi (map go vs)
     where go (fn, v) = pretty fn <+> "=" <+> pretty v
   pretty (VariantV f NullV) = "variant" <+> braces (pretty f)

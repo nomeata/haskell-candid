@@ -44,7 +44,7 @@ actorP = s "service" *> optional idP *> s ":" *> actorTypeP -- TODO could be a t
 actorTypeP :: Parser DidFile
 actorTypeP = braceSemi methTypeP
 
-methTypeP :: Parser (T.Text, [(Type Void)], [(Type Void)])
+methTypeP :: Parser (T.Text, [Type Void], [Type Void])
 methTypeP = do
     n <- nameP
     s ":"

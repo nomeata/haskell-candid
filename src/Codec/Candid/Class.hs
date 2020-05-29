@@ -462,6 +462,7 @@ instance FromRowRec r => CandidVal (Rec r) where
     asType = RecT (asTypesRec @r)
     toCandidVal' = RecV . fromRowRec
     fromCandidVal' (RecV m) = toRowRec m
+    fromCandidVal' (TupV m) = toRowRec (zip (map escapeFieldHash [0..]) m)
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
 class Typeable r => FromRowVar r where

@@ -59,9 +59,12 @@ decodeVal (OptT t) = G.getWord8 >>= \case
 decodeVal (VecT t) = do
     n <- getLEB128Int
     VecV . V.fromList <$> replicateM n (decodeVal t)
-decodeVal (RecT fs) = RecV <$> mapM (\(_,(fn, t)) -> (fn,) <$> decodeVal t) fs'
+decodeVal (RecT fs)
+    | isTuple   = TupV <$> mapM (\(_,(_, t)) -> decodeVal t) fs'
+    | otherwise = RecV <$> mapM (\(_,(fn, t)) -> (fn,) <$> decodeVal t) fs'
   where
     fs' = sortOn fst [ (hashFieldName n, (n,t)) | (n,t) <- fs ]
+    isTuple = and $ zipWith (==) (map fst fs') [0..]
 decodeVal (VariantT fs) = do
         i <- getLEB128Int
         unless (i <= length fs) $ fail "variant index out of bound"
