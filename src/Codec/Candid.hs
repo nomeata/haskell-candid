@@ -2,9 +2,7 @@
 
 This module provides preliminary Haskell supprot for decoding and encoding the __Candid__ data format.
 
-__Warning 1:__ The interface of this library is still in flux, as we are yet learning the best idioms around Candid and Haskell.
-
-__Warning 2:__ The author couldn’t resist turning this into a little Haskell-type-wizardry playground, without having too much expertise in this area. Do not use it to learn best practices.
+__Warning:__ The interface of this library is still in flux, as we are yet learning the best idioms around Candid and Haskell.
 
 -}
 
@@ -14,13 +12,9 @@ module Codec.Candid
 
 {- |
 
-Candid is inherently typed, so before encoding or decoding, we have to declare the Candid type to use. There are multiple ways of doing that:
+Candid is inherently typed, so before encoding or decoding, you have to indicate the types to use. In most cases, you can use Haskell types for that:
 
 -}
-
--- ** Using 'Type'
-
--- $type
 
 -- ** Haskell types
 
@@ -54,28 +48,26 @@ Candid is inherently typed, so before encoding or decoding, we have to declare t
 
 -- * Reference
 
--- ** Candid Types
-   Type(..)
- , Fields
- , FieldName(..)
+-- ** Encoding and decoding
 
--- ** Candid Values
- , Value(..)
- , candidHash
- , lookupField
-
--- ** Custom types
-
- , encode
+   encode
  , encodeBuilder
  , decode
+
+-- ** Type classes
+
  , Candid(..)
  , CandidArg
+ , CandidVal
  , typeDesc
  , TypeDesc
  , tieKnot
- , asType'
+
+ -- ** Special types
+
  , Unary(..)
+ , Principal(..)
+ , Reserved(..)
 
 -- ** Generics
 
@@ -89,29 +81,30 @@ Candid is inherently typed, so before encoding or decoding, we have to declare t
  , toCandidService
  , fromCandidService
 
+-- ** Meta-programming
+
+ , candid
+ , candidFile
+ , candidType
+
+-- ** Types and values
+
+ , Type(..)
+ , Value(..)
+ , Fields
+ , FieldName(..)
+ , candidHash
+ , lookupField
+
 -- ** Parsing .did files
 
  , DidFile
  , parseDid
- , candid
- , candidFile
- , candidType
 
 -- Convenience re-exports
 -- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837
 -- , Generic
 
--- * Special Data types
-
- , Principal(..)
- , Reserved(..)
-
--- ** Mostly plumbing
---
--- | These exports are usually not interesting
-
- , CandidMethod(..)
---
  ) where
 
 import Codec.Candid.Data
@@ -131,81 +124,47 @@ import Codec.Candid.TH
 -- >>> import qualified Data.ByteString.Char8 as BS
 -- >>> :set -XScopedTypeVariables
 
-{- $type
-
-This is useful when you want to quickly target a specific Candid type that does not use recursion (and ideally also no records or variants).
-
-The 'Type' type directly matches the types presented in the Candid specification. We can pass these types directly to the 'encodeT' and 'decodeT' functions, using @TypeApplication@.
-
->>> :set -XTypeApplications -XDataKinds -XOverloadedStrings
->>> encodeT @[BoolT, OptT TextT] (True, (Just "Hello", ()))
-"DIDL\SOHnq\STX~\NUL\SOH\SOH\ENQHello"
->>> type MyType = [BoolT, OptT TextT]
->>> decodeT @MyType (encodeT @MyType (True, (Just "Hello", ())))
-Right (True,(Just "Hello",()))
-
-In the second line we used a normal type alias to give a name to this type.
-
-As you can see the type of Haskell values you pass in depends on the Candid type description. This is implemented by the type families 'Val' and (for argument sequences) 'Seq':
-
->>> :kind! Seq [BoolT, OptT TextT]
-Seq [BoolT, OptT TextT] :: *
-= (Bool, (Maybe Text, ()))
-
-This uses nested pairs to express Candid argument sequences.
-
-Records and variants are represented a bit unwieldy, as nested pairs or 'Either's:
-
->>> :kind! Val (RecT '[ '(N "foo", BoolT), '(N "bar", OptT TextT)])
-Val (RecT '[ '(N "foo", BoolT), '(N "bar", OptT TextT)]) :: *
-= (Bool, (Maybe Text, ()))
-
->>> :kind! Val (VariantT '[ '(N "foo", BoolT), '(N "bar", OptT TextT)])
-Val (VariantT '[ '(N "foo", BoolT), '(N "bar", OptT TextT)]) :: *
-= Either Bool (Either (Maybe Text) Void)
-
-This is not very convenient, so consider the following alternative ways.
-
--}
-
 {- $haskell_types
 
-Instead of using Candid types ('Type') to declare the interface, you can use normal Haskell types. Any type that is an instance of 'Candid' can be used:
+The easiest way is to use this library is to use the canonical Haskell types. Any type that is an instance of 'Candid' can be used:
 
 >>> encode ([True, False], Just 100)
 "DIDL\STXm~n|\STX\NUL\SOH\STX\SOH\NUL\SOH\228\NUL"
 >>> decode (encode ([True, False], Just 100)) == Right ([True, False], Just 100)
 True
 
-Here, no type annotations are needed, the library can infer them from the types of the Haskell values. The type families 'Rep' (for values) and 'ArgRep' (for argument sequences) indicate the corresponding Candid types:
+Here, no type annotations are needed, the library can infer them from the types of the Haskell values. You can see the Candid types used using `typeDesc`:
+
+(TODO: fix pretty-printing of a TypeDesc)
 
 >>> :type +d ([True, False], Just 100)
 ([True, False], Just 100) :: ([Bool], Maybe Integer)
->>> :kind! ArgRep ([Bool], Maybe Integer)
-ArgRep ([Bool], Maybe Integer) :: [Type]
-= '[ 'VecT 'BoolT, 'OptT 'IntT]
->>> pretty (typesVal @(ArgRep ([Bool], Maybe Integer)))
+>>> :set -XTypeApplications
+>>> pretty (tieKnot (typeDesc @([Bool], Maybe Integer)))
 (vec bool, opt int)
 
 This library is integrated with the @row-types@ library, so you can use their
 records directly:
 
 >>> :set -XOverloadedLabels
->>> import Data.Row ((.==),(.+))
+>>> import Data.Row
 >>> encode (#foo .== [True, False] .+ #bar .== Just 100)
 "DIDL\ETXl\STX\211\227\170\STX\SOH\134\142\183\STX\STXn|m~\SOH\NUL\SOH\228\NUL\STX\SOH\NUL"
+>>> :set -XDataKinds -XTypeOperators
+>>> pretty (tieKnot (typeDesc @(Rec ("bar" .== Maybe Integer .+ "foo" .== [Bool]))))
+(record {bar : opt int; foo : vec bool})
 
 -}
 
 {- $own_type
 
-If you want to use your own types directly, you have to declare an instance of the 'Candid' type class. In this instance, you indicate which Candid 'Type' your type should serialize to, and provide conversion functions to the corresponding 'Val'.
+If you want to use your own types directly, you have to declare an instance of the 'Candid' type class. In this instance, you indicate a canonical Haskel type to describe how your type should serialize, and provide conversion functions to the corresponding 'AsCandid'.
 
 >>> :set -XTypeFamilies
 >>> newtype Age = Age Integer
 >>> :{
 instance Candid Age where
-    type Rep Age = 'IntT
+    type AsCandid Age = Integer
     toCandid (Age i) = i
     fromCandid = Age
 :}
@@ -213,18 +172,19 @@ instance Candid Age where
 >>> encode (Age 42)
 "DIDL\NUL\SOH|*"
 
-This is more or less the only way to introduce recursive types. In order to refer to them inside the 'Rep' equation, you can wrap it in 'OtherT':
+This is more or less the only way to introduce recursive types:
 
->>> newtype Peano = Peano (Maybe Peano) deriving (Show, Eq)
->>> type PeanoT = OtherT Peano
+>>> data Peano = N | S Peano deriving (Show, Eq)
 >>> :{
 instance Candid Peano where
-    type Rep Peano = 'OptT PeanoT
-    toCandid (Peano x) = x
-    fromCandid = Peano
+    type AsCandid Peano = Maybe Peano
+    toCandid N = Nothing
+    toCandid (S p) = Just p
+    fromCandid Nothing = N
+    fromCandid (Just p) = S p
 :}
 
->>> peano = Peano $ Just $ Peano $ Just $ Peano $ Just $ Peano Nothing
+>>> peano = S (S (S N))
 >>> encode peano
 "DIDL\SOHn\NUL\SOH\NUL\SOH\SOH\SOH\NUL"
 -}
@@ -241,8 +201,8 @@ data SimpleRecord = SimpleRecord { foo :: [Bool], bar :: Maybe Integer }
     deriving Candid via (AsRecord SimpleRecord)
 :}
 
->>> pretty (typeVal @(Rep SimpleRecord))
-record {bar : opt int; foo : vec bool}
+>>> pretty (tieKnot (typeDesc @SimpleRecord))
+(record {bar : opt int; foo : vec bool})
 >>> encode (SimpleRecord { foo = [True, False], bar = Just 100 })
 "DIDL\ETXl\STX\211\227\170\STX\SOH\134\142\183\STX\STXn|m~\SOH\NUL\SOH\228\NUL\STX\SOH\NUL"
 
@@ -256,8 +216,8 @@ data Shape = Point () | Sphere Double | Rectangle (Double, Double)
     deriving Candid via (AsVariant Shape)
 :}
 
->>> pretty (typeVal @(Rep Shape))
-variant {Point; Rectangle : record {0 : float; 1 : float}; Sphere : float}
+>>> pretty (tieKnot (typeDesc @Shape))
+(variant {Point; Rectangle : record {0 : float; 1 : float}; Sphere : float})
 >>> encode (Rectangle (100,100))
 "DIDL\STXk\ETX\176\200\244\205\ENQ\DEL\143\232\190\218\v\SOH\173\198\172\140\SIrl\STX\NULr\SOHr\SOH\NUL\SOH\NUL\NUL\NUL\NUL\NUL\NULY@\NUL\NUL\NUL\NUL\NUL\NULY@"
 

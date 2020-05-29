@@ -25,7 +25,7 @@
 -- Everything of interest is re-exported by "Codec.Candid".
 module Codec.Candid.Class
     ( Candid(..)
-    , asType'
+    , CandidVal
     , CandidSeq(..)
     , CandidArg
     , typeDesc
@@ -421,14 +421,16 @@ instance (Candid a, Candid b) => CandidSeq (a, b) where
     fromVals (x:y:_) = (,) <$> fromCandidVal x <*> fromCandidVal y
     fromVals _ = error "Not enough arguments"
 
--- | The class of Haskell types that can be converted to Candid.
---
--- You can create intances of this class for your own types; see the overview above for examples. The default instance is mostly for internal use.
+-- | The internal class of Haskell types that canonically map to Candid.
+-- You would add instances to the 'Candid' type class.
 class Typeable a => CandidVal a where
     asType :: Type (Ref TypeRep Type)
     toCandidVal' :: a -> Value
     fromCandidVal' :: Value -> Either String a
 
+-- | The class of Haskell types that can be converted to Candid.
+--
+-- You can create intances of this class for your own types, see the overview above for examples. The default instance is mostly for internal use.
 class (Typeable a, CandidVal (AsCandid a)) => Candid a where
     type AsCandid a
     toCandid :: a -> AsCandid a
@@ -606,18 +608,17 @@ fromField f m = case lookupField f m of
 
 -- row-types integration
 
-class FromRowRec r where
+class Typeable r => FromRowRec r where
     asTypesRec :: Fields (Ref TypeRep Type)
     fromRowRec :: Rec r -> [(FieldName, Value)]
     toRowRec :: [(FieldName, Value)] -> Either String (Rec r)
-
 
 instance FromRowRec ('R.R '[]) where
     asTypesRec = []
     fromRowRec _ = mempty
     toRowRec _ = return empty
 
-instance (Candid t, R.KnownSymbol f, FromRowRec ('R.R xs)) => FromRowRec ('R.R (f 'R.:-> t ': xs)) where
+instance (Candid t, R.KnownSymbol f, FromRowRec ('R.R xs), Typeable xs) => FromRowRec ('R.R (f 'R.:-> t ': xs)) where
     asTypesRec = (N (R.toKey l), asType' @t) : asTypesRec @('R.R xs)
       where l = Label @f
     fromRowRec r = (N (R.toKey l), toCandidVal (r .! l)) : fromRowRec (r .- l)
@@ -629,14 +630,14 @@ instance (Candid t, R.KnownSymbol f, FromRowRec ('R.R xs)) => FromRowRec ('R.R (
         return $ R.unsafeInjectFront l x r'
       where l = Label @f
 
-instance (FromRowRec r, Typeable r) => Candid (Rec r)
-instance (FromRowRec r, Typeable r) => CandidVal (Rec r) where
+instance FromRowRec r => Candid (Rec r)
+instance FromRowRec r => CandidVal (Rec r) where
     asType = RecT (asTypesRec @r)
     toCandidVal' = RecV . fromRowRec
     fromCandidVal' (RecV m) = toRowRec m
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-class FromRowVar r where
+class Typeable r => FromRowVar r where
     asTypesVar :: Fields (Ref TypeRep Type)
     fromRowVar :: V.Var r -> (FieldName, Value)
     toRowVar :: FieldName -> Value -> Either String (V.Var r)
@@ -646,7 +647,7 @@ instance FromRowVar ('R.R '[]) where
     fromRowVar = V.impossible
     toRowVar f v = Left $ "Unexpected " ++ show (pretty (VariantV f v))
 
-instance (Candid t, R.KnownSymbol f, FromRowVar ('R.R xs)) => FromRowVar ('R.R (f 'R.:-> t ': xs)) where
+instance (Candid t, R.KnownSymbol f, FromRowVar ('R.R xs), Typeable xs) => FromRowVar ('R.R (f 'R.:-> t ': xs)) where
     asTypesVar = (N (R.toKey l), asType' @t) : asTypesVar @('R.R xs)
       where l = R.Label @f
     fromRowVar r = case V.trial r l of
@@ -660,8 +661,8 @@ instance (Candid t, R.KnownSymbol f, FromRowVar ('R.R xs)) => FromRowVar ('R.R (
         = V.unsafeInjectFront <$> toRowVar @('R.R xs) f v
       where l = R.Label @f
 
-instance (FromRowVar r, Typeable r) => Candid (V.Var r)
-instance (FromRowVar r, Typeable r) => CandidVal (V.Var r) where
+instance FromRowVar r => Candid (V.Var r)
+instance FromRowVar r => CandidVal (V.Var r) where
     asType = VariantT (asTypesVar @r)
     toCandidVal' = uncurry VariantV . fromRowVar
     fromCandidVal' (VariantV f v) = toRowVar f v

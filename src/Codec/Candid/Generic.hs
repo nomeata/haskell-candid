@@ -1,4 +1,5 @@
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -24,12 +25,14 @@ import Codec.Candid.Class
 -- | This newtype encodes a Haskell record type using generic programming. Best used with @DerivingVia@, as shown in the overview.
 newtype AsRecord a = AsRecord { unAsRecord :: a }
 
-instance
+
+type CanBeCandidRecord a =
     ( Typeable a
     , Candid (R.Rec (NativeRowR a))
     , R.ToNativeExact a (NativeRowR a)
     , R.FromNative a (NativeRowR a)
-    ) => Candid (AsRecord a) where
+    )
+instance CanBeCandidRecord a => Candid (AsRecord a) where
     type AsCandid (AsRecord a) = AsCandid (R.Rec (NativeRowR a))
     toCandid = toCandid @(R.Rec (NativeRowR a)) . R.fromNative . unAsRecord
     fromCandid = AsRecord . R.toNativeExact . fromCandid @(R.Rec (NativeRowR a))
@@ -37,12 +40,14 @@ instance
 -- | This newtype encodes a Haskell data type as a variant using generic programming. Best used with @DerivingVia@, as shown in the overview.
 newtype AsVariant a = AsVariant { unAsVariant :: a }
 
-instance
+type CanBeCandidVariant a =
     ( Typeable a
     , Candid (V.Var (NativeRowV a))
     , V.ToNative a (NativeRowV a)
     , V.FromNativeExact a (NativeRowV a)
-    ) => Candid (AsVariant a) where
+    )
+
+instance CanBeCandidVariant a => Candid (AsVariant a) where
     type AsCandid (AsVariant a) = AsCandid (V.Var (NativeRowV a))
     toCandid = toCandid @(V.Var (NativeRowV a)) . V.fromNativeExact . unAsVariant
     fromCandid = AsVariant . V.toNative . fromCandid @(V.Var (NativeRowV a))

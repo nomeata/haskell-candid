@@ -154,13 +154,16 @@ newtype FieldName = N T.Text
   deriving (Eq, Ord, Show)
 
 instance Pretty FieldName where
-    pretty (N n)
-        | Just (h,r) <- T.uncons n
-        , h == '_' || isAscii h && isLetter h
-        , T.all (\c -> c == '_' || isAscii c && isAlphaNum c) r
-        = pretty n
-        | otherwise
-        = dquotes (pretty n) -- TODO: Escape field names
+    pretty = either pretty prettyName . unescapeFieldName
+
+prettyName :: T.Text -> Doc ann
+prettyName n
+    | Just (h,r) <- T.uncons n
+    , h == '_' || isAscii h && isLetter h
+    , T.all (\c -> c == '_' || isAscii c && isAlphaNum c) r
+    = pretty n
+    | otherwise
+    = dquotes (pretty n) -- TODO: Escape field names
 
 hashFieldName :: FieldName -> Word32
 hashFieldName f = either id candidHash $ unescapeFieldName f
@@ -174,10 +177,9 @@ lookupField fn fs = listToMaybe
 
 unescapeFieldName :: FieldName -> Either Word32 T.Text
 unescapeFieldName (N n)
-    | T.length n > 3
-    , T.head n == '_'
-    , T.last n == '_'
-    , Just (n' :: Natural) <- readMaybe (T.unpack (T.drop 1 (T.dropEnd 1 n)))
+    | Just ('_',r') <- T.uncons n
+    , Just (r,'_') <- T.unsnoc r'
+    , Just (n' :: Natural) <- readMaybe (T.unpack r)
     , n' <= fromIntegral (maxBound :: Word32)
     = Left (fromIntegral n')
     | T.last n == '_'
