@@ -109,13 +109,14 @@ encodeVal (VecT t) (VecV xs) =
     foldMap (encodeVal t) xs
 encodeVal (RecT fs) (RecV vs) = encodeRec fs' vs'
   where
-    fs' = sortOn fst $ map (first candidHash) fs
-    vs' = map (first candidHash) vs
+    fs' = sortOn fst $ map (first hashFieldName) fs
+    vs' = map (first hashFieldName) vs
 encodeVal (VariantT fs) (VariantV f x) =
-    buildLEB128Int i <> encodeVal t x
+    case lookup (hashFieldName f) fs' of
+        Just (i, t) -> buildLEB128Int i <> encodeVal t x
+        Nothing -> error $ "encodeVal: Variant field " ++ show (pretty f) ++ " not found"
   where
-    fs' = sortOn fst [ (candidHash n, (i,t)) | ((n,t), i) <- zip fs [0..] ]
-    Just (i, t) = lookup (candidHash f) fs'
+    fs' = sortOn fst [ (hashFieldName n, (i,t)) | ((n,t), i) <- zip fs [0..] ]
 encodeVal PrincipalT (PrincipalV (Principal s)) = B.int8 1 <> encodeBytes s
 encodeVal BlobT (BlobV b) = encodeBytes b
 encodeVal (VecT Nat8T) (BlobV b) = encodeBytes b
@@ -200,7 +201,7 @@ typTable (TypeDesc m (ts :: [Type k])) = mconcat
     goFields ((fn, t):fs) = do
         ti <- go t
         tis <- goFields fs
-        return $ (candidHash fn, ti) : tis
+        return $ (hashFieldName fn, ti) : tis
 
     recordLike :: Integer -> Fields k -> TypTableBuilder k B.Builder
     recordLike n fs = do
@@ -290,7 +291,7 @@ decodeVal (VecT t) = do
     VecV . V.fromList <$> replicateM n (decodeVal t)
 decodeVal (RecT fs) = RecV <$> mapM (\(_,(fn, t)) -> (fn,) <$> decodeVal t) fs'
   where
-    fs' = sortOn fst [ (candidHash n, (n,t)) | (n,t) <- fs ]
+    fs' = sortOn fst [ (hashFieldName n, (n,t)) | (n,t) <- fs ]
 decodeVal (VariantT fs) = do
         i <- getLEB128Int
         unless (i <= length fs) $ fail "variant index out of bound"
@@ -352,7 +353,7 @@ decodeTypField :: Natural -> G.Get (FieldName, Type Int)
 decodeTypField max = do
     h <- getLEB128
     t <- decodeTypRef max
-    return (H h, t)
+    return (escapeFieldHash h, t)
 
 primTyp :: Integer -> Maybe (Type a)
 primTyp (-1)  = Just NullT
@@ -570,21 +571,21 @@ instance Candid () where
     fromCandid v = Left $ "Unexpected " ++ show (pretty v)
 
 instance (Candid a, Candid b) => Candid (a, b) where
-    asType = RecT [(H 0, asType' @a), (H 1, asType' @b)]
-    toCandid (x,y) = RecV [(H 0, toCandid x), (H 1, toCandid y)]
+    asType = tupT [asType' @a, asType' @b]
+    toCandid (x,y) = tupV [toCandid x, toCandid y]
     fromCandid (RecV m) = do
-        x <- fromField (H 0) m >>= fromCandid
-        y <- fromField (H 1) m >>= fromCandid
+        x <- fromTupField 0 m >>= fromCandid
+        y <- fromTupField 1 m >>= fromCandid
         return (x, y)
     fromCandid v = Left $ "Unexpected " ++ show (pretty v)
 
 instance (Candid a, Candid b, Candid c) => Candid (a, b, c) where
-    asType = RecT [(H 0, asType' @a), (H 1, asType' @b), (H 2, asType' @c)]
-    toCandid (x,y,z) = RecV [(H 0, toCandid x), (H 1, toCandid y), (H 2, toCandid z)]
+    asType = tupT [asType' @a, asType' @b, asType' @c]
+    toCandid (x,y,z) = tupV [toCandid x, toCandid y, toCandid z]
     fromCandid (RecV m) = do
-        x <- fromField (H 0) m >>= fromCandid
-        y <- fromField (H 1) m >>= fromCandid
-        z <- fromField (H 2) m >>= fromCandid
+        x <- fromTupField 0 m >>= fromCandid
+        y <- fromTupField 1 m >>= fromCandid
+        z <- fromTupField 2 m >>= fromCandid
         return (x, y, z)
     fromCandid v = Left $ "Unexpected " ++ show (pretty v)
 
@@ -592,6 +593,9 @@ fromField :: FieldName -> [(FieldName, a)] -> Either String a
 fromField f m = case lookupField f m of
     Just v -> return v
     Nothing -> Left $ "Could not find field " ++ show (pretty f)
+
+fromTupField :: Word32 -> [(FieldName, a)] -> Either String a
+fromTupField = fromField . escapeFieldHash
 
 {-
 instance (Candid a, Candid b, Candid c) => Candid (a, b, c) where
@@ -617,8 +621,8 @@ instance (Candid a, Candid b) => Candid (Either a b) where
     toCandid (Left x) = VariantV (N "Left") (toCandid x)
     toCandid (Right x) = VariantV (N "Right") (toCandid x)
     fromCandid (VariantV f x)
-        | candidHash f == candidHash (N "Left") = Left <$> fromCandid x
-        | candidHash f == candidHash (N "Right") = Right <$> fromCandid x
+        | hashFieldName f == hashFieldName (N "Left") = Left <$> fromCandid x
+        | hashFieldName f == hashFieldName (N "Right") = Right <$> fromCandid x
     fromCandid v = Left $ "Unexpected " ++ show (pretty v)
 
 -- row-types integration
@@ -670,7 +674,7 @@ instance (Candid t, R.KnownSymbol f, FromRowVar ('R.R xs)) => FromRowVar ('R.R (
         Right r' -> fromRowVar @('R.R xs) r'
       where l = R.Label @f
     toRowVar f v
-        | candidHash f == candidHash (N (R.toKey l))
+        | hashFieldName f == hashFieldName (N (R.toKey l))
         = V.unsafeMakeVar l <$> fromCandid v
         | otherwise
         = V.unsafeInjectFront <$> toRowVar @('R.R xs) f v

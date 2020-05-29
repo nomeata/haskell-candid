@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -11,6 +12,7 @@ import qualified Data.Vector as V
 import Data.Word
 import Data.Int
 import Data.Maybe
+import Text.Read
 import Numeric.Natural
 import Control.Monad
 import Data.Bifunctor
@@ -42,6 +44,9 @@ data Type a
     -- for recursive types
     | RefT a -- ^ A reference to a named type
   deriving (Show, Eq, Ord, Functor, Foldable, Traversable)
+
+tupT :: [Type a] -> Type a
+tupT = RecT . zipWith (\n t -> (escapeFieldHash n, t)) [0..]
 
 instance Applicative Type where
     pure = RefT
@@ -113,11 +118,6 @@ prettyField :: Pretty a => Bool -> (FieldName, Type a) -> Doc ann
 prettyField True (f, NullT) = pretty f
 prettyField _ (f, t) = pretty f <+> colon <+> pretty t -- TODO: encode field names
 
-instance Pretty FieldName where
-    pretty (N n) = pretty n -- TODO: Escape field names
-    pretty (H n) = pretty n
-
-
 data Value
   = NatV Natural
   | Nat8V Word8
@@ -146,16 +146,40 @@ data Value
 instance Pretty Value where
   pretty _ = "TODO: pretty Value"
 
-data FieldName
-   = N T.Text -- ^ A named field
-   | H Word32 -- ^ A field number (also used for tuples)
+tupV :: [Value] -> Value
+tupV = RecV . zipWith (\n t -> (escapeFieldHash n, t)) [0..]
+
+newtype FieldName = N T.Text
   deriving (Eq, Ord, Show)
 
-candidHash :: FieldName -> Word32
-candidHash (H n) = n
-candidHash (N s) =
-    BS.foldl (\h c -> (h * 223 + fromIntegral c)) 0 $ T.encodeUtf8 s
+instance Pretty FieldName where
+    pretty (N n) = dquotes (pretty n) -- TODO: Escape field names
+
+hashFieldName :: FieldName -> Word32
+hashFieldName f = either id candidHash $ unescapeFieldName f
+
+candidHash :: T.Text -> Word32
+candidHash s = BS.foldl (\h c -> (h * 223 + fromIntegral c)) 0 $ T.encodeUtf8 s
 
 lookupField :: FieldName -> [(FieldName, a)] -> Maybe a
 lookupField fn fs = listToMaybe
-    [ x | (f, x) <- fs, candidHash f == candidHash fn ]
+    [ x | (f, x) <- fs, hashFieldName f == hashFieldName fn ]
+
+unescapeFieldName :: FieldName -> Either Word32 T.Text
+unescapeFieldName (N n)
+    | T.length n > 3
+    , T.head n == '_'
+    , T.last n == '_'
+    , Just (n' :: Natural) <- readMaybe (T.unpack (T.drop 1 (T.dropEnd 1 n)))
+    , n' <= fromIntegral (maxBound :: Word32)
+    = Left (fromIntegral n')
+    | T.last n == '_'
+    = Right (T.drop 1 n)
+    | otherwise = Right n
+
+escapeFieldName :: T.Text -> FieldName
+escapeFieldName n | T.last n == '_' = N $ n <> "_"
+escapeFieldName n = N n
+
+escapeFieldHash :: Word32 -> FieldName
+escapeFieldHash n =  N $ "_" <> T.pack (show n) <> "_"

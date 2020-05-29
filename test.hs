@@ -37,6 +37,7 @@ import GHC.TypeLits
 import GHC.Generics (Generic)
 import Data.Text.Prettyprint.Doc
 import Data.Row
+import Data.Row.Variants
 
 import Codec.Candid
 
@@ -77,21 +78,17 @@ newtype MiddleField a = MiddleField a
     deriving (Eq, Show)
 
 instance Candid a => Candid (MiddleField a) where
-    asType = RecT [(H 1, asType' @a) ]
-    toCandid (MiddleField x) = RecV [(H 1, toCandid x)]
-    fromCandid (RecV xs) = case lookupField (H 1) xs of
-        Just v -> MiddleField <$> fromCandid v
-        Nothing -> Left "Did not field hash 1"
+    asType = asType @(Rec ("_1_" .== a))
+    toCandid (MiddleField x) = toCandid (#_1_ .== x)
+    fromCandid x = (\r -> MiddleField (r .! #_1_)) <$> fromCandid @(Rec ("_1_" .== a)) x
 
 newtype JustRight a = JustRight a
     deriving (Eq, Show)
 
 instance Candid a => Candid (JustRight a) where
-    asType = VariantT [(N "Right", asType' @a)]
-    toCandid (JustRight x) = VariantV (N "Right") (toCandid x)
-    fromCandid (VariantV f x)
-        | candidHash f == candidHash (N "Right") = JustRight <$> fromCandid x
-    fromCandid v = Left "Unexpected value"
+    asType = asType @(Var ("Right" .== a))
+    toCandid (JustRight x) = toCandid (singleton (Label @"Right") x)
+    fromCandid x = JustRight . snd . unSingleton <$> fromCandid @(Var ("Right" .== a)) x
 
 data SimpleRecord = SimpleRecord { foo :: Bool, bar :: T.Text }
     deriving (Generic, Eq, Show)
@@ -241,8 +238,10 @@ tests = testGroup "tests"
         [ m "foo" [TextT] [TextT] ]
     , parseTest "service : { foo : (opt text) -> () }"
         [ m "foo" [OptT TextT] []  ]
+    , parseTest "service : { foo : (record { x_ : null; 5 : nat8 }) -> () }"
+        [ m "foo" [RecT [(N "x__", NullT), (N "_5_", Nat8T)]] [] ]
     , parseTest "service : { foo : (record { x : null; 5 : nat8 }) -> () }"
-        [ m "foo" [RecT [(N "x", NullT), (H 5, Nat8T)]] [] ]
+        [ m "foo" [RecT [(N "x", NullT), (N "_5_", Nat8T)]] [] ]
     ]
   , testGroup "Using TH interface" $
     [ testCase "demo1: direct" $ do

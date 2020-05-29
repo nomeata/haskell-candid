@@ -70,7 +70,6 @@ row eq add = foldr (\(fn, t) rest -> [t|
 
 fieldName :: FieldName -> TypeQ
 fieldName (N s) = litT (strTyLit (T.unpack s))
-fieldName (H _) = fail "Cannot handle numeric record field names"
 
 typ :: Type Void -> TypeQ
 typ NatT = [t| Natural |]

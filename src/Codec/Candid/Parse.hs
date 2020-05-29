@@ -105,8 +105,8 @@ constTypeP = choice
 
 fieldTypeP :: Parser (FieldName, Type Void)
 fieldTypeP = choice -- TODO : variant shorthands
-  [ (,) <$> (H <$> natP) <* s ":" <*> dataTypeP
-  , (,) <$> (N <$> nameP) <* s ":" <*> dataTypeP
+  [ (,) <$> (escapeFieldHash <$> natP) <* s ":" <*> dataTypeP
+  , (,) <$> (escapeFieldName <$> nameP) <* s ":" <*> dataTypeP
   ]
 
 idP :: Parser String
