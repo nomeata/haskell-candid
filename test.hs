@@ -113,13 +113,13 @@ roundTripProp = testProperty desc $ \v ->
         Left err -> Left $
             show v ++ " failed to decode: " ++ err
   where
-    desc = show $ pretty (tieKnot (typeDesc @a))
+    desc = show $ pretty (tieKnot (seqDesc @a))
 
 subTypProp :: forall a b.  (CandidArg a, Serial IO a, Show a, CandidArg b) => TestTree
 subTypProp = testProperty desc $ \v ->
     isRight $ decode @b (encode @a v)
   where
-    desc = show $ pretty (tieKnot (typeDesc @a)) <+> "<:" <+> pretty (tieKnot (typeDesc @b))
+    desc = show $ pretty (tieKnot (seqDesc @a)) <+> "<:" <+> pretty (tieKnot (seqDesc @b))
 
 subTypeTest' :: forall a b.
     (CandidArg a, Eq a, Show a) =>
@@ -158,6 +158,14 @@ parseTest c e = testCase c $
     case parseDid c of
         Left err -> assertFailure err
         Right s -> s @?= e
+
+printTestType :: forall a. (Candid a, HasCallStack) => String -> TestTree
+printTestType e = testCase e $
+    show (pretty (typeDesc @a)) @?= e
+
+printTestSeq :: forall a. (CandidArg a, HasCallStack) => String -> TestTree
+printTestSeq e = testCase e $
+    show (pretty (tieKnot (seqDesc @a))) @?= e
 
 tests = testGroup "tests"
   [ testGroup "encode tests"
@@ -230,7 +238,23 @@ tests = testGroup "tests"
     , subTypProp @(V.Vector Word8) @BS.ByteString
     , subTypProp @Principal @Reserved
     ]
-  , testGroup "candid parsing" $
+  , testGroup "candid type printing" $
+    [ printTestType @Bool "bool"
+    , printTestType @Integer "int"
+    , printTestType @Natural "nat"
+    , printTestType @Int8 "int8"
+    , printTestType @Word8 "nat8"
+    , printTestType @SimpleRecord "record {bar : text; foo : bool}"
+    , printTestType @(JustRight T.Text) "variant {Right : text}"
+    , printTestSeq @() "()"
+    , printTestSeq @(Unary ()) "(null)"
+    , printTestSeq @(Unary (Bool, Bool)) "(record {0 : bool; 1 : bool})"
+    , printTestSeq @((),()) "(null, null)"
+    , printTestSeq @(Bool,Bool) "(bool, bool)"
+    , printTestSeq @(Bool,(Bool, Bool)) "(bool, record {0 : bool; 1 : bool})"
+    , printTestSeq @Bool "(bool)"
+    ]
+  , testGroup "candid type parsing" $
     let m x y z = (x, y, z) in
     [ parseTest "service : {}" []
     , parseTest "service : { foo : (text) -> (text) }"

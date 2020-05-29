@@ -21,21 +21,7 @@
 {-# OPTIONS -Wno-orphans #-}
 -- | This (internal) module contains the encoding and decoding, as well
 -- as the relevant classes
---
--- Everything of interest is re-exported by "Codec.Candid".
-module Codec.Candid.Class
-    ( Candid(..)
-    , CandidVal
-    , CandidSeq(..)
-    , CandidArg
-    , typeDesc
-    , TypeDesc
-    , tieKnot
-    , Unary(..)
-    , encode
-    , encodeBuilder
-    , decode
-    ) where
+module Codec.Candid.Class where
 
 import Numeric.Natural
 import qualified Data.Vector as V
@@ -79,7 +65,7 @@ encodeBuilder x = mconcat
     , encodeSeq (tieKnot t) (seqVal (asTuple x))
     ]
   where
-    t = typeDesc @a
+    t = seqDesc @a
 
 encodeSeq :: [Type Void] -> [Value] -> B.Builder
 encodeSeq [] _ = mempty -- NB: Subtyping
@@ -138,8 +124,8 @@ encodeRec ((n,t):fs) vs
 
 type TypTableBuilder k = RWS () B.Builder (M.Map (Type k) Integer, Natural)
 
-typTable :: TypeDesc -> B.Builder
-typTable (TypeDesc m (ts :: [Type k])) = mconcat
+typTable :: SeqDesc -> B.Builder
+typTable (SeqDesc m (ts :: [Type k])) = mconcat
     [ buildLEB128 typ_tbl_len
     , typ_tbl
     , leb128Len ts
@@ -223,16 +209,16 @@ decodeVals = G.runGet $ do
     arg_tys <- decodeTypTable
     mapM decodeVal (tieKnot arg_tys)
 
-data TypeDesc where
-    TypeDesc :: forall k. (Pretty k, Ord k) => M.Map k (Type k) -> [Type k] -> TypeDesc
+data SeqDesc where
+    SeqDesc :: forall k. (Pretty k, Ord k) => M.Map k (Type k) -> [Type k] -> SeqDesc
 
-instance Pretty TypeDesc where
-    pretty (TypeDesc m ts) = pretty (M.toList m, ts)
+instance Pretty SeqDesc where
+    pretty (SeqDesc m ts) = pretty (M.toList m, ts)
 
 data Ref k f  = Ref k (f (Ref k f))
 
-buildTypeDesc :: forall k. (Pretty k, Ord k) => [Type (Ref k Type)] -> TypeDesc
-buildTypeDesc ts = TypeDesc m ts'
+buildSeqDesc :: forall k. (Pretty k, Ord k) => [Type (Ref k Type)] -> SeqDesc
+buildSeqDesc ts = SeqDesc m ts'
   where
     (ts', m) = runState (mapM (mapM go) ts) mempty
 
@@ -246,8 +232,8 @@ buildTypeDesc ts = TypeDesc m ts'
         return k
 
 
-tieKnot :: TypeDesc -> [Type Void]
-tieKnot (TypeDesc m (ts :: [Type k])) = ts'
+tieKnot :: SeqDesc -> [Type Void]
+tieKnot (SeqDesc m (ts :: [Type k])) = ts'
   where
     f :: k -> Type Void
     f k = m' M.! k
@@ -324,12 +310,12 @@ decodeSeq act = do
     len <- getLEB128Int
     replicateM len act
 
-decodeTypTable :: G.Get TypeDesc
+decodeTypTable :: G.Get SeqDesc
 decodeTypTable = do
     len <- getLEB128
     table <- replicateM (fromIntegral len) (decodeTypTableEntry len)
     ts <- decodeSeq (decodeTypRef len)
-    return $ TypeDesc (M.fromList (zip [0..] table)) ts
+    return $ SeqDesc (M.fromList (zip [0..] table)) ts
 
 decodeTypTableEntry :: Natural -> G.Get (Type Int)
 decodeTypTableEntry max = getSLEB128 @Integer >>= \case
@@ -398,8 +384,13 @@ class CandidSeq a where
     seqVal :: a -> [Value]
     fromVals :: [Value] -> Either String a
 
-typeDesc :: forall a. CandidArg a => TypeDesc
-typeDesc = buildTypeDesc (asTypes @(AsTuple a))
+seqDesc :: forall a. CandidArg a => SeqDesc
+seqDesc = buildSeqDesc (asTypes @(AsTuple a))
+
+-- | NB: This will loop with recursive types!
+typeDesc :: forall a. Candid a => Type Void
+typeDesc = asType @(AsCandid a) >>= go
+  where go (Ref _ t) = t >>= go
 
 instance Pretty TypeRep where
     pretty = pretty . show

@@ -17,6 +17,7 @@ import Numeric.Natural
 import Control.Monad
 import Data.Bifunctor
 import Data.Char
+import Data.Void
 
 import Data.Text.Prettyprint.Doc
 
@@ -113,7 +114,10 @@ instance Pretty a => Pretty (Type a) where
     prettyList = encloseSep lparen rparen (comma <> space) . map pretty
 
 prettyFields :: Pretty a => Bool -> Fields a -> Doc ann
-prettyFields in_variant fs = braces $ hsep $ punctuate semi $ map (prettyField in_variant) fs
+prettyFields in_variant fs = prettyBraceSemi $ map (prettyField in_variant) fs
+
+prettyBraceSemi :: [Doc ann] -> Doc ann
+prettyBraceSemi = braces . hsep . punctuate semi
 
 prettyField :: Pretty a => Bool -> (FieldName, Type a) -> Doc ann
 prettyField True (f, NullT) = pretty f
@@ -142,10 +146,49 @@ data Value
   | VariantV FieldName Value
   | PrincipalV Principal
   | BlobV BS.ByteString
+  | AnnV Value (Type Void)
   deriving (Eq, Ord, Show)
 
 instance Pretty Value where
-  pretty _ = "TODO: pretty Value"
+  pretty (NatV v) = pretty v
+  pretty (IntV v) = pretty v
+  pretty (Nat8V v) = prettyAnn v Nat8T
+  pretty (Nat16V v) = prettyAnn v Nat16T
+  pretty (Nat32V v) = prettyAnn v Nat32T
+  pretty (Nat64V v) = prettyAnn v Nat64T
+  pretty (Int8V v) = prettyAnn v Int8T
+  pretty (Int16V v) = prettyAnn v Int16T
+  pretty (Int32V v) = prettyAnn v Int32T
+  pretty (Int64V v) = prettyAnn v Int64T
+  pretty (Float32V v) = prettyAnn v Float32T
+  pretty (Float64V v) = prettyAnn v Float64T
+  pretty (BoolV True) = "true"
+  pretty (BoolV False) = "false"
+  pretty (TextV v) = prettyText v
+  pretty NullV = "null"
+  pretty ReservedV = "null" -- anything is fine
+  pretty (PrincipalV b) = "service" <+> prettyText (principalToID b)
+  pretty (BlobV b) = "blob" <+> dquotes (pretty (escapeBlob b))
+  pretty (OptV Nothing) = pretty NullV
+  pretty (OptV (Just v)) = "opt" <+> pretty v
+  pretty (VecV vs) = "vec" <+> prettyBraceSemi (map pretty (V.toList vs))
+  pretty (RecV vs) = "record" <+> prettyBraceSemi (map go vs)
+    where go (fn, v) = pretty fn <+> "=" <+> pretty v
+  pretty (VariantV f NullV) = "variant" <+> braces (pretty f)
+  pretty (VariantV f v) = "variant" <+> braces (pretty f <+> "=" <+> pretty v)
+  pretty (AnnV v t) = prettyAnn v t
+
+prettyAnn :: Pretty a => a -> Type Void -> Doc ann
+prettyAnn v t = pretty v <+> ":" <+> pretty t
+
+principalToID :: Principal -> T.Text
+principalToID = T.pack . show -- TODO: ID encoding
+
+escapeBlob :: BS.ByteString -> T.Text
+escapeBlob = T.pack . show -- TODO: escape
+
+prettyText :: T.Text -> Doc ann
+prettyText t = dquotes (pretty t) -- TODO: Escape
 
 tupV :: [Value] -> Value
 tupV = RecV . zipWith (\n t -> (escapeFieldHash n, t)) [0..]

@@ -59,9 +59,10 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
  , Candid(..)
  , CandidArg
  , CandidVal
- , typeDesc
- , TypeDesc
+ , seqDesc
+ , SeqDesc
  , tieKnot
+ , typeDesc
 
  -- ** Special types
 
@@ -109,6 +110,7 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 
 import Codec.Candid.Data
 import Codec.Candid.Types
+import Codec.Candid.Tuples
 import Codec.Candid.Class
 import Codec.Candid.Generic
 import Codec.Candid.Service
@@ -133,14 +135,14 @@ The easiest way is to use this library is to use the canonical Haskell types. An
 >>> decode (encode ([True, False], Just 100)) == Right ([True, False], Just 100)
 True
 
-Here, no type annotations are needed, the library can infer them from the types of the Haskell values. You can see the Candid types used using `typeDesc`:
+Here, no type annotations are needed, the library can infer them from the types of the Haskell values. You can see the Candid types used using `typeDesc` and `seqDesc`:
 
 (TODO: fix pretty-printing of a TypeDesc)
 
 >>> :type +d ([True, False], Just 100)
 ([True, False], Just 100) :: ([Bool], Maybe Integer)
 >>> :set -XTypeApplications
->>> pretty (tieKnot (typeDesc @([Bool], Maybe Integer)))
+>>> pretty (tieKnot (seqDesc @([Bool], Maybe Integer)))
 (vec bool, opt int)
 
 This library is integrated with the @row-types@ library, so you can use their
@@ -151,8 +153,8 @@ records directly:
 >>> encode (#foo .== [True, False] .+ #bar .== Just 100)
 "DIDL\ETXl\STX\211\227\170\STX\SOH\134\142\183\STX\STXn|m~\SOH\NUL\SOH\228\NUL\STX\SOH\NUL"
 >>> :set -XDataKinds -XTypeOperators
->>> pretty (tieKnot (typeDesc @(Rec ("bar" .== Maybe Integer .+ "foo" .== [Bool]))))
-(record {bar : opt int; foo : vec bool})
+>>> pretty (typeDesc @(Rec ("bar" .== Maybe Integer .+ "foo" .== [Bool])))
+record {bar : opt int; foo : vec bool}
 
 -}
 
@@ -201,8 +203,8 @@ data SimpleRecord = SimpleRecord { foo :: [Bool], bar :: Maybe Integer }
     deriving Candid via (AsRecord SimpleRecord)
 :}
 
->>> pretty (tieKnot (typeDesc @SimpleRecord))
-(record {bar : opt int; foo : vec bool})
+>>> pretty (typeDesc @SimpleRecord)
+record {bar : opt int; foo : vec bool}
 >>> encode (SimpleRecord { foo = [True, False], bar = Just 100 })
 "DIDL\ETXl\STX\211\227\170\STX\SOH\134\142\183\STX\STXn|m~\SOH\NUL\SOH\228\NUL\STX\SOH\NUL"
 
@@ -216,8 +218,8 @@ data Shape = Point () | Sphere Double | Rectangle (Double, Double)
     deriving Candid via (AsVariant Shape)
 :}
 
->>> pretty (tieKnot (typeDesc @Shape))
-(variant {Point; Rectangle : record {0 : float; 1 : float}; Sphere : float})
+>>> pretty (typeDesc @Shape)
+variant {Point; Rectangle : record {0 : float; 1 : float}; Sphere : float}
 >>> encode (Rectangle (100,100))
 "DIDL\STXk\ETX\176\200\244\205\ENQ\DEL\143\232\190\218\v\SOH\173\198\172\140\SIrl\STX\NULr\SOHr\SOH\NUL\SOH\NUL\NUL\NUL\NUL\NUL\NULY@\NUL\NUL\NUL\NUL\NUL\NULY@"
 
