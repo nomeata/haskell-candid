@@ -167,7 +167,7 @@ instance Pretty Value where
   pretty (BoolV False) = "false"
   pretty (TextV v) = prettyText v
   pretty NullV = "null"
-  pretty ReservedV = "null" -- anything is fine
+  pretty ReservedV = prettyAnn ("null"::T.Text) ReservedT
   pretty (PrincipalV b) = "service" <+> prettyText (principalToID b)
   pretty (BlobV b) = "blob" <+> dquotes (pretty (escapeBlob b))
   pretty (OptV Nothing) = pretty NullV

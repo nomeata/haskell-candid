@@ -20,7 +20,9 @@
 
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Builder as B
 import qualified Data.Vector as V hiding (singleton)
 import qualified Data.HashMap.Lazy as HM
 import Test.Tasty
@@ -280,6 +282,34 @@ tests = testGroup "tests"
     , t (Unary (True, False)) "((true, false))"
     , t (Unary (True, (True, False))) "((true, (true, false)))"
     , t (#_0_ .== True .+ #_1_ .== False) "((true, false))"
+    ]
+
+  , testGroup "dynamic values (AST)" $
+    let t :: forall a. (HasCallStack, CandidArg a, Eq a, Show a) => [Value] -> a -> TestTree
+        t vs e = testCase (show (pretty vs)) $ do
+          b <- either assertFailure return $ encodeDynValues vs
+          let bytes = BSL.toStrict (B.toLazyByteString b)
+          x <- either assertFailure return $ decode @a bytes
+          x @?= e
+
+        t' :: HasCallStack => [Value] -> TestTree
+        t' vs = testCase ("Bad: " <> show (pretty vs)) $ case encodeDynValues vs of
+            Left err -> return ()
+            Right _ -> assertFailure "Ill-typed value encoded?"
+    in
+    [ t [BoolV True] True
+    , t [BoolV False] False
+    , t [NatV 1] (1 :: Natural)
+    , t [Nat8V 1] (1 :: Word8)
+    , t [RecV [(N "bar", TextV "baz")]] (#bar .== ("baz":: T.Text))
+    , t [VecV (V.fromList [])] (V.fromList [] :: V.Vector Void)
+    , t [VecV (V.fromList [NatV 4, IntV 4])] (V.fromList [4 :: Integer,4])
+    , t [VecV (V.fromList [NatV 4, ReservedV])] (V.fromList [Reserved, Reserved])
+    , t [VecV (V.fromList [RecV [], TupV []])] (V.fromList [R.empty, R.empty])
+    , t [VecV (V.fromList [RecV [], TupV [BoolV True]])] (V.fromList [R.empty, R.empty])
+    , t [VecV (V.fromList [VariantV (N "a") (BoolV True), VariantV (N "b") NullV])]
+        (V.fromList [IsJust #a True, IsJust #b () :: V.Var ("a" V..== Bool V..+ "b" V..== ())])
+    , t' [VecV (V.fromList [BoolV True, NatV 4])]
     ]
 
   , testGroup "candid type parsing" $

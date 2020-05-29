@@ -104,6 +104,7 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 -- ** Dynamic candid use
 
  , decodeVals
+ , encodeDynValues
  , DidFile
  , parseDid
 
@@ -124,6 +125,7 @@ import Codec.Candid.Parse
 import Codec.Candid.TH
 import Codec.Candid.TypTable
 import Codec.Candid.Decode
+import Codec.Candid.Encode
 
 -- $setup
 -- >>> :set -dppr-cols=200
