@@ -51,6 +51,7 @@ import Data.Text.Prettyprint.Doc
 
 import Codec.Candid.Tuples
 import Codec.Candid.Data
+import Codec.Candid.TypTable
 import Codec.Candid.Types
 
 -- | Encode based on Haskell type
@@ -208,40 +209,6 @@ decodeVals = G.runGet $ do
     decodeMagic
     arg_tys <- decodeTypTable
     mapM decodeVal (tieKnot arg_tys)
-
-data SeqDesc where
-    SeqDesc :: forall k. (Pretty k, Ord k) => M.Map k (Type k) -> [Type k] -> SeqDesc
-
-instance Pretty SeqDesc where
-    pretty (SeqDesc m ts) = pretty (M.toList m, ts)
-
-data Ref k f  = Ref k (f (Ref k f))
-
-buildSeqDesc :: forall k. (Pretty k, Ord k) => [Type (Ref k Type)] -> SeqDesc
-buildSeqDesc ts = SeqDesc m ts'
-  where
-    (ts', m) = runState (mapM (mapM go) ts) mempty
-
-    go :: Ref k Type -> State (M.Map k (Type k)) k
-    go (Ref k t) = do
-        seen <- gets (M.member k)
-        unless seen $ mdo
-            modify (M.insert k t')
-            t' <- mapM go t
-            return ()
-        return k
-
-
-tieKnot :: SeqDesc -> [Type Void]
-tieKnot (SeqDesc m (ts :: [Type k])) = ts'
-  where
-    f :: k -> Type Void
-    f k = m' M.! k
-    m' :: M.Map k (Type Void)
-    m' = (>>= f) <$> m
-    ts' :: [Type Void]
-    ts' = (>>= f) <$> ts
-
 
 -- | Decode to Haskell type
 decode :: forall a. CandidArg a => BS.ByteString -> Either String a

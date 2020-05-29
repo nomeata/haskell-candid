@@ -116,6 +116,7 @@ import Codec.Candid.Generic
 import Codec.Candid.Service
 import Codec.Candid.Parse
 import Codec.Candid.TH
+import Codec.Candid.TypTable
 
 -- $setup
 -- >>> :set -dppr-cols=200
