@@ -12,7 +12,7 @@ import qualified Data.Vector as V
 import Data.Word
 import Data.Int
 import Data.Maybe
-import Text.Read
+import Text.Read (readMaybe)
 import Numeric.Natural
 import Control.Monad
 import Data.Bifunctor
@@ -179,7 +179,7 @@ instance Pretty Value where
   pretty (AnnV v t) = prettyAnn v t
 
 prettyAnn :: Pretty a => a -> Type Void -> Doc ann
-prettyAnn v t = pretty v <+> ":" <+> pretty t
+prettyAnn v t = parens $ pretty v <+> ":" <+> pretty t
 
 principalToID :: Principal -> T.Text
 principalToID = T.pack . show -- TODO: ID encoding

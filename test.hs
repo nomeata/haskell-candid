@@ -167,6 +167,10 @@ printTestSeq :: forall a. (CandidArg a, HasCallStack) => String -> TestTree
 printTestSeq e = testCase e $
     show (pretty (tieKnot (seqDesc @a))) @?= e
 
+printTestValue :: Value -> String -> TestTree
+printTestValue v e = testCase e $
+    show (pretty v) @?= e
+
 tests = testGroup "tests"
   [ testGroup "encode tests"
     [ testCase "empty" $ encode () @?= B.pack "DIDL\0\0"
@@ -254,6 +258,14 @@ tests = testGroup "tests"
     , printTestSeq @(Bool,(Bool, Bool)) "(bool, record {0 : bool; 1 : bool})"
     , printTestSeq @Bool "(bool)"
     ]
+  , testGroup "candid value printing" $
+    [ printTestValue (BoolV True) "true"
+    , printTestValue (BoolV False) "false"
+    , printTestValue (NatV 1) "1"
+    , printTestValue (Nat8V 1) "(1 : nat8)"
+    , printTestValue (RecV [(N "bar", TextV "baz")]) "record {bar = \"baz\"}"
+    ]
+
   , testGroup "candid type parsing" $
     let m x y z = (x, y, z) in
     [ parseTest "service : {}" []
