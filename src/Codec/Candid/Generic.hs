@@ -19,7 +19,7 @@ import qualified Data.Row.Variants as V
 import qualified GHC.Generics as G
 import Data.Typeable
 
-import Codec.Candid.Core
+import Codec.Candid.Class
 
 -- | This newtype encodes a Haskell record type using generic programming. Best used with @DerivingVia@, as shown in the overview.
 newtype AsRecord a = AsRecord { unAsRecord :: a }

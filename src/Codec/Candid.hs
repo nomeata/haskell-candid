@@ -114,13 +114,13 @@ Candid is inherently typed, so before encoding or decoding, we have to declare t
 --
  ) where
 
-import Codec.Candid.Core
+import Codec.Candid.Data
+import Codec.Candid.Types
+import Codec.Candid.Class
 import Codec.Candid.Generic
 import Codec.Candid.Service
 import Codec.Candid.Parse
 import Codec.Candid.TH
-import Codec.Candid.Data
-import Codec.Candid.Types
 
 -- $setup
 -- >>> :set -dppr-cols=200

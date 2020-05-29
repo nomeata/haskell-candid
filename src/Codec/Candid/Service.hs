@@ -20,7 +20,7 @@ import Data.Row
 import Data.Row.Records
 import Data.Row.Internal
 
-import Codec.Candid.Core
+import Codec.Candid.Class
 
 -- | A raw service, operating on bytes
 type RawService m = T.Text -> BS.ByteString -> m BS.ByteString

@@ -19,11 +19,11 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS -Wno-orphans #-}
--- | This (internal) module contains the core stuff; in particularly
--- everything that can be done without UndecidableInstances
+-- | This (internal) module contains the encoding and decoding, as well
+-- as the relevant classes
 --
 -- Everything of interest is re-exported by "Codec.Candid".
-module Codec.Candid.Core
+module Codec.Candid.Class
     ( Candid(..)
     , asType'
     , CandidSeq(..)
