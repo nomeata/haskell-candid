@@ -44,9 +44,12 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 
 {- |
 
-* Reading or writing interface descriptions
+* Writing interface descriptions
 * Service and function types
 * Future types
+* Parsing dynamically against expected expected type
+* Some short-hands in textual form
+* Parsing type definitions
 
 -}
 
@@ -101,7 +104,7 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
  , candidHash
  , lookupField
 
--- ** Dynamic candid use
+-- ** Dynamic use
 
  , decodeVals
  , encodeDynValues
@@ -329,6 +332,7 @@ If you want to read the description from a @.did@ file, you can use 'candidFile'
 Sometimes one needs to interact with Candid in a dynamic way, without static type information.
 
 This library allows the parsing and pretty-printing of candid values. The binary value was copied from above:
+
 >>> import Data.Row
 >>> :set -XDataKinds -XTypeOperators
 >>> let bytes = encode (#bar .== Just 100 .+ #foo .== [True,False])
@@ -339,6 +343,7 @@ This library allows the parsing and pretty-printing of candid values. The binary
 As you can see, the binary format does not preserve the field names. Future versions of this library will allow you to specify the (dynamic) 'Type' at which you want to decode these values, to overcome that problem.
 
 Conversely, you can encode from the textual representation:
+
 >>> let Right bytes = encodeTextual "record { foo = vec { true; false }; bar = opt +100 }"
 >>> bytes
 "DIDL\ETXl\STX\211\227\170\STX\STX\134\142\183\STX\SOHm~n|\SOH\NUL\SOH\228\NUL\STX\SOH\NUL"
@@ -346,7 +351,7 @@ Conversely, you can encode from the textual representation:
 Right (#bar .== Just 100 .+ #foo .== [True,False])
 
 
-
+This function does not support the full textual format yet; in particular type annotation can only be used around number literals.
 
 -}
 

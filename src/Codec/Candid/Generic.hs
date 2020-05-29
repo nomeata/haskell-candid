@@ -22,7 +22,7 @@ import Data.Typeable
 
 import Codec.Candid.Class
 
--- | This newtype encodes a Haskell record type using generic programming. Best used with @DerivingVia@, as shown in the overview.
+-- | This newtype encodes a Haskell record type using generic programming. Best used with @DerivingVia@, as shown in the tutorial.
 newtype AsRecord a = AsRecord { unAsRecord :: a }
 
 
@@ -37,7 +37,7 @@ instance CanBeCandidRecord a => Candid (AsRecord a) where
     toCandid = toCandid @(R.Rec (NativeRowR a)) . R.fromNative . unAsRecord
     fromCandid = AsRecord . R.toNativeExact . fromCandid @(R.Rec (NativeRowR a))
 
--- | This newtype encodes a Haskell data type as a variant using generic programming. Best used with @DerivingVia@, as shown in the overview.
+-- | This newtype encodes a Haskell data type as a variant using generic programming. Best used with @DerivingVia@, as shown in the tutorial.
 newtype AsVariant a = AsVariant { unAsVariant :: a }
 
 type CanBeCandidVariant a =

@@ -24,9 +24,11 @@ parseDid = first show . parse (allInput fileP) "Candid service"
 parseDidType :: String -> Either String (Type Void)
 parseDidType = first show . parse (allInput dataTypeP) "Candid type"
 
+-- | Parses a Candid textual value from a string
 parseValue :: String -> Either String Value
 parseValue = first show . parse (allInput valueP) "Candid value"
 
+-- | Parses a sequence of  Candid textual values from a string
 parseValues :: String -> Either String [Value]
 parseValues = first show . parse (allInput valuesP) "Candid values (argument sequence)"
 

@@ -27,11 +27,18 @@ import Codec.Candid.Types
 import Codec.Candid.Infer
 
 
+-- | Encodes a Candid value given in the dynamic 'Value' form, at inferred type.
+--
+-- This may fail if the values have inconsistent types. It does not use the
+-- @reserved@ supertype (unless explicitly told to).
 encodeDynValues :: [Value] -> Either String B.Builder
 encodeDynValues vs = do
     ts <- inferTypes vs
     return $ encodeValues (SeqDesc mempty ts) vs
 
+-- | Encodes a Candid value given in the dynamic 'Value' form, at given type.
+--
+-- This fails if the values do not match the given type.
 encodeValues :: SeqDesc -> [Value] -> B.Builder
 encodeValues t vs = mconcat
     [ B.stringUtf8 "DIDL"

@@ -105,7 +105,7 @@ class Typeable a => CandidVal a where
 
 -- | The class of Haskell types that can be converted to Candid.
 --
--- You can create intances of this class for your own types, see the overview above for examples. The default instance is mostly for internal use.
+-- You can create intances of this class for your own types, see the tutorial above for examples. The default instance is mostly for internal use.
 class (Typeable a, CandidVal (AsCandid a)) => Candid a where
     type AsCandid a
     toCandid :: a -> AsCandid a
