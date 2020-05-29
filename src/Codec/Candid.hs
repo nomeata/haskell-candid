@@ -36,6 +36,10 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 
 -- $import
 
+-- ** Dynamic use
+
+-- $dynamic
+
 -- ** Missing features
 
 {- |
@@ -97,10 +101,12 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
  , candidHash
  , lookupField
 
--- ** Parsing .did files
+-- ** Dynamic candid use
 
+ , decodeVals
  , DidFile
  , parseDid
+
 
 -- Convenience re-exports
 -- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837
@@ -117,6 +123,7 @@ import Codec.Candid.Service
 import Codec.Candid.Parse
 import Codec.Candid.TH
 import Codec.Candid.TypTable
+import Codec.Candid.Decode
 
 -- $setup
 -- >>> :set -dppr-cols=200
@@ -308,5 +315,11 @@ You can then use this with 'toCandidService' to talk to a service.
 
 If you want to read the description from a @.did@ file, you can use 'candidFile'.
 
+
+-}
+
+{- $dynamic
+
+TODO
 
 -}

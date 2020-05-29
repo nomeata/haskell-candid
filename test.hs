@@ -167,10 +167,6 @@ printTestSeq :: forall a. (CandidArg a, HasCallStack) => String -> TestTree
 printTestSeq e = testCase e $
     show (pretty (tieKnot (seqDesc @a))) @?= e
 
-printTestValue :: Value -> String -> TestTree
-printTestValue v e = testCase e $
-    show (pretty v) @?= e
-
 tests = testGroup "tests"
   [ testGroup "encode tests"
     [ testCase "empty" $ encode () @?= B.pack "DIDL\0\0"
@@ -259,11 +255,31 @@ tests = testGroup "tests"
     , printTestSeq @Bool "(bool)"
     ]
   , testGroup "candid value printing" $
-    [ printTestValue (BoolV True) "true"
-    , printTestValue (BoolV False) "false"
-    , printTestValue (NatV 1) "1"
-    , printTestValue (Nat8V 1) "(1 : nat8)"
-    , printTestValue (RecV [(N "bar", TextV "baz")]) "record {bar = \"baz\"}"
+    let t :: Value -> String -> TestTree
+        t v e = testCase e $ show (pretty v) @?= e
+    in
+    [ t (BoolV True) "true"
+    , t (BoolV False) "false"
+    , t (NatV 1) "1"
+    , t (Nat8V 1) "(1 : nat8)"
+    , t (RecV [(N "bar", TextV "baz")]) "record {bar = \"baz\"}"
+    ]
+  , testGroup "candid value printing (via binary) " $
+    let t :: forall a. (HasCallStack, CandidArg a) => a -> String -> TestTree
+        t v e = testCase e $ do
+          let bytes = encode v
+          vs <- either assertFailure return $ decodeVals bytes
+          show (pretty vs) @?= e
+    in
+    [ t True "(true)"
+    , t (SimpleRecord False "Hi") "(record {4895187 = \"Hi\"; 5097222 = false})"
+    , t (JustRight (Just (3 :: Natural))) "(variant {2089909180 = opt 3})"
+    , t (JustRight (3 :: Word8)) "(variant {2089909180 = (3 : nat8)})"
+    , t () "()"
+    , t (Unary ()) "(null)"
+    , t (Unary (True, False)) "(record {0 = true; 1 = false})"
+    , t (Unary (True, (True, False))) "(record {0 = true; 1 = record {0 = true; 1 = false}})"
+    , t (#_0_ .== True .+ #_1_ .== False) "(record {0 = true; 1 = false})"
     ]
 
   , testGroup "candid type parsing" $

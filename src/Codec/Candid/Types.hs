@@ -178,6 +178,8 @@ instance Pretty Value where
   pretty (VariantV f v) = "variant" <+> braces (pretty f <+> "=" <+> pretty v)
   pretty (AnnV v t) = prettyAnn v t
 
+  prettyList = encloseSep lparen rparen (comma <> space) . map pretty
+
 prettyAnn :: Pretty a => a -> Type Void -> Doc ann
 prettyAnn v t = parens $ pretty v <+> ":" <+> pretty t
 
