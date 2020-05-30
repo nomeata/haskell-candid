@@ -20,6 +20,9 @@ import qualified Data.Map as M
 import Control.Monad.State.Lazy
 import Data.Void
 import Data.Text.Prettyprint.Doc
+import Data.DList (singleton, DList)
+import Data.Graph
+import Data.Foldable
 
 import Codec.Candid.Types
 
@@ -44,6 +47,20 @@ buildSeqDesc ts = SeqDesc m ts'
             t' <- mapM go t
             return ()
         return k
+
+voidEmptyTypes :: SeqDesc -> SeqDesc
+voidEmptyTypes (SeqDesc m ts) = SeqDesc m' ts
+  where
+    edges = [ (k,k, toList (underRec t)) | (k,t) <- M.toList m ]
+    sccs = stronglyConnComp edges
+    bad = concat [ xs | CyclicSCC xs <- sccs ]
+    m' = foldl' (\m k -> M.insert k EmptyT m) m bad
+
+
+underRec :: Type k -> DList k
+underRec (RefT x) = singleton x
+underRec (RecT fs) = foldMap (underRec . snd) fs
+underRec _ = mempty
 
 tieKnot :: SeqDesc -> [Type Void]
 tieKnot (SeqDesc m (ts :: [Type k])) = ts'

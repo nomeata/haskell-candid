@@ -26,7 +26,7 @@ decodeVals :: BS.ByteString -> Either String [Value]
 decodeVals = G.runGet $ do
     decodeMagic
     arg_tys <- decodeTypTable
-    mapM decodeVal (tieKnot arg_tys)
+    mapM decodeVal (tieKnot (voidEmptyTypes arg_tys))
 
 decodeVal :: Type Void -> G.Get Value
 decodeVal BoolT = G.getWord8 >>= \case
@@ -99,7 +99,8 @@ decodeTypTable = do
     len <- getLEB128
     table <- replicateM (fromIntegral len) (decodeTypTableEntry len)
     ts <- decodeSeq (decodeTypRef len)
-    return $ SeqDesc (M.fromList (zip [0..] table)) ts
+    let m = M.fromList (zip [0..] table)
+    return $ SeqDesc m ts
 
 decodeTypTableEntry :: Natural -> G.Get (Type Int)
 decodeTypTableEntry max = getSLEB128 @Integer >>= \case

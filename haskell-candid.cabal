@@ -30,6 +30,7 @@ library
   other-modules: Codec.Candid.Infer
   build-depends: base >=4.12 && <5
   build-depends: text
+  build-depends: dlist
   build-depends: vector
   build-depends: bytestring
   build-depends: mtl
