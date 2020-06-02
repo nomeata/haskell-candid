@@ -86,7 +86,8 @@ decodeBytes = getLEB128Int >>= G.getLazyByteString
 decodeMagic :: G.Get ()
 decodeMagic = do
     magic <- G.getBytes 4
-    unless (magic == T.encodeUtf8 (T.pack "DIDL")) $ fail "Expected magic bytes \"DIDL\""
+    unless (magic == T.encodeUtf8 (T.pack "DIDL")) $
+        fail $ "Expected magic bytes \"DIDL\", got " ++ show magic
 
 getLEB128Int :: Integral a => G.Get a
 getLEB128Int = fromIntegral <$> getLEB128 @Natural

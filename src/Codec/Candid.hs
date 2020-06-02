@@ -273,7 +273,7 @@ Now we can turn this into a raw service operating on bytes:
 
 >>> let raw = fromCandidService (error . show) error service
 >>> raw (T.pack "get") (BS.pack "DUDE")
-*** Exception: Failed reading: Expected magic bytes "DIDL"
+*** Exception: Failed reading: Expected magic bytes "DIDL", got "DUDE"
 ...
 >>> raw (T.pack "get") (BS.pack "DIDL\NUL\NUL")
 "DIDL\NUL\SOH|\ENQ"
