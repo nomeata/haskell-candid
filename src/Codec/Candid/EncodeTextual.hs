@@ -1,7 +1,6 @@
 module Codec.Candid.EncodeTextual where
 
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Builder as B
 import Control.Monad
 
@@ -13,5 +12,5 @@ import Codec.Candid.Encode
 -- This may fail if the textual form cannot be parsed or has inconsistent
 -- types. It does not use the @reserved@ supertype (unless explicitly told to).
 encodeTextual :: String -> Either String BS.ByteString
-encodeTextual = parseValues >=> encodeDynValues >=> return . BSL.toStrict . B.toLazyByteString
+encodeTextual = parseValues >=> encodeDynValues >=> return . B.toLazyByteString
 

@@ -8,7 +8,7 @@ import Numeric.Natural
 import qualified Data.Vector as V
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map as M
 import Control.Monad.State.Lazy
 import Data.List
@@ -23,10 +23,12 @@ import Codec.Candid.Types
 
 -- | Decode to value representation
 decodeVals :: BS.ByteString -> Either String [Value]
-decodeVals = G.runGet $ do
-    decodeMagic
-    arg_tys <- decodeTypTable
-    mapM decodeVal (tieKnot (voidEmptyTypes arg_tys))
+decodeVals bytes = G.runGet go (BS.toStrict bytes)
+  where
+    go = do
+        decodeMagic
+        arg_tys <- decodeTypTable
+        mapM decodeVal (tieKnot (voidEmptyTypes arg_tys))
 
 decodeVal :: Type Void -> G.Get Value
 decodeVal BoolT = G.getWord8 >>= \case
@@ -47,7 +49,7 @@ decodeVal Float32T = Float32V <$> G.getFloat32le
 decodeVal Float64T = Float64V <$> G.getFloat64le
 decodeVal TextT = TextV <$> do
     bs <- decodeBytes
-    case T.decodeUtf8' bs of
+    case T.decodeUtf8' (BS.toStrict bs) of
         Left err -> fail (show err)
         Right t -> return t
 decodeVal NullT = return NullV
@@ -79,14 +81,14 @@ decodeVal EmptyT = fail "Empty value"
 decodeVal (RefT v) = absurd v
 
 decodeBytes :: G.Get BS.ByteString
-decodeBytes = getLEB128Int >>= G.getByteString
+decodeBytes = getLEB128Int >>= G.getLazyByteString
 
 decodeMagic :: G.Get ()
 decodeMagic = do
     magic <- G.getBytes 4
     unless (magic == T.encodeUtf8 (T.pack "DIDL")) $ fail "Expected magic bytes \"DIDL\""
 
-getLEB128Int :: G.Get Int
+getLEB128Int :: Integral a => G.Get a
 getLEB128Int = fromIntegral <$> getLEB128 @Natural
 
 decodeSeq :: G.Get a -> G.Get [a]

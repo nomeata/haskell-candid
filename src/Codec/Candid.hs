@@ -140,7 +140,7 @@ import Codec.Candid.EncodeTextual
 -- >>> import qualified Data.Text as T
 -- >>> import Data.Void (Void)
 -- >>> import Data.Text.Prettyprint.Doc (pretty)
--- >>> import qualified Data.ByteString.Char8 as BS
+-- >>> import qualified Data.ByteString.Lazy.Char8 as BS
 -- >>> :set -XScopedTypeVariables
 
 {- $haskell_types

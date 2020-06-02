@@ -15,7 +15,7 @@ module Codec.Candid.Service where
 
 import qualified Data.Text as T
 import qualified Data.HashMap.Strict as H
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BS
 import Data.Row
 import Data.Row.Records
 import Data.Row.Internal

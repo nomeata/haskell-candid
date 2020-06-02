@@ -19,8 +19,8 @@ module Codec.Candid.Class where
 import Numeric.Natural
 import qualified Data.Vector as V
 import qualified Data.Text as T
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString as SBS
+import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Builder as B
 import Data.Row
 import qualified Data.Row.Records as R
@@ -43,7 +43,7 @@ import Codec.Candid.Encode
 
 -- | Encode based on Haskell type
 encode :: CandidArg a => a -> BS.ByteString
-encode = BSL.toStrict . B.toLazyByteString . encodeBuilder
+encode = B.toLazyByteString . encodeBuilder
 
 -- | Encode to a 'B.Builder' based on Haskell type
 encodeBuilder :: forall a. CandidArg a => a -> B.Builder
@@ -346,10 +346,10 @@ instance FromRowVar r => CandidVal (V.Var r) where
 
 -- Derived forms
 
-instance Candid BSL.ByteString where
-    type AsCandid BSL.ByteString = BS.ByteString
-    toCandid = BSL.toStrict
-    fromCandid = BSL.fromStrict
+instance Candid SBS.ByteString where
+    type AsCandid SBS.ByteString = BS.ByteString
+    toCandid = BS.fromStrict
+    fromCandid = BS.toStrict
 
 instance (Candid a, Candid b) => Candid (a, b) where
     type AsCandid (a,b) = Rec ("_0_" .== a .+ "_1_" .== b)

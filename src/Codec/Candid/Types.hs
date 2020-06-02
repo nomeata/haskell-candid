@@ -5,7 +5,7 @@
 {-# LANGUAGE DeriveTraversable #-}
 module Codec.Candid.Types where
 
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
@@ -217,7 +217,7 @@ hashFieldName :: FieldName -> Word32
 hashFieldName f = either id candidHash $ unescapeFieldName f
 
 candidHash :: T.Text -> Word32
-candidHash s = BS.foldl (\h c -> (h * 223 + fromIntegral c)) 0 $ T.encodeUtf8 s
+candidHash s = BS.foldl (\h c -> (h * 223 + fromIntegral c)) 0 $ BS.fromStrict $ T.encodeUtf8 s
 
 lookupField :: FieldName -> [(FieldName, a)] -> Maybe a
 lookupField fn fs = listToMaybe

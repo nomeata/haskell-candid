@@ -1,7 +1,7 @@
 -- | A few extra data types
 module Codec.Candid.Data where
 
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BS
 
 data Reserved = Reserved
  deriving (Eq, Ord, Show)

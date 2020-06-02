@@ -9,7 +9,7 @@ module Codec.Candid.Encode (encodeValues, encodeDynValues) where
 import Numeric.Natural
 import qualified Data.Vector as V
 import qualified Data.Text.Encoding as T
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Builder as B
 import qualified Data.Map as M
 import Control.Monad.State.Lazy
@@ -67,7 +67,7 @@ encodeVal Int32T (Int32V n) = B.int32LE n
 encodeVal Int64T (Int64V n) = B.int64LE n
 encodeVal Float32T (Float32V n) = B.floatLE n
 encodeVal Float64T (Float64V n) = B.doubleLE n
-encodeVal TextT (TextV t) = encodeBytes (T.encodeUtf8 t)
+encodeVal TextT (TextV t) = encodeBytes (BS.fromStrict (T.encodeUtf8 t))
 encodeVal NullT NullV = mempty
 encodeVal ReservedT _ = mempty -- NB Subtyping
 encodeVal (OptT _) (OptV Nothing) = B.word8 0
@@ -82,7 +82,7 @@ encodeVal (RecT fs) (RecV vs) = encodeRec fs' vs'
     vs' = map (first hashFieldName) vs
 encodeVal (VariantT fs) (VariantV f x) =
     case lookup (hashFieldName f) fs' of
-        Just (i, t) -> buildLEB128Int i <> encodeVal t x
+        Just (i, t) -> buildLEB128Int @Word32 i <> encodeVal t x
         Nothing -> error $ "encodeVal: Variant field " ++ show (pretty f) ++ " not found"
   where
     fs' = sortOn fst [ (hashFieldName n, (i,t)) | ((n,t), i) <- zip fs [0..] ]
@@ -93,7 +93,7 @@ encodeVal (RefT x) _ = absurd x
 encodeVal t v = error $ "Unexpected value at type " ++ show (pretty t) ++ ": " ++ show (pretty v)
 
 encodeBytes :: BS.ByteString -> B.Builder
-encodeBytes bytes = buildLEB128Int (BS.length bytes) <> B.byteString bytes
+encodeBytes bytes = buildLEB128Int (BS.length bytes) <> B.lazyByteString bytes
 
 -- Encodes the fields in order specified by the type
 encodeRec :: [(Word32, Type Void)] -> [(Word32, Value)] -> B.Builder
@@ -182,7 +182,7 @@ typTable (SeqDesc m (ts :: [Type k])) = mconcat
               sortOn fst tis -- TODO: Check duplicates maybe?
             ]
 
-buildLEB128Int :: Int -> B.Builder
+buildLEB128Int :: Integral a => a -> B.Builder
 buildLEB128Int = buildLEB128 @Natural . fromIntegral
 
 leb128Len :: [a] -> B.Builder

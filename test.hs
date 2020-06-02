@@ -19,9 +19,8 @@
 {-# LANGUAGE QuasiQuotes #-}
 
 import qualified Data.Text as T
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Builder as B
 import qualified Data.Vector as V hiding (singleton)
 import qualified Data.HashMap.Lazy as HM
