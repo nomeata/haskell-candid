@@ -68,8 +68,8 @@ unescapeFieldName n
     , Just (n' :: Natural) <- readMaybe (T.unpack r)
     , n' <= fromIntegral (maxBound :: Word32)
     = hashedField (fromIntegral n')
-    | T.last n == '_'
-    = labledField (T.drop 1 n)
+    | Just (n', '_') <- T.unsnoc n
+    = labledField n'
     | otherwise
     = labledField n
 
@@ -79,6 +79,7 @@ unescapeFieldName n
 -- This used in the 'Codec.Candid.Class.Candid' instance for 'Data.Row.Rec' and
 -- 'Data.Row.Vec'
 escapeFieldName :: FieldName -> T.Text
+escapeFieldName (FieldName _ (Just "")) = ""
 escapeFieldName (FieldName _ (Just n)) | T.last n == '_' = n <> "_"
 escapeFieldName (FieldName _ (Just n)) = n
 escapeFieldName (FieldName h Nothing) = T.singleton '_' <> T.pack (show h) <> T.singleton '_'

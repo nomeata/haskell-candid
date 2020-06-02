@@ -341,6 +341,10 @@ tests = testGroup "tests"
         x <- demo2 .! #greet $ ("World", True)
         x @?= "WorldTrue"
     ]
+  , testProperty "field name escaping round-tripping" $ \e ->
+      let f = either labledField hashedField e in
+      let f' = unescapeFieldName (escapeFieldName f) in
+      f' == f
   ]
 
 instance Monad m => Serial m BS.ByteString where
