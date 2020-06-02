@@ -11,6 +11,7 @@ import Numeric.Natural
 import Data.Void
 
 import Codec.Candid.Types
+import Codec.Candid.FieldName
 
 -- | A candid service, as a list of methods with argument and result types
 --
@@ -115,8 +116,8 @@ constTypeP = choice
 
 fieldTypeP :: Parser (FieldName, Type Void)
 fieldTypeP = choice -- TODO : variant shorthands
-  [ (,) <$> (escapeFieldHash . fromIntegral <$> natP) <* s ":" <*> dataTypeP
-  , (,) <$> (escapeFieldName <$> nameP) <* s ":" <*> dataTypeP
+  [ (,) <$> (hashedField . fromIntegral <$> natP) <* s ":" <*> dataTypeP
+  , (,) <$> (labledField <$> nameP) <* s ":" <*> dataTypeP
   ]
 
 idP :: Parser String
@@ -171,8 +172,8 @@ valueP = choice
 
 fieldValP :: Parser (FieldName, Value)
 fieldValP = choice -- TODO : variant shorthands
-  [ (,) <$> (escapeFieldHash . fromIntegral <$> natP) <* s "=" <*> annValueP
-  , (,) <$> (escapeFieldName <$> nameP) <* s "=" <*> annValueP
+  [ (,) <$> (hashedField . fromIntegral <$> natP) <* s "=" <*> annValueP
+  , (,) <$> (labledField <$> nameP) <* s "=" <*> annValueP
   ]
 
 -- A lexeme

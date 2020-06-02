@@ -21,6 +21,7 @@ import Language.Haskell.TH.Syntax (lookupTypeName)
 import Codec.Candid.Parse
 import Codec.Candid.Data
 import Codec.Candid.Types
+import Codec.Candid.FieldName
 
 -- | This quasi-quoter turns a Candid description into a Haskell type. It assumes a type variable @m@ to be in scope.
 candid :: QuasiQuoter
@@ -69,7 +70,7 @@ row eq add = foldr (\(fn, t) rest -> [t|
   |])
 
 fieldName :: FieldName -> TypeQ
-fieldName (N s) = litT (strTyLit (T.unpack s))
+fieldName f = litT (strTyLit (T.unpack (escapeFieldName f)))
 
 typ :: Type Void -> TypeQ
 typ NatT = [t| Natural |]

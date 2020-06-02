@@ -38,6 +38,7 @@ import Codec.Candid.Tuples
 import Codec.Candid.Data
 import Codec.Candid.TypTable
 import Codec.Candid.Types
+import Codec.Candid.FieldName
 import Codec.Candid.Decode
 import Codec.Candid.Encode
 
@@ -277,7 +278,7 @@ instance CandidVal () where
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
 fromField :: FieldName -> [(FieldName, a)] -> Either String a
-fromField f m = case lookupField f m of
+fromField f m = case lookup f m of
     Just v -> return v
     Nothing -> Left $ "Could not find field " ++ show (pretty f)
 
@@ -294,12 +295,12 @@ instance FromRowRec ('R.R '[]) where
     toRowRec _ = return empty
 
 instance (Candid t, R.KnownSymbol f, FromRowRec ('R.R xs), Typeable xs) => FromRowRec ('R.R (f 'R.:-> t ': xs)) where
-    asTypesRec = (N (R.toKey l), asType' @t) : asTypesRec @('R.R xs)
+    asTypesRec = (unescapeFieldName (R.toKey l), asType' @t) : asTypesRec @('R.R xs)
       where l = Label @f
-    fromRowRec r = (N (R.toKey l), toCandidVal (r .! l)) : fromRowRec (r .- l)
+    fromRowRec r = (unescapeFieldName (R.toKey l), toCandidVal (r .! l)) : fromRowRec (r .- l)
       where l = Label @f
     toRowRec m = do
-        v <- fromField (N (R.toKey l)) m
+        v <- fromField (unescapeFieldName (R.toKey l)) m
         x <- fromCandidVal @t v
         r' <- toRowRec @('R.R xs) m
         return $ R.unsafeInjectFront l x r'
@@ -310,7 +311,7 @@ instance FromRowRec r => CandidVal (Rec r) where
     asType = RecT (asTypesRec @r)
     toCandidVal' = RecV . fromRowRec
     fromCandidVal' (RecV m) = toRowRec m
-    fromCandidVal' (TupV m) = toRowRec (zip (map escapeFieldHash [0..]) m)
+    fromCandidVal' (TupV m) = toRowRec (zip (map hashedField [0..]) m)
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
 class Typeable r => FromRowVar r where
@@ -324,14 +325,14 @@ instance FromRowVar ('R.R '[]) where
     toRowVar f v = Left $ "Unexpected " ++ show (pretty (VariantV f v))
 
 instance (Candid t, R.KnownSymbol f, FromRowVar ('R.R xs), Typeable xs) => FromRowVar ('R.R (f 'R.:-> t ': xs)) where
-    asTypesVar = (N (R.toKey l), asType' @t) : asTypesVar @('R.R xs)
+    asTypesVar = (unescapeFieldName (R.toKey l), asType' @t) : asTypesVar @('R.R xs)
       where l = R.Label @f
     fromRowVar r = case V.trial r l of
-        Left x -> (N (R.toKey l), toCandidVal x)
+        Left x -> (unescapeFieldName (R.toKey l), toCandidVal x)
         Right r' -> fromRowVar @('R.R xs) r'
       where l = R.Label @f
     toRowVar f v
-        | hashFieldName f == hashFieldName (N (R.toKey l))
+        | f == unescapeFieldName (R.toKey l)
         = V.unsafeMakeVar l <$> fromCandidVal v
         | otherwise
         = V.unsafeInjectFront <$> toRowVar @('R.R xs) f v

@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -7,21 +6,18 @@ module Codec.Candid.Types where
 
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import qualified Data.Vector as V
 import Data.Word
 import Data.Int
-import Data.Maybe
-import Text.Read (readMaybe)
 import Numeric.Natural
 import Control.Monad
 import Data.Bifunctor
-import Data.Char
 import Data.Void
 
 import Data.Text.Prettyprint.Doc
 
 import Codec.Candid.Data
+import Codec.Candid.FieldName
 
 data Type a
     -- prim types
@@ -48,7 +44,7 @@ data Type a
   deriving (Show, Eq, Ord, Functor, Foldable, Traversable)
 
 tupT :: [Type a] -> Type a
-tupT = RecT . zipWith (\n t -> (escapeFieldHash n, t)) [0..]
+tupT = RecT . zipWith (\n t -> (hashedField n, t)) [0..]
 
 instance Applicative Type where
     pure = RefT
@@ -196,50 +192,8 @@ prettyText :: T.Text -> Doc ann
 prettyText t = dquotes (pretty t) -- TODO: Escape
 
 tupV :: [Value] -> Value
-tupV = RecV . zipWith (\n t -> (escapeFieldHash n, t)) [0..]
+tupV = RecV . zipWith (\n t -> (hashedField n, t)) [0..]
 
-newtype FieldName = N T.Text
-  deriving (Eq, Ord, Show)
-
-instance Pretty FieldName where
-    pretty = either pretty prettyName . unescapeFieldName
-
-prettyName :: T.Text -> Doc ann
-prettyName n
-    | Just (h,r) <- T.uncons n
-    , h == '_' || isAscii h && isLetter h
-    , T.all (\c -> c == '_' || isAscii c && isAlphaNum c) r
-    = pretty n
-    | otherwise
-    = dquotes (pretty n) -- TODO: Escape field names
-
-hashFieldName :: FieldName -> Word32
-hashFieldName f = either id candidHash $ unescapeFieldName f
-
-candidHash :: T.Text -> Word32
-candidHash s = BS.foldl (\h c -> (h * 223 + fromIntegral c)) 0 $ BS.fromStrict $ T.encodeUtf8 s
-
-lookupField :: FieldName -> [(FieldName, a)] -> Maybe a
-lookupField fn fs = listToMaybe
-    [ x | (f, x) <- fs, hashFieldName f == hashFieldName fn ]
-
-unescapeFieldName :: FieldName -> Either Word32 T.Text
-unescapeFieldName (N n)
-    | Just ('_',r') <- T.uncons n
-    , Just (r,'_') <- T.unsnoc r'
-    , Just (n' :: Natural) <- readMaybe (T.unpack r)
-    , n' <= fromIntegral (maxBound :: Word32)
-    = Left (fromIntegral n')
-    | T.last n == '_'
-    = Right (T.drop 1 n)
-    | otherwise = Right n
-
-escapeFieldName :: T.Text -> FieldName
-escapeFieldName n | T.last n == '_' = N $ n <> "_"
-escapeFieldName n = N n
-
-escapeFieldHash :: Word32 -> FieldName
-escapeFieldHash n =  N $ "_" <> T.pack (show n) <> "_"
 
 -- Put here because used for both decoding and encoding
 primTyp :: Integer -> Maybe (Type a)

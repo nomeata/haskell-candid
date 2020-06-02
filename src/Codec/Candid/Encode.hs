@@ -14,7 +14,6 @@ import qualified Data.ByteString.Builder as B
 import qualified Data.Map as M
 import Control.Monad.State.Lazy
 import Data.Bifunctor
-import Data.Word
 import Data.List
 import Data.Void
 import Control.Monad.RWS.Lazy
@@ -24,6 +23,7 @@ import Data.Text.Prettyprint.Doc
 import Codec.Candid.Data
 import Codec.Candid.TypTable
 import Codec.Candid.Types
+import Codec.Candid.FieldName
 import Codec.Candid.Infer
 
 
@@ -76,16 +76,16 @@ encodeVal (VecT t) (VecV xs) =
     buildLEB128Int (V.length xs) <>
     foldMap (encodeVal t) xs
 encodeVal (RecT fs) (TupV vs) = encodeVal (RecT fs) (tupV vs)
-encodeVal (RecT fs) (RecV vs) = encodeRec fs' vs'
+encodeVal (RecT fs) (RecV vs) = encodeRec fs' vs
   where
-    fs' = sortOn fst $ map (first hashFieldName) fs
-    vs' = map (first hashFieldName) vs
+    fs' = sortOn fst fs
 encodeVal (VariantT fs) (VariantV f x) =
-    case lookup (hashFieldName f) fs' of
-        Just (i, t) -> buildLEB128Int @Word32 i <> encodeVal t x
+    case findIndex (\(f',_) -> f' == f) fs' of
+        Just i | let t = snd (fs' !! i) ->
+            buildLEB128Int i <> encodeVal t x
         Nothing -> error $ "encodeVal: Variant field " ++ show (pretty f) ++ " not found"
   where
-    fs' = sortOn fst [ (hashFieldName n, (i,t)) | ((n,t), i) <- zip fs [0..] ]
+    fs' = sortOn fst fs
 encodeVal PrincipalT (PrincipalV (Principal s)) = B.int8 1 <> encodeBytes s
 encodeVal BlobT (BlobV b) = encodeBytes b
 encodeVal (VecT Nat8T) (BlobV b) = encodeBytes b
@@ -96,11 +96,11 @@ encodeBytes :: BS.ByteString -> B.Builder
 encodeBytes bytes = buildLEB128Int (BS.length bytes) <> B.lazyByteString bytes
 
 -- Encodes the fields in order specified by the type
-encodeRec :: [(Word32, Type Void)] -> [(Word32, Value)] -> B.Builder
+encodeRec :: [(FieldName, Type Void)] -> [(FieldName, Value)] -> B.Builder
 encodeRec [] _ = mempty -- NB: Subtyping
-encodeRec ((n,t):fs) vs
-    | Just v <- lookup n vs = encodeVal t v <> encodeRec fs vs
-    | otherwise = error $ "Missing record field " ++ show (pretty n)
+encodeRec ((f,t):fs) vs
+    | Just v <- lookup f vs = encodeVal t v <> encodeRec fs vs
+    | otherwise = error $ "Missing record field " ++ show (pretty f)
 
 type TypTableBuilder k = RWS () B.Builder (M.Map (Type k) Integer, Natural)
 
@@ -165,20 +165,18 @@ typTable (SeqDesc m (ts :: [Type k])) = mconcat
 
       RefT t -> go (m M.! t)
 
-    goFields :: Fields k -> TypTableBuilder k [(Word32, Integer)]
-    goFields [] = return []
-    goFields ((fn, t):fs) = do
+    goField :: (FieldName, Type k) -> TypTableBuilder k (FieldName, Integer)
+    goField (fn, t) = do
         ti <- go t
-        tis <- goFields fs
-        return $ (hashFieldName fn, ti) : tis
+        return (fn, ti)
 
     recordLike :: Integer -> Fields k -> TypTableBuilder k B.Builder
     recordLike n fs = do
-        tis <- goFields fs
+        tis <- mapM goField fs
         return $ mconcat
             [ buildSLEB128 n
             , leb128Len tis
-            , foldMap (\(n,ti) -> buildLEB128 n <> buildSLEB128 ti) $
+            , foldMap (\(f,ti) -> buildLEB128 (fieldHash f) <> buildSLEB128 ti) $
               sortOn fst tis -- TODO: Check duplicates maybe?
             ]
 

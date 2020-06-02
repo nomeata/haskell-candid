@@ -3,12 +3,12 @@
 module Codec.Candid.Infer where
 
 import qualified Data.Vector as V
-import Codec.Candid.Types
 import Control.Monad
 import Data.Void
 import Data.List
-
 import Data.Text.Prettyprint.Doc
+
+import Codec.Candid.Types
 
 inferTypes :: [Value] -> Either String [Type Void]
 inferTypes = mapM inferTyp
@@ -56,28 +56,22 @@ lub NullT (OptT t) = return (OptT t)
 lub (OptT t) NullT = return (OptT t)
 lub (OptT t1) (OptT t2) = OptT <$> lub t1 t2
 lub (VecT t1) (VecT t2) = VecT <$> lub t1 t2
-lub (RecT fs1) (RecT fs2) = RecT <$> go (sortFields fs1) (sortFields fs2)
+lub (RecT fs1) (RecT fs2) = RecT <$> go (sortOn fst fs1) (sortOn fst fs2)
   where
     go [] _ = return []
     go _ [] = return []
     go ((f1, v1):fs1) ((f2,v2):fs2)
-        | h1 < h2   = go fs1 ((f2,v2):fs2)
-        | h1 > h2   = go ((f1,v1):fs1) fs2
+        | f1 < f2   = go fs1 ((f2,v2):fs2)
+        | f1 > f2   = go ((f1,v1):fs1) fs2
         | otherwise = (:) <$> ((f1,) <$> lub v1 v2) <*> go fs1 fs2
-      where
-        h1 = hashFieldName f1
-        h2 = hashFieldName f2
-lub (VariantT fs1) (VariantT fs2) = VariantT <$> go (sortFields fs1) (sortFields fs2)
+lub (VariantT fs1) (VariantT fs2) = VariantT <$> go (sortOn fst fs1) (sortOn fst fs2)
   where
     go [] fs = return fs
     go fs [] = return fs
     go ((f1, v1):fs1) ((f2,v2):fs2)
-        | h1 < h2   = ((f1,v1) :) <$> go fs1 ((f2,v2):fs2)
-        | h1 > h2   = ((f2,v2) :) <$> go ((f1,v1):fs1) fs2
+        | f1 < f2   = ((f1,v1) :) <$> go fs1 ((f2,v2):fs2)
+        | f1 > f2   = ((f2,v2) :) <$> go ((f1,v1):fs1) fs2
         | otherwise = (:) <$> ((f1,) <$> lub v1 v2) <*> go fs1 fs2
-      where
-        h1 = hashFieldName f1
-        h2 = hashFieldName f2
 
 -- the reflexive cases
 lub NatT NatT = return NatT
@@ -104,7 +98,3 @@ lub t@(VecT _) BlobT = lub (VecT Nat8T) t
 
 -- failure
 lub t1 t2 = Left $ show $ "Incompatible types: " <+> pretty t1 <+> " and " <+> pretty t2
-
-
-sortFields :: [(FieldName, a)] -> [(FieldName, a)]
-sortFields = sortOn (hashFieldName . fst)

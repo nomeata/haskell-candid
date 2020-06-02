@@ -20,6 +20,7 @@ import qualified Data.Serialize.IEEE754 as G
 import Codec.Candid.Data
 import Codec.Candid.TypTable
 import Codec.Candid.Types
+import Codec.Candid.FieldName
 
 -- | Decode to value representation
 decodeVals :: BS.ByteString -> Either String [Value]
@@ -62,16 +63,18 @@ decodeVal (VecT t) = do
     n <- getLEB128Int
     VecV . V.fromList <$> replicateM n (decodeVal t)
 decodeVal (RecT fs)
-    | isTuple   = TupV <$> mapM (\(_,(_, t)) -> decodeVal t) fs'
-    | otherwise = RecV <$> mapM (\(_,(fn, t)) -> (fn,) <$> decodeVal t) fs'
+    | isTuple   = TupV <$> mapM (\(_,t) -> decodeVal t) fs'
+    | otherwise = RecV <$> mapM (\(fn, t) -> (fn,) <$> decodeVal t) fs'
   where
-    fs' = sortOn fst [ (hashFieldName n, (n,t)) | (n,t) <- fs ]
-    isTuple = and $ zipWith (==) (map fst fs') [0..]
+    fs' = sortOn fst fs
+    isTuple = and $ zipWith (==) (map fst fs') (map hashedField [0..])
 decodeVal (VariantT fs) = do
         i <- getLEB128Int
         unless (i <= length fs) $ fail "variant index out of bound"
-        let (fn, t) = fs !! i
+        let (fn, t) = fs' !! i
         VariantV fn <$> decodeVal t
+  where
+    fs' = sortOn fst fs
 decodeVal PrincipalT = G.getWord8 >>= \case
     0 -> fail "reference encountered"
     1 -> PrincipalV . Principal <$> decodeBytes
@@ -130,4 +133,4 @@ decodeTypField :: Natural -> G.Get (FieldName, Type Int)
 decodeTypField max = do
     h <- getLEB128
     t <- decodeTypRef max
-    return (escapeFieldHash h, t)
+    return (hashedField h, t)

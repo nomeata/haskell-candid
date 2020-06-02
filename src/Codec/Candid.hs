@@ -98,11 +98,15 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 -- ** Types and values
 
  , Type(..)
- , Value(..)
  , Fields
- , FieldName(..)
+ , FieldName
+ , labledField
+ , hashedField
+ , fieldHash
+ , escapeFieldName
+ , unescapeFieldName
  , candidHash
- , lookupField
+ , Value(..)
 
 -- ** Dynamic use
 
@@ -123,6 +127,7 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 
 import Codec.Candid.Data
 import Codec.Candid.Types
+import Codec.Candid.FieldName
 import Codec.Candid.Tuples
 import Codec.Candid.Class
 import Codec.Candid.Generic

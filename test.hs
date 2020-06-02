@@ -92,7 +92,7 @@ instance Candid a => Candid (JustRight a) where
     toCandid (JustRight x) = V.singleton (Label @"Right") x
     fromCandid = JustRight . snd . V.unSingleton
 
-data SimpleRecord = SimpleRecord { foo :: Bool, bar :: T.Text }
+data SimpleRecord = SimpleRecord { foo :: Bool, bar :: Word8 }
     deriving (Generic, Eq, Show)
     deriving (Serial m)
     deriving Candid via (AsRecord SimpleRecord)
@@ -154,7 +154,7 @@ instance (Monad m, Serial m a) => Serial m (V.Vector a) where
 instance Monad m => Serial m Void where
     series = mzero
 
-parseTest :: String -> DidFile -> TestTree
+parseTest :: HasCallStack => String -> DidFile -> TestTree
 parseTest c e = testCase c $
     case parseDid c of
         Left err -> assertFailure err
@@ -183,7 +183,7 @@ tests = testGroup "tests"
     , testCase "nested record 2" $ roundTripTest (ARecord (True,False), False)
     , testCase "peano" $ roundTripTest $ Unary peano
     , testCase "lists" $ roundTripTest (natList, stringList)
-    , testCase "custom record" $ roundTripTest $ Unary (SimpleRecord True "Test")
+    , testCase "custom record" $ roundTripTest $ Unary (SimpleRecord True 42)
     ]
   , testGroup "subtypes"
     [ testCase "nat/int" $ subTypeTest (Unary (42 :: Natural)) (Unary (42 :: Integer))
@@ -195,7 +195,7 @@ tests = testGroup "tests"
     , testCase "tuple/any" $ subTypeTest ((42::Integer, 42::Natural), True) (Reserved, True)
     , testCase "tuple/tuple" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) ((42::Integer, -42::Integer), 100::Integer)
     , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (MiddleField (-42) :: MiddleField Integer, 100::Integer)
-    , testCase "records" $ subTypeTest (Unary (SimpleRecord True "Test")) (Unary (ARecord True))
+    , testCase "records" $ subTypeTest (Unary (SimpleRecord True 42)) (Unary (ARecord True))
     ]
   , testGroup "roundtrip smallchecks"
     [ roundTripProp @Bool
@@ -222,6 +222,8 @@ tests = testGroup "tests"
     , roundTripProp @(ARecord T.Text)
     , roundTripProp @(Either Bool T.Text)
     , roundTripProp @SimpleRecord
+    , roundTripProp @(Rec ("a" .== Bool .+ "b" .== Bool .+ "c" .== Bool))
+    , roundTripProp @(V.Var ("upgrade" .== () .+ "reinstall" .== () .+ "install" .== ()))
     ]
   , testGroup "subtype smallchecks"
     [ subTypProp @Natural @Natural
@@ -245,7 +247,7 @@ tests = testGroup "tests"
     , printTestType @Natural "nat"
     , printTestType @Int8 "int8"
     , printTestType @Word8 "nat8"
-    , printTestType @SimpleRecord "record {bar : text; foo : bool}"
+    , printTestType @SimpleRecord "record {bar : nat8; foo : bool}"
     , printTestType @(JustRight T.Text) "variant {Right : text}"
     , printTestSeq @() "()"
     , printTestSeq @(Unary ()) "(null)"
@@ -266,7 +268,7 @@ tests = testGroup "tests"
     , t (IntV 0) "+0"
     , t (IntV (-1)) "-1"
     , t (Nat8V 1) "(1 : nat8)"
-    , t (RecV [(N "bar", TextV "baz")]) "record {bar = \"baz\"}"
+    , t (RecV [("bar", TextV "baz")]) "record {bar = \"baz\"}"
     ]
   , testGroup "candid value printing (via binary) " $
     let t :: forall a. (HasCallStack, CandidArg a) => a -> String -> TestTree
@@ -276,7 +278,7 @@ tests = testGroup "tests"
           show (pretty vs) @?= e
     in
     [ t True "(true)"
-    , t (SimpleRecord False "Hi") "(record {4895187 = \"Hi\"; 5097222 = false})"
+    , t (SimpleRecord False 42) "(record {4895187 = (42 : nat8); 5097222 = false})"
     , t (JustRight (Just (3 :: Natural))) "(variant {2089909180 = opt 3})"
     , t (JustRight (3 :: Word8)) "(variant {2089909180 = (3 : nat8)})"
     , t () "()"
@@ -324,9 +326,9 @@ tests = testGroup "tests"
     , parseTest "service : { foo : (opt text) -> () }"
         [ m "foo" [OptT TextT] []  ]
     , parseTest "service : { foo : (record { x_ : null; 5 : nat8 }) -> () }"
-        [ m "foo" [RecT [(N "x__", NullT), (N "_5_", Nat8T)]] [] ]
+        [ m "foo" [RecT [("x_", NullT), (hashedField 5, Nat8T)]] [] ]
     , parseTest "service : { foo : (record { x : null; 5 : nat8 }) -> () }"
-        [ m "foo" [RecT [(N "x", NullT), (N "_5_", Nat8T)]] [] ]
+        [ m "foo" [RecT [("x", NullT), (hashedField 5, Nat8T)]] [] ]
     ]
   , testGroup "Using TH interface" $
     [ testCase "demo1: direct" $ do
