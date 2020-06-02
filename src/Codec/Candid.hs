@@ -241,7 +241,7 @@ data Shape = Point () | Sphere Double | Rectangle (Double, Double)
 :}
 
 >>> pretty (typeDesc @Shape)
-variant {Point; Rectangle : record {0 : float; 1 : float}; Sphere : float}
+variant {Point; Rectangle : record {0 : float64; 1 : float64}; Sphere : float64}
 >>> encode (Rectangle (100,100))
 "DIDL\STXk\ETX\176\200\244\205\ENQ\DEL\143\232\190\218\v\SOH\173\198\172\140\SIrl\STX\NULr\SOHr\SOH\NUL\SOH\NUL\NUL\NUL\NUL\NUL\NULY@\NUL\NUL\NUL\NUL\NUL\NULY@"
 
