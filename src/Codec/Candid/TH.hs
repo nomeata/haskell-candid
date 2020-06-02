@@ -12,7 +12,7 @@ import Numeric.Natural
 import Data.Word
 import Data.Int
 import Data.Void
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BS
 
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Lib

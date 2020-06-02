@@ -27,14 +27,10 @@ type RawService m = T.Text -> BS.ByteString -> m BS.ByteString
 type RawMethod m = BS.ByteString -> m BS.ByteString
 
 class CandidMethod (m :: * -> *) f  | f -> m where
-  type MethArg f
-  type MethRes f
   fromMeth :: (forall a. String -> m a) -> f -> RawMethod m
   toMeth :: (forall a. String -> m a) -> RawMethod m -> f
 
 instance (CandidArg a, CandidArg b, Monad m) => CandidMethod m (a -> m b) where
-  type MethArg (a -> m b) = a
-  type MethRes (a -> m b) = b
   fromMeth onErr m b = case decode b of
     Left err -> onErr err
     Right x -> encode <$> m x
