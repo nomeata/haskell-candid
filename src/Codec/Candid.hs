@@ -111,6 +111,8 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 -- ** Dynamic use
 
  , decodeVals
+ , fromCandidVals
+ , toCandidVals
  , encodeDynValues
  , encodeTextual
  , DidFile
@@ -349,9 +351,9 @@ As you can see, the binary format does not preserve the field names. Future vers
 
 Conversely, you can encode from the textual representation:
 
->>> let Right bytes = encodeTextual "record { foo = vec { true; false }; bar = opt +100 }"
+>>> let Right bytes = encodeTextual "record { foo = vec { true; false }; bar = opt 100 }"
 >>> bytes
-"DIDL\ETXl\STX\211\227\170\STX\STX\134\142\183\STX\SOHm~n|\SOH\NUL\SOH\228\NUL\STX\SOH\NUL"
+"DIDL\ETXl\STX\211\227\170\STX\STX\134\142\183\STX\SOHm~n}\SOH\NUL\SOHd\STX\SOH\NUL"
 >>> decode @(Rec ("bar" .== Maybe Integer .+ "foo" .== [Bool])) bytes
 Right (#bar .== Just 100 .+ #foo .== [True,False])
 

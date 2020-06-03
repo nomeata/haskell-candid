@@ -1,15 +1,23 @@
 module Codec.Candid.Parse where
 
+import qualified Data.ByteString.Lazy as BS
+import qualified Data.Text.Encoding as T
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import Text.Parsec
 import Text.Parsec.String
+import Text.Hex
 import Data.Bifunctor
 import Data.Char
 import Data.Functor
 import Numeric.Natural
+import Numeric
+import Control.Monad
 import Data.Void
+import Text.Read (readMaybe)
+import Data.Scientific
 
+import Codec.Candid.Data
 import Codec.Candid.Types
 import Codec.Candid.FieldName
 
@@ -71,8 +79,45 @@ funcAnnP = s "oneway" <|> s "query"
 nameP :: Parser T.Text
 nameP = textP <|> T.pack <$> idP <?> "name"
 
-textP :: Parser T.Text -- TODO: Escape sequence
-textP = T.pack <$> l (between (char '"') (char '"') (many1 (noneOf "\""))) <?> "text"
+textP :: Parser T.Text
+textP = T.pack <$> l (between (char '"') (char '"') (many stringElem)) <?> "text"
+
+blobP :: Parser BS.ByteString
+blobP = BS.concat <$> l (between (char '"') (char '"') (many blobElem)) <?> "blob"
+
+blobElem :: Parser BS.ByteString
+blobElem = choice
+    [ try (char '\\' *> lookAhead hexdigit) *> do
+        raw <- replicateM 2 hexdigit
+        case readHex raw of
+            [(n,"")] -> return (BS.singleton (fromIntegral (n::Integer)))
+            _ -> fail "Internal parsing error parsing hex digits"
+    , BS.fromStrict . T.encodeUtf8 . T.singleton <$> stringElem
+    ]
+
+stringElem :: Parser Char
+stringElem = l $ (char '\\' *> go) <|> noneOf "\""
+  where
+    go :: Parser Char
+    go = choice
+        [ '\t' <$ char 't'
+        , '\n' <$ char 'n'
+        , '\r' <$ char 'r'
+        , '\"' <$ char '\"'
+        , '\'' <$ char '\''
+        , '\"' <$ char '\"'
+        , between (string "u{") (string "}") hexnum
+        ]
+
+    hexnum :: Parser Char
+    hexnum = do
+        raw <- concat <$> many1 (replicateM 2 hexdigit)
+        case readHex raw of
+            [(n,"")] -> return (chr n)
+            _ -> fail $ "Invalid hex string " ++ show raw
+
+hexdigit :: Parser Char
+hexdigit = oneOf "0123456789ABCDEFabcdef"
 
 seqP :: Parser [Type Void]
 seqP = parenComma argTypeP
@@ -110,15 +155,14 @@ constTypeP :: Parser (Type Void)
 constTypeP = choice
   [ OptT <$ k "opt" <*> dataTypeP
   , VecT <$ k "vec" <*> dataTypeP
-  , RecT <$ k "record" <*> braceSemi fieldTypeP
-  , VariantT <$ k "variant" <*> braceSemi fieldTypeP
+  , RecT <$ k "record" <*> braceSemi (fieldTypeP False)
+  , VariantT <$ k "variant" <*> braceSemi (fieldTypeP True)
   ]
 
-fieldTypeP :: Parser (FieldName, Type Void)
-fieldTypeP = choice -- TODO : variant shorthands
-  [ (,) <$> (hashedField . fromIntegral <$> natP) <* s ":" <*> dataTypeP
-  , (,) <$> (labledField <$> nameP) <* s ":" <*> dataTypeP
-  ]
+fieldTypeP :: Bool -> Parser (FieldName, Type Void)
+fieldTypeP in_variant = (,)
+  <$> (hashedField . fromIntegral <$> natP <|>  labledField <$> nameP)
+  <*> ((s ":" *> dataTypeP) <|> NullT <$ guard in_variant)
 
 idP :: Parser String
 idP = l ((:)
@@ -131,50 +175,65 @@ valuesP = (parenComma annValueP <?> "argument sequence")
        <|> ((:[]) <$> annValueP) -- for convenience
 
 annValueP :: Parser Value
-annValueP = do
-  v <- valueP
-  s ":" *> do
-        t <- dataTypeP
-        smartAnnV v t
-   <|> return v
+annValueP =
+  parens annValueP <|> do -- this parser allows extra parentheses
+      v <- valueP
+      s ":" *> do
+            t <- dataTypeP
+            smartAnnV v t
+       <|> return v
 
 smartAnnV :: Value -> Type Void -> Parser Value
-smartAnnV (NatV n) Nat8T = return $ Nat8V (fromIntegral n)
-smartAnnV (NatV n) Nat16T = return $ Nat16V (fromIntegral n)
-smartAnnV (NatV n) Nat32T = return $ Nat32V (fromIntegral n)
-smartAnnV (NatV n) Nat64T = return $ Nat64V (fromIntegral n)
-smartAnnV (IntV n) Int8T = return $ Int8V (fromIntegral n)
-smartAnnV (IntV n) Int16T = return $ Int16V (fromIntegral n)
-smartAnnV (IntV n) Int32T = return $ Int32V (fromIntegral n)
-smartAnnV (IntV n) Int64T = return $ Int64V (fromIntegral n)
+smartAnnV (NumV n) Nat8T = Nat8V <$> toBounded n
+smartAnnV (NumV n) Nat16T = Nat16V <$> toBounded n
+smartAnnV (NumV n) Nat32T = Nat32V <$> toBounded n
+smartAnnV (NumV n) Nat64T = Nat64V <$> toBounded n
+smartAnnV (NumV n) Int8T = Int8V <$> toBounded n
+smartAnnV (NumV n) Int16T = Int16V <$> toBounded n
+smartAnnV (NumV n) Int32T = Int32V <$> toBounded n
+smartAnnV (NumV n) Int64T = Int64V <$> toBounded n
+smartAnnV (NumV n) Float32T = return $ Float32V $ toRealFloat n
+smartAnnV (NumV n) Float64T = return $ Float64V $ toRealFloat n
 smartAnnV v ReservedT = return $ AnnV v ReservedT
 smartAnnV _ _ = fail "Annotations are only supported around number literals"
 
+toBounded :: (Integral a, Bounded a) => Scientific -> Parser a
+toBounded v = maybe err return $ toBoundedInteger v
+  where err = fail $ "Number literal out of bounds: " ++ show v
+
+numP :: Parser Scientific
+numP = l p >>= conv <?> "number"
+  where
+    p =(:) <$> oneOf "-+0123456789" <*> many (oneOf "-+.0123456789eE_")
+    conv raw = case readMaybe (filter (/= '_') raw) of
+        Nothing -> fail $ "Invald number literal: " ++ show raw
+        Just s -> return s
 
 valueP :: Parser Value
 valueP = choice
   [ parens annValueP
-  , IntV . fromIntegral <$> (char '+' *> natP)
-  , IntV . negate . fromIntegral <$> (char '-' *> natP)
-  , NatV <$> natP
-  -- TODO: Floats
+  , NumV <$> numP
   , BoolV True <$ k "true"
   , BoolV False <$ k "false"
   , TextV <$> textP
   , NullV <$ k "null"
   , OptV . Just <$ k "opt" <*> valueP
   , VecV . V.fromList <$ k "vec" <*> braceSemi annValueP
-  , RecV <$ k "record" <*> braceSemi fieldValP
-  , uncurry VariantV <$ k "variant" <*> braces fieldValP
-  -- TODO: Principal
-  -- TODO: Blob
+  , RecV <$ k "record" <*> braceSemi (fieldValP False)
+  , uncurry VariantV <$ k "variant" <*> braces (fieldValP True)
+  , PrincipalV <$ k "service" <*> (textP >>= asPrincipal)
+  , BlobV <$ k "blob" <*> blobP
   ]
 
-fieldValP :: Parser (FieldName, Value)
-fieldValP = choice -- TODO : variant shorthands
-  [ (,) <$> (hashedField . fromIntegral <$> natP) <* s "=" <*> annValueP
-  , (,) <$> (labledField <$> nameP) <* s "=" <*> annValueP
-  ]
+asPrincipal :: T.Text -> Parser Principal
+asPrincipal t = case decodeHex t of
+    Just h -> return $ Principal (BS.fromStrict h)
+    Nothing -> fail $ "Invalid hex-encoded principal: " ++ show t
+
+fieldValP :: Bool -> Parser (FieldName, Value)
+fieldValP in_variant = (,)
+  <$> (hashedField . fromIntegral <$> natP <|> labledField <$> nameP)
+  <*> ((s "=" *> annValueP) <|> NullV <$ guard in_variant)
 
 -- A lexeme
 l :: Parser a -> Parser a

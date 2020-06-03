@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
@@ -25,6 +26,7 @@ import qualified Data.ByteString.Builder as B
 import qualified Data.Vector as V hiding (singleton)
 import qualified Data.HashMap.Lazy as HM
 import Test.Tasty
+import Test.Tasty.Ingredients.Rerun
 import Test.Tasty.HUnit
 import Test.Tasty.SmallCheck
 import Test.SmallCheck.Series
@@ -38,12 +40,13 @@ import GHC.TypeLits
 import GHC.Generics (Generic)
 import Data.Text.Prettyprint.Doc
 import Data.Row
+import Data.Proxy
 import qualified Data.Row.Records as R
 import qualified Data.Row.Variants as V
 
 import Codec.Candid
 
-main = defaultMain tests
+main = defaultMainWithRerun tests
 
 newtype Peano = Peano (Maybe Peano)
     deriving (Show, Eq)
@@ -105,17 +108,6 @@ roundTripTest v1 = do
     Right v -> return v
   assertEqual "values" v1 v2
 
-roundTripProp :: forall a. (CandidArg a, Serial IO a, Show a, Eq a) => TestTree
-roundTripProp = testProperty desc $ \v ->
-    case decode @a (encode @a v) of
-        Right y | y == v -> Right ("all good" :: String)
-        Right y -> Left $
-            show v ++ " round-tripped to " ++ show y
-        Left err -> Left $
-            show v ++ " failed to decode: " ++ err
-  where
-    desc = show $ pretty (tieKnot (seqDesc @a))
-
 subTypProp :: forall a b.  (CandidArg a, Serial IO a, Show a, CandidArg b) => TestTree
 subTypProp = testProperty desc $ \v ->
     isRight $ decode @b (encode @a v)
@@ -168,6 +160,54 @@ printTestSeq :: forall a. (CandidArg a, HasCallStack) => String -> TestTree
 printTestSeq e = testCase e $
     show (pretty (tieKnot (seqDesc @a))) @?= e
 
+roundTripTestGroup :: String ->
+    (forall a. (CandidArg a, Serial IO a, Show a, Eq a) => a -> Either String a) ->
+    TestTree
+roundTripTestGroup group_desc roundtrip =
+    withSomeTypes ("roundtrip (" <> group_desc <> ")") $ \(Proxy :: Proxy a) ->
+        let desc = show $ pretty (tieKnot (seqDesc @a)) in
+        testProperty desc $ \v ->
+            case roundtrip @a v of
+                Right y | y == v -> Right ("all good" :: String)
+                Right y -> Left $
+                    show v ++ " round-tripped to " ++ show y
+                Left err -> Left $
+                    show v ++ " failed to decode:\n" ++ err
+
+withSomeTypes ::
+    String ->
+    (forall a. (CandidArg a, Serial IO a, Show a, Eq a) => Proxy a -> TestTree) ->
+    TestTree
+withSomeTypes groupName mkTest =
+    testGroup groupName
+    [ mkTest (Proxy @Bool)
+    , mkTest (Proxy @Natural)
+    , mkTest (Proxy @Word8)
+    , mkTest (Proxy @Word16)
+    , mkTest (Proxy @Word32)
+    , mkTest (Proxy @Word64)
+    , mkTest (Proxy @Integer)
+    , mkTest (Proxy @Int8)
+    , mkTest (Proxy @Int16)
+    , mkTest (Proxy @Int32)
+    , mkTest (Proxy @Int64)
+    , mkTest (Proxy @Float)
+    , mkTest (Proxy @Double)
+    , mkTest (Proxy @T.Text)
+    , mkTest (Proxy @())
+    , mkTest (Proxy @Reserved)
+    , mkTest (Proxy @Principal)
+    , mkTest (Proxy @BS.ByteString)
+    , mkTest (Proxy @(Maybe T.Text))
+    , mkTest (Proxy @(V.Vector T.Text))
+    , mkTest (Proxy @EmptyRecord)
+    , mkTest (Proxy @(ARecord T.Text))
+    , mkTest (Proxy @(Either Bool T.Text))
+    , mkTest (Proxy @SimpleRecord)
+    , mkTest (Proxy @(Rec ("a" .== Bool .+ "b" .== Bool .+ "c" .== Bool)))
+    , mkTest (Proxy @(V.Var ("upgrade" .== () .+ "reinstall" .== () .+ "install" .== ())))
+    ]
+
 tests = testGroup "tests"
   [ testGroup "encode tests"
     [ testCase "empty" $ encode () @?= B.pack "DIDL\0\0"
@@ -197,34 +237,18 @@ tests = testGroup "tests"
     , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (MiddleField (-42) :: MiddleField Integer, 100::Integer)
     , testCase "records" $ subTypeTest (Unary (SimpleRecord True 42)) (Unary (ARecord True))
     ]
-  , testGroup "roundtrip smallchecks"
-    [ roundTripProp @Bool
-    , roundTripProp @Natural
-    , roundTripProp @Word8
-    , roundTripProp @Word16
-    , roundTripProp @Word32
-    , roundTripProp @Word64
-    , roundTripProp @Integer
-    , roundTripProp @Int8
-    , roundTripProp @Int16
-    , roundTripProp @Int32
-    , roundTripProp @Int64
-    , roundTripProp @Float
-    , roundTripProp @Double
-    , roundTripProp @T.Text
-    , roundTripProp @()
-    , roundTripProp @Reserved
-    , roundTripProp @Principal
-    , roundTripProp @BS.ByteString
-    , roundTripProp @(Maybe T.Text)
-    , roundTripProp @(V.Vector T.Text)
-    , roundTripProp @EmptyRecord
-    , roundTripProp @(ARecord T.Text)
-    , roundTripProp @(Either Bool T.Text)
-    , roundTripProp @SimpleRecord
-    , roundTripProp @(Rec ("a" .== Bool .+ "b" .== Bool .+ "c" .== Bool))
-    , roundTripProp @(V.Var ("upgrade" .== () .+ "reinstall" .== () .+ "install" .== ()))
-    ]
+
+  , roundTripTestGroup "Haskell → Candid → Haskell" $ \(v :: a) ->
+        decode @a (encode @a v)
+  , roundTripTestGroup "Haskell → [Value] → Haskell" $ \(v :: a) ->
+        fromCandidVals (toCandidVals @a v)
+  , roundTripTestGroup "Haskell → [Value] → Candid → Haskell" $ \(v :: a) ->
+        encodeDynValues (toCandidVals @a v) >>= decode @a . B.toLazyByteString
+  , roundTripTestGroup "Haskell → [Value] → Textual → [Value] → Haskell" $ \(v :: a) ->
+        parseValues (show (pretty (toCandidVals @a v))) >>= fromCandidVals @a
+  , roundTripTestGroup "Haskell → [Value] → Textual → [Value] → Candid → Haskell" $ \(v :: a) ->
+        parseValues (show (pretty (toCandidVals @a v))) >>= encodeDynValues >>= decode @a . B.toLazyByteString
+
   , testGroup "subtype smallchecks"
     [ subTypProp @Natural @Natural
     , subTypProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @Reserved

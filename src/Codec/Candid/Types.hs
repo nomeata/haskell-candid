@@ -7,12 +7,16 @@ module Codec.Candid.Types where
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import Text.Hex
 import Data.Word
 import Data.Int
 import Numeric.Natural
 import Control.Monad
 import Data.Bifunctor
 import Data.Void
+import Data.Scientific
+import Data.Char
+import Numeric
 
 import Data.Text.Prettyprint.Doc
 
@@ -120,7 +124,8 @@ prettyField True (f, NullT) = pretty f
 prettyField _ (f, t) = pretty f <+> colon <+> pretty t -- TODO: encode field names
 
 data Value
-  = NatV Natural
+  = NumV Scientific -- used when parsing at an unknown numeric type
+  | NatV Natural
   | Nat8V Word8
   | Nat16V Word16
   | Nat32V Word32
@@ -147,6 +152,7 @@ data Value
   deriving (Eq, Ord, Show)
 
 instance Pretty Value where
+  pretty (NumV v) = pretty (show v)
   pretty (NatV v) = pretty v
   pretty (IntV v) | v >= 0 = "+" <> pretty v
                   | otherwise = pretty v
@@ -166,7 +172,7 @@ instance Pretty Value where
   pretty NullV = "null"
   pretty ReservedV = prettyAnn ("null"::T.Text) ReservedT
   pretty (PrincipalV b) = "service" <+> prettyText (principalToID b)
-  pretty (BlobV b) = "blob" <+> dquotes (pretty (escapeBlob b))
+  pretty (BlobV b) = "blob" <+> prettyBlob b
   pretty (OptV Nothing) = pretty NullV
   pretty (OptV (Just v)) = "opt" <+> pretty v
   pretty (VecV vs) = "vec" <+> prettyBraceSemi (map pretty (V.toList vs))
@@ -182,14 +188,34 @@ instance Pretty Value where
 prettyAnn :: Pretty a => a -> Type Void -> Doc ann
 prettyAnn v t = parens $ pretty v <+> ":" <+> pretty t
 
+-- Not quite the right format
 principalToID :: Principal -> T.Text
-principalToID = T.pack . show -- TODO: ID encoding
+principalToID = encodeHex . BS.toStrict . rawPrincipal
 
-escapeBlob :: BS.ByteString -> T.Text
-escapeBlob = T.pack . show -- TODO: escape
+prettyBlob :: BS.ByteString -> Doc ann
+prettyBlob = dquotes . pretty . T.concat . map go . BS.unpack
+  where
+    go b | fromIntegral b == ord '\t' = "\\t"
+    go b | fromIntegral b == ord '\n' = "\\n"
+    go b | fromIntegral b == ord '\r' = "\\r"
+    go b | fromIntegral b == ord '"'  = "\\\""
+    go b | fromIntegral b == ord '\'' = "\\\'"
+    go b | fromIntegral b == ord '\\' = "\\\\"
+    go b | b >= 0x20 && b < 0x80 = T.singleton (chr (fromIntegral b))
+    go b | b < 0x10 = "\\0" <> T.pack (showHex b "")
+    go b = "\\0" <> T.pack (showHex b "")
 
 prettyText :: T.Text -> Doc ann
-prettyText t = dquotes (pretty t) -- TODO: Escape
+prettyText = dquotes . pretty . T.concatMap go
+  where
+    go '\t' = "\\t"
+    go '\n' = "\\n"
+    go '\r' = "\\r"
+    go '"'  = "\\\""
+    go '\'' = "\\\'"
+    go '\\' = "\\\\"
+    go c | isControl c = "\\u{" <> T.pack (showHex (ord c) "") <> "}"
+    go c = T.singleton c
 
 tupV :: [Value] -> Value
 tupV = RecV . zipWith (\n t -> (hashedField n, t)) [0..]

@@ -14,6 +14,7 @@ inferTypes :: [Value] -> Either String [Type Void]
 inferTypes = mapM inferTyp
 
 inferTyp :: Value -> Either String (Type Void)
+inferTyp (NumV v) = return $ if v >= 0 then NatT else IntT
 inferTyp (BoolV _) = return BoolT
 inferTyp (NatV _) = return NatT
 inferTyp (Nat8V _) = return Nat8T

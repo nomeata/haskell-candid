@@ -12,6 +12,7 @@ import qualified Data.Text.Encoding as T
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Builder as B
 import qualified Data.Map as M
+import Data.Scientific
 import Control.Monad.State.Lazy
 import Data.Bifunctor
 import Data.List
@@ -54,12 +55,14 @@ encodeSeq _ [] = error "encodeSeq: Not enough values"
 encodeVal :: Type Void -> Value -> B.Builder
 encodeVal BoolT (BoolV False) = B.word8 0
 encodeVal BoolT (BoolV True) = B.word8 1
+encodeVal NatT (NumV n) | n >= 0, Right i <- floatingOrInteger @Double n = encodeVal NatT (NatV i)
 encodeVal NatT (NatV n) = buildLEB128 n
 encodeVal Nat8T (Nat8V n) = B.word8 n
 encodeVal Nat16T (Nat16V n) = B.word16LE n
 encodeVal Nat32T (Nat32V n) = B.word32LE n
 encodeVal Nat64T (Nat64V n) = B.word64LE n
-encodeVal IntT (NatV n) = buildSLEB128 (fromIntegral n :: Integer) -- NB Subtyping
+encodeVal IntT (NumV n) | Right i <- floatingOrInteger @Double n = encodeVal IntT (IntV i)
+encodeVal IntT (NatV n) = encodeVal IntT (IntV (fromIntegral n)) -- NB Subtyping
 encodeVal IntT (IntV n) = buildSLEB128 n
 encodeVal Int8T (Int8V n) = B.int8 n
 encodeVal Int16T (Int16V n) = B.int16LE n

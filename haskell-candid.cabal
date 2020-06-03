@@ -37,6 +37,7 @@ library
   build-depends: mtl
   build-depends: hex-text
   build-depends: parsec
+  build-depends: scientific
   build-depends: cereal
   build-depends: leb128-cereal
   build-depends: containers
@@ -56,6 +57,7 @@ test-suite test
   build-depends: tasty >= 0.7
   build-depends: tasty-hunit
   build-depends: tasty-smallcheck
+  build-depends: tasty-rerun
   build-depends: smallcheck
   build-depends: candid
   build-depends: bytestring

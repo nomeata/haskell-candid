@@ -29,6 +29,7 @@ import qualified Data.Row.Variants as V
 import Control.Monad.State.Lazy
 import Data.Proxy
 import Data.Typeable
+import Data.Scientific
 import Data.Word
 import Data.Int
 import Data.Void
@@ -48,14 +49,18 @@ encode = B.toLazyByteString . encodeBuilder
 
 -- | Encode to a 'B.Builder' based on Haskell type
 encodeBuilder :: forall a. CandidArg a => a -> B.Builder
-encodeBuilder x = encodeValues t (seqVal (asTuple x))
-  where
-    t = seqDesc @a
-
+encodeBuilder x = encodeValues (seqDesc @a) (toCandidVals x)
 
 -- | Decode to Haskell type
 decode :: forall a. CandidArg a => BS.ByteString -> Either String a
-decode = decodeVals >=> fromVals >=> return . fromTuple
+decode = decodeVals >=> fromCandidVals
+
+-- | Decode values to Haskell type
+fromCandidVals :: CandidArg a => [Value] -> Either String a
+fromCandidVals = fromVals >=> return . fromTuple
+
+toCandidVals :: CandidArg a => a -> [Value]
+toCandidVals = seqVal . asTuple
 
 -- Using normal Haskell values
 
@@ -138,6 +143,9 @@ instance Candid Natural
 instance CandidVal Natural where
     asType = NatT
     toCandidVal' = NatV
+    fromCandidVal' (NumV n)
+        | n >= 0, Right i <- floatingOrInteger @Double n = Right i
+        | otherwise = Left $ "Not a natural number: " ++ show n
     fromCandidVal' (NatV n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
@@ -173,6 +181,9 @@ instance Candid Integer
 instance CandidVal Integer where
     asType = IntT
     toCandidVal' = IntV
+    fromCandidVal' (NumV n)
+        | Right i <- floatingOrInteger @Double n = Right i
+        | otherwise = Left $ "Not an integer: " ++ show n
     fromCandidVal' (NatV n) = Right (fromIntegral n)
     fromCandidVal' (IntV n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
