@@ -78,7 +78,7 @@ work file method_name args = do
         Right did -> return did
 
     (m,x) <- handleParseResult $ execParserPure
-        (prefs (showHelpOnError <> showHelpOnEmpty))
+        (prefs (showHelpOnError <> showHelpOnEmpty <> multiSuffix " …"))
         (info (helper <*> service did) (
             fullDesc <> progDesc "Invoke methods on a canister"
         ))
