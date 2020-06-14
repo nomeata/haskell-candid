@@ -23,10 +23,12 @@ import qualified Data.ByteString as SBS
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Builder as B
 import Data.Row
+import Data.Row.Internal (Row(R), LT((:->)), metamorph)
 import qualified Data.Row.Records as R
 import qualified Data.Row.Internal as R
 import qualified Data.Row.Variants as V
 import Control.Monad.State.Lazy
+import Data.Functor.Const
 import Data.Proxy
 import Data.Typeable
 import Data.Scientific
@@ -296,18 +298,14 @@ fromField f m = case lookup f m of
 -- row-types integration
 
 class Typeable r => FromRowRec r where
-    asTypesRec :: Fields (Ref TypeRep Type)
     fromRowRec :: Rec r -> [(FieldName, Value)]
     toRowRec :: [(FieldName, Value)] -> Either String (Rec r)
 
 instance FromRowRec ('R.R '[]) where
-    asTypesRec = []
     fromRowRec _ = mempty
     toRowRec _ = return empty
 
 instance (Candid t, R.KnownSymbol f, FromRowRec ('R.R xs), Typeable xs) => FromRowRec ('R.R (f 'R.:-> t ': xs)) where
-    asTypesRec = (unescapeFieldName (R.toKey l), asType' @t) : asTypesRec @('R.R xs)
-      where l = Label @f
     fromRowRec r = (unescapeFieldName (R.toKey l), toCandidVal (r .! l)) : fromRowRec (r .- l)
       where l = Label @f
     toRowRec m = do
@@ -317,9 +315,19 @@ instance (Candid t, R.KnownSymbol f, FromRowRec ('R.R xs), Typeable xs) => FromR
         return $ R.unsafeInjectFront l x r'
       where l = Label @f
 
-instance FromRowRec r => Candid (Rec r)
-instance FromRowRec r => CandidVal (Rec r) where
-    asType = RecT (asTypesRec @r)
+instance (FromRowRec r, Forall r Candid) => Candid (Rec r)
+instance (FromRowRec r, Forall r Candid) => CandidVal (Rec r) where
+    asType = RecT $ getConst $ metamorph @_ @r @Candid @(Const ()) @(Const (Fields (Ref TypeRep Type))) @Proxy Proxy doNil doUncons doCons (Const ())
+      where
+        doNil :: Const () Empty -> Const (Fields (Ref TypeRep Type)) Empty
+        doNil = const $ Const []
+        doUncons :: forall l t r. (KnownSymbol l)
+                 => Label l -> Const () ('R (l ':-> t ': r)) -> (Proxy t, Const () ('R r))
+        doUncons _ _ = (Proxy, Const ())
+        doCons :: forall l t r. (KnownSymbol l, Candid t)
+               => Label l -> Proxy t -> Const (Fields (Ref TypeRep Type)) ('R r) -> Const (Fields (Ref TypeRep Type)) ('R (l ':-> t ': r))
+        doCons l Proxy (Const lst) = Const $ (unescapeFieldName (R.toKey l), asType' @t) : lst
+
     toCandidVal' = RecV . fromRowRec
     fromCandidVal' (RecV m) = toRowRec m
     fromCandidVal' (TupV m) = toRowRec (zip (map hashedField [0..]) m)
