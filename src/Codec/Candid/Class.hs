@@ -299,9 +299,8 @@ fromField f m = case lookup f m of
 
 -- row-types integration
 
-instance (Typeable r, AllUniqueLabels r, Forall r Candid) => Candid (Rec r)
-instance (Typeable r, AllUniqueLabels r, Forall r Candid) => CandidVal (Rec r) where
-    asType = RecT $ getConst $ metamorph @_ @r @Candid @(Const ()) @(Const (Fields (Ref TypeRep Type))) @Proxy Proxy doNil doUncons doCons (Const ())
+fieldOfRow :: forall r. Forall r Candid => Fields (Ref TypeRep Type)
+fieldOfRow = getConst $ metamorph @_ @r @Candid @(Const ()) @(Const (Fields (Ref TypeRep Type))) @Proxy Proxy doNil doUncons doCons (Const ())
       where
         doNil :: Const () Empty -> Const (Fields (Ref TypeRep Type)) Empty
         doNil = const $ Const []
@@ -312,7 +311,15 @@ instance (Typeable r, AllUniqueLabels r, Forall r Candid) => CandidVal (Rec r) w
                => Label l -> Proxy t -> Const (Fields (Ref TypeRep Type)) ('R r) -> Const (Fields (Ref TypeRep Type)) ('R (l ':-> t ': r))
         doCons l Proxy (Const lst) = Const $ (unescapeFieldName (R.toKey l), asType' @t) : lst
 
-    toCandidVal' = RecV . fmap (first unescapeFieldName) . R.eraseWithLabels @Candid @r @T.Text @Value toCandidVal
+
+type CandidRow r = (Typeable r, AllUniqueLabels r, Forall r Candid)
+
+instance CandidRow r => Candid (Rec r)
+instance CandidRow r => CandidVal (Rec r) where
+    asType = RecT $ fieldOfRow @r
+
+    toCandidVal' = do
+        RecV . fmap (first unescapeFieldName) . R.eraseWithLabels @Candid @r @T.Text @Value toCandidVal
 
     fromCandidVal' = \case
         RecV m -> toRowRec m
@@ -322,35 +329,16 @@ instance (Typeable r, AllUniqueLabels r, Forall r Candid) => CandidVal (Rec r) w
         toRowRec m = R.fromLabelsA @Candid $ \l ->
             fromField (unescapeFieldName (R.toKey l)) m >>= fromCandidVal
 
-class Typeable r => FromRowVar r where
-    asTypesVar :: Fields (Ref TypeRep Type)
-    fromRowVar :: V.Var r -> (FieldName, Value)
-    toRowVar :: FieldName -> Value -> Either String (V.Var r)
+instance CandidRow r => Candid (V.Var r)
+instance CandidRow r => CandidVal (V.Var r) where
+    asType = VariantT $ fieldOfRow @r
 
-instance FromRowVar ('R.R '[]) where
-    asTypesVar = []
-    fromRowVar = V.impossible
-    toRowVar f v = Left $ "Unexpected " ++ show (pretty (VariantV f v))
+    toCandidVal' v = VariantV (unescapeFieldName t) val
+      where (t, val) = V.eraseWithLabels @Candid toCandidVal v
 
-instance (Candid t, R.KnownSymbol f, FromRowVar ('R.R xs), Typeable xs) => FromRowVar ('R.R (f 'R.:-> t ': xs)) where
-    asTypesVar = (unescapeFieldName (R.toKey l), asType' @t) : asTypesVar @('R.R xs)
-      where l = R.Label @f
-    fromRowVar r = case V.trial r l of
-        Left x -> (unescapeFieldName (R.toKey l), toCandidVal x)
-        Right r' -> fromRowVar @('R.R xs) r'
-      where l = R.Label @f
-    toRowVar f v
-        | f == unescapeFieldName (R.toKey l)
-        = V.unsafeMakeVar l <$> fromCandidVal v
-        | otherwise
-        = V.unsafeInjectFront <$> toRowVar @('R.R xs) f v
-      where l = R.Label @f
-
-instance FromRowVar r => Candid (V.Var r)
-instance FromRowVar r => CandidVal (V.Var r) where
-    asType = VariantT (asTypesVar @r)
-    toCandidVal' = uncurry VariantV . fromRowVar
-    fromCandidVal' (VariantV f v) = toRowVar f v
+    fromCandidVal' (VariantV f v) = V.fromLabels @Candid $ \l -> do
+        guard (f == unescapeFieldName (R.toKey l))
+        fromCandidVal v
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
 -- Derived forms

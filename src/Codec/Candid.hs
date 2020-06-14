@@ -64,6 +64,7 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 -- ** Type classes
 
  , Candid(..)
+ , CandidRow
  , CandidArg
  , CandidVal
  , seqDesc
