@@ -29,6 +29,7 @@ import qualified Data.Row.Internal as R
 import qualified Data.Row.Variants as V
 import Control.Monad.State.Lazy
 import Data.Functor.Const
+import Data.Bifunctor
 import Data.Proxy
 import Data.Typeable
 import Data.Scientific
@@ -298,16 +299,12 @@ fromField f m = case lookup f m of
 -- row-types integration
 
 class Typeable r => FromRowRec r where
-    fromRowRec :: Rec r -> [(FieldName, Value)]
     toRowRec :: [(FieldName, Value)] -> Either String (Rec r)
 
 instance FromRowRec ('R.R '[]) where
-    fromRowRec _ = mempty
     toRowRec _ = return empty
 
 instance (Candid t, R.KnownSymbol f, FromRowRec ('R.R xs), Typeable xs) => FromRowRec ('R.R (f 'R.:-> t ': xs)) where
-    fromRowRec r = (unescapeFieldName (R.toKey l), toCandidVal (r .! l)) : fromRowRec (r .- l)
-      where l = Label @f
     toRowRec m = do
         v <- fromField (unescapeFieldName (R.toKey l)) m
         x <- fromCandidVal @t v
@@ -328,7 +325,8 @@ instance (FromRowRec r, Forall r Candid) => CandidVal (Rec r) where
                => Label l -> Proxy t -> Const (Fields (Ref TypeRep Type)) ('R r) -> Const (Fields (Ref TypeRep Type)) ('R (l ':-> t ': r))
         doCons l Proxy (Const lst) = Const $ (unescapeFieldName (R.toKey l), asType' @t) : lst
 
-    toCandidVal' = RecV . fromRowRec
+    toCandidVal' = RecV . fmap (first unescapeFieldName) . R.eraseWithLabels @Candid @r @T.Text @Value toCandidVal
+
     fromCandidVal' (RecV m) = toRowRec m
     fromCandidVal' (TupV m) = toRowRec (zip (map hashedField [0..]) m)
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
