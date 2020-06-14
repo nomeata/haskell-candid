@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -298,22 +299,8 @@ fromField f m = case lookup f m of
 
 -- row-types integration
 
-class Typeable r => FromRowRec r where
-    toRowRec :: [(FieldName, Value)] -> Either String (Rec r)
-
-instance FromRowRec ('R.R '[]) where
-    toRowRec _ = return empty
-
-instance (Candid t, R.KnownSymbol f, FromRowRec ('R.R xs), Typeable xs) => FromRowRec ('R.R (f 'R.:-> t ': xs)) where
-    toRowRec m = do
-        v <- fromField (unescapeFieldName (R.toKey l)) m
-        x <- fromCandidVal @t v
-        r' <- toRowRec @('R.R xs) m
-        return $ R.unsafeInjectFront l x r'
-      where l = Label @f
-
-instance (FromRowRec r, Forall r Candid) => Candid (Rec r)
-instance (FromRowRec r, Forall r Candid) => CandidVal (Rec r) where
+instance (Typeable r, AllUniqueLabels r, Forall r Candid) => Candid (Rec r)
+instance (Typeable r, AllUniqueLabels r, Forall r Candid) => CandidVal (Rec r) where
     asType = RecT $ getConst $ metamorph @_ @r @Candid @(Const ()) @(Const (Fields (Ref TypeRep Type))) @Proxy Proxy doNil doUncons doCons (Const ())
       where
         doNil :: Const () Empty -> Const (Fields (Ref TypeRep Type)) Empty
@@ -327,9 +314,13 @@ instance (FromRowRec r, Forall r Candid) => CandidVal (Rec r) where
 
     toCandidVal' = RecV . fmap (first unescapeFieldName) . R.eraseWithLabels @Candid @r @T.Text @Value toCandidVal
 
-    fromCandidVal' (RecV m) = toRowRec m
-    fromCandidVal' (TupV m) = toRowRec (zip (map hashedField [0..]) m)
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' = \case
+        RecV m -> toRowRec m
+        TupV m -> toRowRec (zip (map hashedField [0..]) m)
+        v -> Left $ "Unexpected " ++ show (pretty v)
+      where
+        toRowRec m = R.fromLabelsA @Candid $ \l ->
+            fromField (unescapeFieldName (R.toKey l)) m >>= fromCandidVal
 
 class Typeable r => FromRowVar r where
     asTypesVar :: Fields (Ref TypeRep Type)
