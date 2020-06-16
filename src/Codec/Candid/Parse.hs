@@ -4,8 +4,9 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text.Encoding as T
 import qualified Data.Text as T
 import qualified Data.Vector as V
-import Text.Parsec
-import Text.Parsec.String
+import qualified Data.Set as Set
+import Text.Megaparsec
+import Text.Megaparsec.Char
 import Data.Bifunctor
 import Data.Char
 import Data.Functor
@@ -20,6 +21,8 @@ import Codec.Candid.Data
 import Codec.Candid.Types
 import Codec.Candid.FieldName
 
+type Parser = Parsec Void String
+
 -- | A candid service, as a list of methods with argument and result types
 --
 -- (no support for annotations like query yet)
@@ -27,22 +30,22 @@ type DidFile = [ (T.Text, [Type Void], [Type Void]) ]
 
 -- | Parses a Candid description (@.did@) from a string
 parseDid :: String -> Either String DidFile
-parseDid = first show . parse (allInput fileP) "Candid service"
+parseDid = first errorBundlePretty . parse (allInput fileP) "Candid service"
 
 parseDidType :: String -> Either String (Type Void)
-parseDidType = first show . parse (allInput dataTypeP) "Candid type"
+parseDidType = first errorBundlePretty . parse (allInput dataTypeP) "Candid type"
 
 -- | Parses a Candid textual value from a string
 parseValue :: String -> Either String Value
-parseValue = first show . parse (allInput valueP) "Candid value"
+parseValue = first errorBundlePretty . parse (allInput valueP) "Candid value"
 
 -- | Parses a sequence of  Candid textual values from a string
 parseValues :: String -> Either String [Value]
-parseValues = first show . parse (allInput valuesP) "Candid values (argument sequence)"
+parseValues = first errorBundlePretty . parse (allInput valuesP) "Candid values (argument sequence)"
 
 
 allInput :: Parser a -> Parser a
-allInput = between spaces eof
+allInput = between space eof
 
 fileP :: Parser DidFile
 fileP = many defP *> actorP
@@ -51,10 +54,12 @@ defP :: Parser ()
 defP = typeP <|> importP
 
 typeP :: Parser ()
-typeP = s "type" *> fail "type definitions not yet supported"
+typeP = withPredicate (const (Left "type definitions not yet supported")) $
+    s "type"
 
 importP :: Parser ()
-importP = s "import" *> fail "imports not yet supported"
+importP = withPredicate (const (Left "improts not yet supported")) $
+    s "import"
 
 actorP :: Parser DidFile
 actorP = s "service" *> optional idP *> s ":" *> actorTypeP -- TODO could be a type id
@@ -69,7 +74,7 @@ methTypeP = do
     (ts1, ts2) <- funcTypeP  -- TODO could be a type id
     return (n, ts1, ts2)
 
-funcTypeP :: Parser ([(Type Void)], [(Type Void)])
+funcTypeP :: Parser ([Type Void], [Type Void])
 funcTypeP = (,) <$> seqP <* s "->" <*> seqP <* many funcAnnP
 
 funcAnnP :: Parser () -- TODO: Annotations are dropped
@@ -110,7 +115,7 @@ stringElem = l $ (char '\\' *> go) <|> noneOf "\""
 
     hexnum :: Parser Char
     hexnum = do
-        raw <- concat <$> many1 (replicateM 2 hexdigit)
+        raw <- concat <$> some (replicateM 2 hexdigit)
         case readHex raw of
             [(n,"")] -> return (chr n)
             _ -> fail $ "Invalid hex string " ++ show raw
@@ -220,7 +225,7 @@ valueP = choice
   , VecV . V.fromList <$ k "vec" <*> braceSemi annValueP
   , RecV <$ k "record" <*> braceSemi (fieldValP False)
   , uncurry VariantV <$ k "variant" <*> braces (fieldValP True)
-  , PrincipalV <$ k "service" <*> (textP >>= either fail return . parsePrincipal)
+  , PrincipalV <$ k "service" <*> withPredicate parsePrincipal textP
   , BlobV <$ k "blob" <*> blobP
   ]
 
@@ -231,7 +236,7 @@ fieldValP in_variant = (,)
 
 -- A lexeme
 l :: Parser a -> Parser a
-l x = x <* spaces
+l x = x <* space
 
 -- a symbol
 s :: String -> Parser ()
@@ -244,7 +249,7 @@ k str = try (void (l (string str <* no)) <?> str)
     no = notFollowedBy (satisfy (\c -> isAscii c && isAlphaNum c || c == '_'))
 
 natP :: Parser Natural
-natP = l (read <$> many1 digit <?> "number")
+natP = l (read <$> some digitChar <?> "number")
 
 braces :: Parser a -> Parser a
 braces = between (s "{") (s "}")
@@ -254,3 +259,13 @@ parens :: Parser a -> Parser a
 parens = between (s "(") (s ")")
 parenComma :: Parser a -> Parser [a]
 parenComma p = parens $ sepEndBy p (s ",")
+
+
+-- from https://markkarpov.com/tutorial/megaparsec.html#parse-errors
+withPredicate :: (a -> Either String b) -> Parser a -> Parser b
+withPredicate f p = do
+  o <- getOffset
+  r <- p
+  case f r of
+    Left msg -> parseError (FancyError o (Set.singleton (ErrorFail msg)))
+    Right x -> return x

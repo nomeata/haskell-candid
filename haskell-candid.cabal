@@ -37,7 +37,7 @@ library
   build-depends: mtl
   build-depends: hex-text
   build-depends: crc
-  build-depends: parsec
+  build-depends: megaparsec
   build-depends: scientific
   build-depends: cereal
   build-depends: leb128-cereal
