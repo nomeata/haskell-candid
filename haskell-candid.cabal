@@ -59,7 +59,8 @@ test-suite test
   build-depends: tasty-hunit
   build-depends: tasty-smallcheck
   build-depends: tasty-rerun
-  build-depends: smallcheck
+  -- restrict smallcheck to a version that does not yet have the instance for Void
+  build-depends: smallcheck < 1.2.0
   build-depends: candid
   build-depends: bytestring
   build-depends: text
