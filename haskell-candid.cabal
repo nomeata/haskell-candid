@@ -36,6 +36,7 @@ library
   build-depends: bytestring
   build-depends: mtl
   build-depends: hex-text
+  build-depends: crc
   build-depends: parsec
   build-depends: scientific
   build-depends: cereal

@@ -6,7 +6,6 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 import Text.Parsec
 import Text.Parsec.String
-import Text.Hex
 import Data.Bifunctor
 import Data.Char
 import Data.Functor
@@ -221,14 +220,9 @@ valueP = choice
   , VecV . V.fromList <$ k "vec" <*> braceSemi annValueP
   , RecV <$ k "record" <*> braceSemi (fieldValP False)
   , uncurry VariantV <$ k "variant" <*> braces (fieldValP True)
-  , PrincipalV <$ k "service" <*> (textP >>= asPrincipal)
+  , PrincipalV <$ k "service" <*> (textP >>= either fail return . parsePrincipal)
   , BlobV <$ k "blob" <*> blobP
   ]
-
-asPrincipal :: T.Text -> Parser Principal
-asPrincipal t = case decodeHex t of
-    Just h -> return $ Principal (BS.fromStrict h)
-    Nothing -> fail $ "Invalid hex-encoded principal: " ++ show t
 
 fieldValP :: Bool -> Parser (FieldName, Value)
 fieldValP in_variant = (,)

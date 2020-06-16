@@ -7,7 +7,6 @@ module Codec.Candid.Types where
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text as T
 import qualified Data.Vector as V
-import Text.Hex
 import Data.Word
 import Data.Int
 import Numeric.Natural
@@ -171,7 +170,7 @@ instance Pretty Value where
   pretty (TextV v) = prettyText v
   pretty NullV = "null"
   pretty ReservedV = prettyAnn ("null"::T.Text) ReservedT
-  pretty (PrincipalV b) = "service" <+> prettyText (principalToID b)
+  pretty (PrincipalV b) = "service" <+> prettyText (prettyPrincipal b)
   pretty (BlobV b) = "blob" <+> prettyBlob b
   pretty (OptV Nothing) = pretty NullV
   pretty (OptV (Just v)) = "opt" <+> pretty v
@@ -187,10 +186,6 @@ instance Pretty Value where
 
 prettyAnn :: Pretty a => a -> Type Void -> Doc ann
 prettyAnn v t = parens $ pretty v <+> ":" <+> pretty t
-
--- Not quite the right format
-principalToID :: Principal -> T.Text
-principalToID = encodeHex . BS.toStrict . rawPrincipal
 
 prettyBlob :: BS.ByteString -> Doc ann
 prettyBlob = dquotes . pretty . T.concat . map go . BS.unpack
