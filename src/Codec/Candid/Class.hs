@@ -251,7 +251,6 @@ instance Candid BS.ByteString
 instance CandidVal BS.ByteString where
     asType = BlobT
     toCandidVal' = BlobV
-    -- should avoid going through vector here somehow
     fromCandidVal' (VecV v) =  BS.pack . V.toList <$> mapM (fromCandidVal @Word8) v
     fromCandidVal' (BlobV t) = return t
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
