@@ -282,6 +282,7 @@ instance Candid a => CandidVal (V.Vector a) where
     asType = VecT (asType' @a)
     toCandidVal' = VecV . fmap toCandidVal
     fromCandidVal' (VecV x) = traverse fromCandidVal x
+    fromCandidVal' (BlobV b) = traverse (fromCandidVal . Nat8V) $ V.fromList $ BS.unpack b
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
 -- | Maybe a bit opinionated, but 'null' seems to be the unit of Candid

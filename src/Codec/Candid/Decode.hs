@@ -59,6 +59,7 @@ decodeVal (OptT t) = G.getWord8 >>= \case
     0 -> return $ OptV Nothing
     1 -> OptV . Just <$> decodeVal t
     _ -> fail "Invalid optional value"
+decodeVal (VecT Nat8T) = BlobV <$> decodeBytes
 decodeVal (VecT t) = do
     n <- getLEB128Int
     VecV . V.fromList <$> replicateM n (decodeVal t)
