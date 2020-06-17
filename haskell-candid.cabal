@@ -50,6 +50,18 @@ library
   default-language: Haskell2010
   ghc-options: -Wall -Wno-name-shadowing
 
+executable hcandid
+  default-language: Haskell2010
+  main-is: hcandid.hs
+  build-depends: base >= 4 && < 5
+  build-depends: candid
+  build-depends: optparse-applicative
+  build-depends: text
+  build-depends: bytestring
+  build-depends: hex-text
+  build-depends: prettyprinter
+  ghc-options: -Wall -Wno-name-shadowing
+
 test-suite test
   default-language: Haskell2010
   type: exitcode-stdio-1.0
