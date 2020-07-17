@@ -76,6 +76,8 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 
  , Unary(..)
  , Principal(..)
+ , prettyPrincipal
+ , parsePrincipal
  , Reserved(..)
 
 -- ** Generics
