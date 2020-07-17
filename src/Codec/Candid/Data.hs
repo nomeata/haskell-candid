@@ -3,11 +3,16 @@
 module Codec.Candid.Data where
 
 import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Builder as BS
 import qualified Data.Text as T
-import Text.Hex (encodeHex, decodeHex)
+import qualified Data.Text.Encoding as T
 import Data.Digest.CRC
-import Data.Digest.CRC8
-import Data.Char
+import Data.Digest.CRC32
+import Data.ByteString.Base32
+import Data.List
+import Data.List.Split (chunksOf)
+import Data.Bifunctor
+import Control.Monad
 
 data Reserved = Reserved
  deriving (Eq, Ord, Show)
@@ -17,19 +22,21 @@ newtype Principal = Principal { rawPrincipal :: BS.ByteString }
 
 prettyPrincipal :: Principal -> T.Text
 prettyPrincipal (Principal blob) =
-    "ic:" <> T.map toUpper (encodeHex (BS.toStrict (blob <> BS.singleton checksum)))
+    T.pack $ intercalate "-" $ chunksOf 5 $ base32 $ checkbytes <> blob
   where
-    CRC8 checksum = digest (BS.toStrict blob)
+    CRC32 checksum = digest (BS.toStrict blob)
+    checkbytes = BS.toLazyByteString (BS.word32BE checksum)
+    base32 = filter (/='=') . T.unpack . T.toLower . encodeBase32 . BS.toStrict
 
 parsePrincipal :: T.Text -> Either String Principal
-parsePrincipal t
-    | "ic:" `T.isPrefixOf` t
-    , Just bs <- BS.fromStrict <$> decodeHex (T.drop 3 t)
-    , Just (bs', cs) <- BS.unsnoc bs
-    = if CRC8 cs == digest (BS.toStrict bs')
-      then Right (Principal bs')
-      else Left "Invalid principal: checksum mismatch"
-    | otherwise
-    = Left "Invalid principal"
-
+parsePrincipal s = do
+    all_bytes <- bimap T.unpack BS.fromStrict $
+        decodeBase32Unpadded (T.encodeUtf8 (T.filter (/= '-') s))
+    unless (BS.length all_bytes >= 4) $
+        Left "Too short id"
+    let p = Principal (BS.drop 4 all_bytes)
+    let expected = prettyPrincipal p
+    unless (s == expected) $
+        Left $ "Principal id " ++ show s ++ " malformed; did you mean " ++ show expected ++ "?"
+    return p
 

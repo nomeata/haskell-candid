@@ -293,8 +293,9 @@ tests = testGroup "tests"
     , t (IntV (-1)) "-1"
     , t (Nat8V 1) "(1 : nat8)"
     , t (RecV [("bar", TextV "baz")]) "record {bar = \"baz\"}"
-    , t (PrincipalV (Principal "")) "service \"ic:00\""
-    , t (PrincipalV (Principal "\xde\xad\xbe\xef")) "service \"ic:DEADBEEFCA\""
+    , t (PrincipalV (Principal "")) "service \"aaaaa-aa\""
+    , t (PrincipalV (Principal "\xab\xcd\x01")) "service \"em77e-bvlzu-aq\""
+    , t (PrincipalV (Principal "\xde\xad\xbe\xef")) "service \"psokg-ww6vw-7o6\""
     ]
   , testGroup "candid value printing (via binary) " $
     let t :: forall a. (HasCallStack, CandidArg a) => a -> String -> TestTree
