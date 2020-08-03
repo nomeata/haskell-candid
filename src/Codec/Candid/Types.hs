@@ -196,9 +196,9 @@ prettyBlob = dquotes . pretty . T.concat . map go . BS.unpack
     go b | fromIntegral b == ord '"'  = "\\\""
     go b | fromIntegral b == ord '\'' = "\\\'"
     go b | fromIntegral b == ord '\\' = "\\\\"
-    go b | b >= 0x20 && b < 0x80 = T.singleton (chr (fromIntegral b))
+    go b | b >= 0x20 && b < 0x7f = T.singleton (chr (fromIntegral b))
     go b | b < 0x10 = "\\0" <> T.pack (showHex b "")
-    go b = "\\0" <> T.pack (showHex b "")
+    go b = "\\" <> T.pack (showHex b "")
 
 prettyText :: T.Text -> Doc ann
 prettyText = dquotes . pretty . T.concatMap go
