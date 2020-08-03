@@ -3,7 +3,6 @@
 {-# LANGUAGE DataKinds #-}
 module Codec.Candid.TH (candid, candidFile, candidType) where
 
-import Data.Row.Internal
 import qualified Data.Row.Records as R
 import qualified Data.Row.Variants as V
 import qualified Data.Text as T
@@ -42,11 +41,12 @@ candidType = QuasiQuoter { quoteExp = err, quotePat = err, quoteDec = err, quote
 quoteCandidService :: String -> TypeQ
 quoteCandidService s = case parseDid s of
   Left err -> fail err
+  Right [] -> [t|R.Empty|]
   Right s -> do
     Just m <- lookupTypeName "m"
-    appT (promotedT 'R) $ typListT
+    foldl1 (\a b -> [t|$(a) R..+ $(b)|])
         [ [t|  $(litT (strTyLit (T.unpack meth)) )
-               ':-> ($(args ts1) -> $(varT m) $(args ts2)) |]
+               R..== ($(args ts1) -> $(varT m) $(args ts2)) |]
         | (meth, ts1, ts2) <- s
         ]
 
@@ -54,9 +54,6 @@ quoteCandidType :: String -> TypeQ
 quoteCandidType s = case parseDidType s of
   Left err -> fail err
   Right t -> typ t
-
-typListT :: [TypeQ] -> TypeQ
-typListT = foldr (appT . appT promotedConsT) promotedNilT
 
 args :: [Type Void] -> TypeQ
 args [] = [t| () |]

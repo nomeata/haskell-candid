@@ -389,10 +389,11 @@ instance (Monad m, Forall r (Serial m), AllUniqueLabels r) => Serial m (Rec r) w
 instance (Monad m, Forall r (Serial m), AllUniqueLabels r) => Serial m (Var r) where
     series = V.fromLabels @(Serial m) (\l -> series)
 
-type Demo1 m = [candid| service : { "greet": (text) -> (text); } |]
+-- NB: Fields in the wrong order
+type Demo1 m = [candid|service : { "greet": (text) -> (text); "a" : () -> () } |]
 
 greet1 :: Monad m => Rec (Demo1 m)
-greet1 = #greet .== \who -> return $ "Hello " <> who
+greet1 = #a .== (\() -> return ()) .+ #greet .== (\who -> return $ "Hello " <> who)
 
 greet2 :: forall m. Monad m => Rec (Demo1 m)
 greet2 = toCandidService error (\_ x -> return x)

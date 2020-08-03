@@ -327,7 +327,7 @@ And you can even, using Template Haskell, turn this into a proper Haskell type. 
 >>> import Data.Row.Internal
 >>> type Counter m = [candid| service : { get : () -> (int); inc : (int) -> (); } |]
 >>> :info Counter
-type Counter (m :: * -> *) = 'R '[ "get" ':-> (() -> m Integer), "inc" ':-> (Integer -> m ())] :: Row *
+type Counter (m :: * -> *) = ("get" .== (() -> m Integer)) .+ ("inc" .== (Integer -> m ())) :: Row *
 ...
 
 You can then use this with 'toCandidService' to talk to a service.
