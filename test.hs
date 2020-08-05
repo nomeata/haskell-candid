@@ -213,6 +213,11 @@ tests = testGroup "tests"
     [ testCase "empty" $ encode () @?= B.pack "DIDL\0\0"
     , testCase "bool" $ encode (Unary True) @?= B.pack "DIDL\0\1\x7e\1"
     ]
+  , testGroup "decode error message"
+      [ testCase "simple mismatch" $ fromCandidVals @(Unary ()) (toCandidVals True) @?= Left "Unexpected true"
+      , testCase "missing variant" $ fromCandidVals @(Either () ()) (toCandidVals (V.singleton #foo ())) @?= Left "Unexpected variant tag foo"
+      , testCase "error in variant" $ fromCandidVals @(Either () ()) (toCandidVals (Left @Bool @() True)) @?= Left "Unexpected true"
+      ]
   , testGroup "roundtrip"
     [ testCase "empty" $ roundTripTest ()
     , testCase "bool" $ roundTripTest $ Unary True

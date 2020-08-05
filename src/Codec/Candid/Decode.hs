@@ -51,7 +51,7 @@ decodeVal Float64T = Float64V <$> G.getFloat64le
 decodeVal TextT = TextV <$> do
     bs <- decodeBytes
     case T.decodeUtf8' (BS.toStrict bs) of
-        Left err -> fail (show err)
+        Left err -> fail $ "Invalid utf8: " ++ show err
         Right t -> return t
 decodeVal NullT = return NullV
 decodeVal ReservedT = return ReservedV
@@ -70,10 +70,10 @@ decodeVal (RecT fs)
     fs' = sortOn fst fs
     isTuple = and $ zipWith (==) (map fst fs') (map hashedField [0..])
 decodeVal (VariantT fs) = do
-        i <- getLEB128Int
-        unless (i <= length fs) $ fail "variant index out of bound"
-        let (fn, t) = fs' !! i
-        VariantV fn <$> decodeVal t
+    i <- getLEB128Int
+    unless (i < length fs) $ fail "variant index out of bound"
+    let (fn, t) = fs' !! i
+    VariantV fn <$> decodeVal t
   where
     fs' = sortOn fst fs
 decodeVal PrincipalT = G.getWord8 >>= \case

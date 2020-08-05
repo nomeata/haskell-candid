@@ -44,6 +44,7 @@ library
   build-depends: containers
   build-depends: unordered-containers
   build-depends: row-types == 0.3.*
+  build-depends: constraints
   build-depends: prettyprinter
   build-depends: template-haskell
   build-depends: base32

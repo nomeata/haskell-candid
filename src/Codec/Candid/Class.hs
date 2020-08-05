@@ -12,13 +12,14 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RankNTypes #-}
 {-# OPTIONS -Wno-orphans #-}
 -- | This (internal) module contains the encoding and decoding, as well
 -- as the relevant classes
 module Codec.Candid.Class where
 
 import Numeric.Natural
-import qualified Data.Vector as V
+import qualified Data.Vector as Vec
 import qualified Data.Text as T
 import qualified Data.ByteString as SBS
 import qualified Data.ByteString.Lazy as BS
@@ -29,6 +30,7 @@ import qualified Data.Row.Records as R
 import qualified Data.Row.Internal as R
 import qualified Data.Row.Variants as V
 import Control.Monad.State.Lazy
+import Control.Applicative ((<|>), Alternative)
 import Data.Functor.Const
 import Data.Bifunctor
 import Data.Proxy
@@ -38,6 +40,7 @@ import Data.Word
 import Data.Int
 import Data.Void
 import Data.Text.Prettyprint.Doc
+import Data.Constraint ((\\))
 
 import Codec.Candid.Tuples
 import Codec.Candid.Data
@@ -251,7 +254,7 @@ instance Candid BS.ByteString
 instance CandidVal BS.ByteString where
     asType = BlobT
     toCandidVal' = BlobV
-    fromCandidVal' (VecV v) =  BS.pack . V.toList <$> mapM (fromCandidVal @Word8) v
+    fromCandidVal' (VecV v) =  BS.pack . Vec.toList <$> mapM (fromCandidVal @Word8) v
     fromCandidVal' (BlobV t) = return t
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
@@ -276,12 +279,12 @@ instance Candid a => CandidVal (Maybe a) where
     fromCandidVal' NullV = return Nothing
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
-instance Candid a => Candid (V.Vector a)
-instance Candid a => CandidVal (V.Vector a) where
+instance Candid a => Candid (Vec.Vector a)
+instance Candid a => CandidVal (Vec.Vector a) where
     asType = VecT (asType' @a)
     toCandidVal' = VecV . fmap toCandidVal
     fromCandidVal' (VecV x) = traverse fromCandidVal x
-    fromCandidVal' (BlobV b) = traverse (fromCandidVal . Nat8V) $ V.fromList $ BS.unpack b
+    fromCandidVal' (BlobV b) = traverse (fromCandidVal . Nat8V) $ Vec.fromList $ BS.unpack b
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
 -- | Maybe a bit opinionated, but 'null' seems to be the unit of Candid
@@ -312,7 +315,7 @@ fieldOfRow = getConst $ metamorph @_ @r @Candid @(Const ()) @(Const (Fields (Ref
         doCons l Proxy (Const lst) = Const $ (unescapeFieldName (R.toKey l), asType' @t) : lst
 
 
-type CandidRow r = (Typeable r, AllUniqueLabels r, Forall r Candid)
+type CandidRow r = (Typeable r, AllUniqueLabels r, AllUniqueLabels (V.Map (Either String) r), Forall r Candid, Forall r R.Unconstrained1)
 
 instance CandidRow r => Candid (Rec r)
 instance CandidRow r => CandidVal (Rec r) where
@@ -336,10 +339,24 @@ instance CandidRow r => CandidVal (V.Var r) where
     toCandidVal' v = VariantV (unescapeFieldName t) val
       where (t, val) = V.eraseWithLabels @Candid toCandidVal v
 
-    fromCandidVal' (VariantV f v) = V.fromLabels @Candid $ \l -> do
-        guard (f == unescapeFieldName (R.toKey l))
-        fromCandidVal v
+    fromCandidVal' (VariantV f v) = do
+        needle :: V.Var (V.Map (Either String) r) <-
+            (fromLabelsMapA @Candid @_ @_ @r $ \l -> do
+                guard (f == unescapeFieldName (R.toKey l))
+                return $ fromCandidVal v
+            ) <|> Left ("Unexpected variant tag " ++ show (pretty f))
+        V.sequence (needle :: V.Var (V.Map (Either String) r))
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+
+-- https://github.com/target/row-types/issues/66
+fromLabelsMapA :: forall c f g ρ. (Alternative f, Forall ρ c, AllUniqueLabels ρ)
+               => (forall l a. (KnownSymbol l, c a) => Label l -> f (g a)) -> f (V.Var (V.Map g ρ))
+fromLabelsMapA f = V.fromLabels @(R.IsA c g) @(V.Map g ρ) @f inner
+                \\ R.mapForall @g @c @ρ
+                \\ R.uniqueMap @g @ρ
+   where inner :: forall l a. (KnownSymbol l, R.IsA c g a) => Label l -> f a
+         inner l = case R.as @c @g @a of R.As -> f l
+
 
 -- Derived forms
 
@@ -360,9 +377,9 @@ instance (Candid a, Candid b, Candid c) => Candid (a, b, c) where
 
 
 instance Candid a => Candid [a] where
-    type AsCandid [a] = V.Vector a
-    toCandid = V.fromList
-    fromCandid = V.toList
+    type AsCandid [a] = Vec.Vector a
+    toCandid = Vec.fromList
+    fromCandid = Vec.toList
 
 
 instance (Candid a, Candid b) => Candid (Either a b) where
