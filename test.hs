@@ -1,4 +1,7 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -30,6 +33,7 @@ import Test.Tasty.Ingredients.Rerun
 import Test.Tasty.HUnit
 import Test.Tasty.SmallCheck
 import Test.SmallCheck.Series
+import System.Environment
 import Data.Void
 import Data.Either
 import GHC.Int
@@ -41,12 +45,20 @@ import GHC.Generics (Generic)
 import Data.Text.Prettyprint.Doc
 import Data.Row
 import Data.Proxy
+import System.Directory
+import System.FilePath
+import System.IO
+import System.Exit
 import qualified Data.Row.Records as R
 import qualified Data.Row.Variants as V
 
 import Codec.Candid
 
-main = defaultMainWithRerun tests
+main = do
+    candid_tests <- lookupEnv "CANDID_TESTS" >>= \case
+        Nothing -> [] <$ putStrLn "CANDID_TESTS not set, will not run candid spec test"
+        Just dir -> readCandidTests dir
+    defaultMainWithRerun (tests candid_tests)
 
 newtype Peano = Peano (Maybe Peano)
     deriving (Show, Eq)
@@ -208,8 +220,26 @@ withSomeTypes groupName mkTest =
     , mkTest (Proxy @(V.Var ("upgrade" .== () .+ "reinstall" .== () .+ "install" .== ())))
     ]
 
-tests = testGroup "tests"
-  [ testGroup "encode tests"
+tests :: [(T.Text, CandidTests)] -> TestTree
+tests candid_tests = testGroup "tests"
+  [ testGroup "Candid spec tests"
+    [ testGroup ("File " ++ T.unpack name)
+      [ testCase name $ case testInput of
+          Left textual -> assertFailure "textual spec tests not yet supported"
+          Right blob -> case (decodeVals {- testType -} blob, testOutcome) of
+            (Right _,  True)  -> return ()
+            (Left _,   False) -> return ()
+            (Right _,  False) -> assertFailure "unexpected decoding success"
+            (Left err, True)  -> assertFailure $ "unexpected decoding error:\n" ++ err
+      | CandidTest{..} <- tests
+      , let name = "[" ++ show testLine ++ "]" ++
+                case testDesc of
+                    Nothing -> ""
+                    Just dsc -> " " ++ T.unpack dsc
+      ]
+    | (name, tests) <- candid_tests
+    ]
+  , testGroup "encode tests"
     [ testCase "empty" $ encode () @?= B.pack "DIDL\0\0"
     , testCase "bool" $ encode (Unary True) @?= B.pack "DIDL\0\1\x7e\1"
     ]
@@ -407,3 +437,20 @@ type Demo2 m = [candid| service : { "greet": (text, bool) -> (text); } |]
 
 demo2 :: Monad m => Rec (Demo2 m)
 demo2 = #greet .== \(who, b) -> return $ who <> T.pack (show b)
+
+readCandidTests dir = do
+    files <- listDirectory dir
+    sequence
+      [ (name,) <$> readCandidTest (dir </> file)
+      | file <- files
+      , Just name <- pure $ T.stripSuffix ".test.did" (T.pack file)
+      ]
+
+readCandidTest file = do
+    content <- readFile file
+    case parseCandidTests file content of
+        Left err -> do
+          hPutStrLn stderr $ "Failed to parse " ++ file ++ ":"
+          hPutStrLn stderr err
+          exitFailure
+        Right x -> return x

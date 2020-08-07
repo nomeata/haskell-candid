@@ -1,4 +1,13 @@
-module Codec.Candid.Parse where
+module Codec.Candid.Parse
+  ( DidFile
+  , parseDid
+  , parseDidType
+  , parseValue
+  , parseValues
+  , CandidTests
+  , CandidTest(..)
+  , parseCandidTests
+  )  where
 
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text.Encoding as T
@@ -43,9 +52,8 @@ parseValue = first errorBundlePretty . parse (allInput valueP) "Candid value"
 parseValues :: String -> Either String [Value]
 parseValues = first errorBundlePretty . parse (allInput valuesP) "Candid values (argument sequence)"
 
-
 allInput :: Parser a -> Parser a
-allInput = between space eof
+allInput = between theVoid eof
 
 fileP :: Parser DidFile
 fileP = many defP *> actorP
@@ -58,7 +66,7 @@ typeP = withPredicate (const (Left "type definitions not yet supported")) $
     s "type"
 
 importP :: Parser ()
-importP = withPredicate (const (Left "improts not yet supported")) $
+importP = withPredicate (const (Left "imports not yet supported")) $
     s "import"
 
 actorP :: Parser DidFile
@@ -100,7 +108,7 @@ blobElem = choice
     ]
 
 stringElem :: Parser Char
-stringElem = l $ (char '\\' *> go) <|> noneOf "\""
+stringElem = (char '\\' *> go) <|> noneOf "\""
   where
     go :: Parser Char
     go = choice
@@ -236,7 +244,28 @@ fieldValP in_variant = (,)
 
 -- A lexeme
 l :: Parser a -> Parser a
-l x = x <* space
+l x = x <* theVoid
+
+-- The space between a lexeme
+theVoid :: Parser ()
+theVoid = void $ many (space1 <|> comment)
+
+comment :: Parser ()
+comment = lineComment <|> multiLineComment
+
+-- a parser for nested multi-line comments. there might be a nicer way
+multiLineComment :: Parser ()
+multiLineComment = between (string "/*") (string "*/") $
+    void $ many $
+        multiLineComment <|>
+        try (try $ char '*' *> notFollowedBy (char '/')) <|>
+        void (anySingleBut '*')
+
+lineComment :: Parser ()
+lineComment = do
+    void (string "//")
+    void (takeWhileP (Just "character") (/= '\n'))
+    void (char '\n')
 
 -- a symbol
 s :: String -> Parser ()
@@ -269,3 +298,32 @@ withPredicate f p = do
   case f r of
     Left msg -> parseError (FancyError o (Set.singleton (ErrorFail msg)))
     Right x -> return x
+
+
+-- | A candid test file
+--
+-- (no support for type definitions yet)
+type CandidTests = [CandidTest]
+
+data CandidTest = CandidTest
+    { testLine :: Int
+    , testType :: [Type Void]
+    , testInput :: Either T.Text BS.ByteString
+    , testOutcome :: Bool
+    , testDesc :: Maybe T.Text
+    }
+
+-- | Parses a candid spec test file from a string
+parseCandidTests :: String -> String -> Either String CandidTests
+parseCandidTests source = first errorBundlePretty . parse (allInput testFileP) source
+
+testFileP :: Parser CandidTests
+testFileP = many defP *> sepEndBy testP (s ";")
+
+testP :: Parser CandidTest
+testP = CandidTest
+    <$> (unPos . sourceLine <$> getSourcePos)
+    <*> seqP
+    <*> (Left <$> textP <|> Right <$> (k "blob" *> blobP))
+    <*> (True <$ k "true" <|> False <$ k "false")
+    <*> optional textP

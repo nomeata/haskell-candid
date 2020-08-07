@@ -83,6 +83,8 @@ test-suite test
   build-depends: prettyprinter
   build-depends: unordered-containers
   build-depends: row-types == 0.3.*
+  build-depends: directory
+  build-depends: filepath
   ghc-options: -rtsopts
 
 test-suite doctest
