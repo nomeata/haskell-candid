@@ -29,7 +29,10 @@ decodeVals bytes = G.runGet go (BS.toStrict bytes)
     go = do
         decodeMagic
         arg_tys <- decodeTypTable
-        mapM decodeVal (tieKnot (voidEmptyTypes arg_tys))
+        vs <- mapM decodeVal (tieKnot (voidEmptyTypes arg_tys))
+        G.remaining >>= \case
+            0 -> return vs
+            n -> fail $ "Unexpected " ++ show n ++ " left-over bytes"
 
 decodeVal :: Type Void -> G.Get Value
 decodeVal BoolT = G.getWord8 >>= \case
