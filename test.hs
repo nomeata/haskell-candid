@@ -241,7 +241,7 @@ tests = testGroup "tests"
               , let file = dir </> basename
               ]
     listE
-      [ [| testGroup ("File " ++ T.unpack $(lift name)) $(listE
+      [ [| testGroup ("File " ++ $(liftString (T.unpack name))) $(listE
           [ [| testCase name $( case testAssertion of
             CanParse i1 -> [|
                 case $(parseInput i1) of
@@ -272,7 +272,7 @@ tests = testGroup "tests"
           , let parseInput (FromBinary blob) =
                   [| decode @ $(candidTypeQ testType) (BS.pack $(lift (BS.unpack blob))) |]
                 parseInput (FromTextual txt) =
-                  [| parseValues $(lift (T.unpack txt)) >>= fromCandidVals @ $(candidTypeQ testType) |]
+                  [| parseValues $(liftString (T.unpack txt)) >>= fromCandidVals @ $(candidTypeQ testType) |]
           ])
         |]
       | (name, tests) <- candid_tests
