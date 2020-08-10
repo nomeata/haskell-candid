@@ -19,6 +19,7 @@ import Language.Haskell.TH.Syntax (lookupTypeName)
 
 import Codec.Candid.Parse
 import Codec.Candid.Data
+import Codec.Candid.Tuples
 import Codec.Candid.Types
 import Codec.Candid.FieldName
 
@@ -57,6 +58,7 @@ quoteCandidType s = case parseDidType s of
 
 candidTypeQ :: [Type Void] -> TypeQ
 candidTypeQ [] = [t| () |]
+candidTypeQ [NullT] = [t| Unary () |]
 candidTypeQ [t] = typ t
 candidTypeQ ts = foldl appT (tupleT (length ts)) (map typ ts)
 

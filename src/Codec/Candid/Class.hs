@@ -101,13 +101,13 @@ instance Candid a => CandidSeq (Unary a) where
     asTypes = [asType' @a]
     seqVal (Unary x) = [ toCandidVal x ]
     fromVals (x:_) = Unary <$> fromCandidVal x -- Subtyping
-    fromVals _ = error "Not enough arguments"
+    fromVals _ = Left "Not enough arguments"
 
 instance (Candid a, Candid b) => CandidSeq (a, b) where
     asTypes = [asType' @a, asType' @b]
     seqVal (x, y) = [ toCandidVal x, toCandidVal y ]
     fromVals (x:y:_) = (,) <$> fromCandidVal x <*> fromCandidVal y
-    fromVals _ = error "Not enough arguments"
+    fromVals _ = Left "Not enough arguments"
 
 -- | The internal class of Haskell types that canonically map to Candid.
 -- You would add instances to the 'Candid' type class.
