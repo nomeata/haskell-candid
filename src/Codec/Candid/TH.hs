@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DataKinds #-}
-module Codec.Candid.TH (candid, candidFile, candidType) where
+module Codec.Candid.TH (candid, candidFile, candidType, candidTypeQ) where
 
 import qualified Data.Row.Records as R
 import qualified Data.Row.Variants as V
@@ -46,7 +46,7 @@ quoteCandidService s = case parseDid s of
     Just m <- lookupTypeName "m"
     foldl1 (\a b -> [t|$(a) R..+ $(b)|])
         [ [t|  $(litT (strTyLit (T.unpack meth)) )
-               R..== ($(args ts1) -> $(varT m) $(args ts2)) |]
+               R..== ($(candidTypeQ ts1) -> $(varT m) $(candidTypeQ ts2)) |]
         | (meth, ts1, ts2) <- s
         ]
 
@@ -55,10 +55,10 @@ quoteCandidType s = case parseDidType s of
   Left err -> fail err
   Right t -> typ t
 
-args :: [Type Void] -> TypeQ
-args [] = [t| () |]
-args [t] = typ t
-args ts = foldl appT (tupleT (length ts)) (map typ ts)
+candidTypeQ :: [Type Void] -> TypeQ
+candidTypeQ [] = [t| () |]
+candidTypeQ [t] = typ t
+candidTypeQ ts = foldl appT (tupleT (length ts)) (map typ ts)
 
 
 row :: TypeQ -> TypeQ -> TypeQ -> Fields Void -> TypeQ

@@ -6,6 +6,8 @@ module Codec.Candid.Parse
   , parseValues
   , CandidTests
   , CandidTest(..)
+  , TestInput(..)
+  , TestAssertion(..)
   , parseCandidTests
   )  where
 
@@ -307,11 +309,19 @@ type CandidTests = [CandidTest]
 
 data CandidTest = CandidTest
     { testLine :: Int
+    , testAssertion :: TestAssertion
     , testType :: [Type Void]
-    , testInput :: Either T.Text BS.ByteString
-    , testOutcome :: Bool
     , testDesc :: Maybe T.Text
     }
+
+data TestInput
+    = FromTextual T.Text
+    | FromBinary BS.ByteString
+
+data TestAssertion
+    = CanParse TestInput
+    | CannotParse TestInput
+    | ParseEq Bool TestInput TestInput
 
 -- | Parses a candid spec test file from a string
 parseCandidTests :: String -> String -> Either String CandidTests
@@ -323,7 +333,20 @@ testFileP = many defP *> sepEndBy testP (s ";")
 testP :: Parser CandidTest
 testP = CandidTest
     <$> (unPos . sourceLine <$> getSourcePos)
+    <*  k "assert"
+    <*> testAssertP
     <*> seqP
-    <*> (Left <$> textP <|> Right <$> (k "blob" *> blobP))
-    <*> (True <$ k "true" <|> False <$ k "false")
     <*> optional textP
+
+testAssertP :: Parser TestAssertion
+testAssertP = do
+    input1 <- testInputP
+    choice
+        [ CanParse input1 <$ s ":"
+        , CannotParse input1 <$ s "!:"
+        , ParseEq True input1 <$ s "==" <*> testInputP <* s ":"
+        , ParseEq False input1 <$ s "!=" <*> testInputP <* s ":"
+        ]
+
+testInputP :: Parser TestInput
+testInputP = FromTextual <$> textP <|> FromBinary <$> (k "blob" *> blobP)

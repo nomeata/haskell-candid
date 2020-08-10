@@ -21,6 +21,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BS
@@ -51,14 +52,13 @@ import System.IO
 import System.Exit
 import qualified Data.Row.Records as R
 import qualified Data.Row.Variants as V
+import Language.Haskell.TH
+import Language.Haskell.TH.Syntax
 
 import Codec.Candid
+import Codec.Candid.TestExports
 
-main = do
-    candid_tests <- lookupEnv "CANDID_TESTS" >>= \case
-        Nothing -> [] <$ putStrLn "CANDID_TESTS not set, will not run candid spec test"
-        Just dir -> readCandidTests dir
-    defaultMainWithRerun (tests candid_tests)
+main = defaultMainWithRerun tests
 
 newtype Peano = Peano (Maybe Peano)
     deriving (Show, Eq)
@@ -220,25 +220,64 @@ withSomeTypes groupName mkTest =
     , mkTest (Proxy @(V.Var ("upgrade" .== () .+ "reinstall" .== () .+ "install" .== ())))
     ]
 
-tests :: [(T.Text, CandidTests)] -> TestTree
-tests candid_tests = testGroup "tests"
-  [ testGroup "Candid spec tests"
-    [ testGroup ("File " ++ T.unpack name)
-      [ testCase name $ case testInput of
-          Left textual -> assertFailure "textual spec tests not yet supported"
-          Right blob -> case (decodeVals {- testType -} blob, testOutcome) of
-            (Right _,  True)  -> return ()
-            (Left _,   False) -> return ()
-            (Right _,  False) -> assertFailure "unexpected decoding success"
-            (Left err, True)  -> assertFailure $ "unexpected decoding error:\n" ++ err
-      | CandidTest{..} <- tests
-      , let name = "[" ++ show testLine ++ "]" ++
-                case testDesc of
-                    Nothing -> ""
-                    Just dsc -> " " ++ T.unpack dsc
+tests :: TestTree
+tests = testGroup "tests"
+  [ testGroup "Candid spec tests" $(do -- WARNING: Big Template Haskell mess ahead
+    candid_tests <- runIO (lookupEnv "CANDID_TESTS") >>= \case
+        Nothing -> runIO $ [] <$ putStrLn "CANDID_TESTS not set, will not run candid spec test"
+        Just dir -> do
+            files <- runIO $ listDirectory dir
+            sequence
+              [ do addDependentFile file
+                   content <- runIO $ readFile file
+                   case parseCandidTests file content of
+                       Left err -> runIO $ do
+                         hPutStrLn stderr $ "Failed to parse " ++ file ++ ":"
+                         hPutStrLn stderr err
+                         exitFailure
+                       Right x -> return (name, x)
+              | basename <- files
+              , Just name <- pure $ T.stripSuffix ".test.did" (T.pack basename)
+              , let file = dir </> basename
+              ]
+    listE
+      [ [| testGroup ("File " ++ T.unpack $(lift name)) $(listE
+          [ [| testCase name $( case testAssertion of
+            CanParse i1 -> [|
+                case $(parseInput i1) of
+                    Right _  -> return ()
+                    Left err -> assertFailure $ "unexpected decoding error:\n" ++ err
+                |]
+            CannotParse i1 -> [|
+                case $(parseInput i1) of
+                    Right _ -> assertFailure $ "unexpected decoding success"
+                    Left _  -> return ()
+                |]
+            ParseEq exp i1 i2 -> [|
+                case ($(parseInput i1), $(parseInput i2)) of
+                    (Right v1, Right v2) ->
+                        if exp then assertBool "values differ" (v1 == v2)
+                               else assertBool "values do not differ" (v1 /= v2)
+                    (Left err, _) ->
+                        assertFailure $ "unexpected decoding error (left arg):\n" ++ err
+                    (_, Left err) ->
+                        assertFailure $ "unexpected decoding error (right arg):\n" ++ err
+                |]
+          )|]
+          | CandidTest{..} <- tests
+          , let name = "[l" ++ show testLine ++ "]" ++
+                     case testDesc of
+                         Nothing -> ""
+                         Just dsc -> " " ++ T.unpack dsc
+          , let parseInput (FromBinary blob) =
+                  [| decode @ $(candidTypeQ testType) (BS.pack $(lift (BS.unpack blob))) |]
+                parseInput (FromTextual txt) =
+                  [| parseValues $(lift (T.unpack txt)) >>= fromCandidVals @ $(candidTypeQ testType) |]
+          ])
+        |]
+      | (name, tests) <- candid_tests
       ]
-    | (name, tests) <- candid_tests
-    ]
+  )
   , testGroup "encode tests"
     [ testCase "empty" $ encode () @?= B.pack "DIDL\0\0"
     , testCase "bool" $ encode (Unary True) @?= B.pack "DIDL\0\1\x7e\1"
@@ -438,19 +477,3 @@ type Demo2 m = [candid| service : { "greet": (text, bool) -> (text); } |]
 demo2 :: Monad m => Rec (Demo2 m)
 demo2 = #greet .== \(who, b) -> return $ who <> T.pack (show b)
 
-readCandidTests dir = do
-    files <- listDirectory dir
-    sequence
-      [ (name,) <$> readCandidTest (dir </> file)
-      | file <- files
-      , Just name <- pure $ T.stripSuffix ".test.did" (T.pack file)
-      ]
-
-readCandidTest file = do
-    content <- readFile file
-    case parseCandidTests file content of
-        Left err -> do
-          hPutStrLn stderr $ "Failed to parse " ++ file ++ ":"
-          hPutStrLn stderr err
-          exitFailure
-        Right x -> return x

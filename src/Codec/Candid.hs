@@ -123,14 +123,6 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
  , parseValue
  , parseValues
 
--- ** Candid test suite
---
--- These definitions are only necessary to run the official Candid test suite
-
- , CandidTests
- , CandidTest(..)
- , parseCandidTests
-
 -- Convenience re-exports
 -- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837
 -- , Generic
