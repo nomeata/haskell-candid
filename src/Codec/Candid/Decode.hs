@@ -99,14 +99,20 @@ decodeMagic = do
 getLEB128Int :: Integral a => G.Get a
 getLEB128Int = fromIntegral <$> getLEB128 @Natural
 
+-- eagerly detect overshoot
+checkOvershoot :: Natural -> G.Get ()
+checkOvershoot n = void (G.lookAhead $ G.ensure $ fromIntegral n)
+
 decodeSeq :: G.Get a -> G.Get [a]
 decodeSeq act = do
     len <- getLEB128Int
+    checkOvershoot (fromIntegral len)
     replicateM len act
 
 decodeTypTable :: G.Get SeqDesc
 decodeTypTable = do
     len <- getLEB128
+    checkOvershoot len
     table <- replicateM (fromIntegral len) (decodeTypTableEntry len)
     ts <- decodeSeq (decodeTypRef len)
     let m = M.fromList (zip [0..] table)
