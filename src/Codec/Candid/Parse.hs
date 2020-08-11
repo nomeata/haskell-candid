@@ -119,7 +119,7 @@ stringElem = (char '\\' *> go) <|> noneOf "\""
         , '\r' <$ char 'r'
         , '\"' <$ char '\"'
         , '\'' <$ char '\''
-        , '\"' <$ char '\"'
+        , '\\' <$ char '\\'
         , between (string "u{") (string "}") hexnum
         ]
 
