@@ -43,9 +43,8 @@ parseValue = first errorBundlePretty . parse (allInput valueP) "Candid value"
 parseValues :: String -> Either String [Value]
 parseValues = first errorBundlePretty . parse (allInput valuesP) "Candid values (argument sequence)"
 
-
 allInput :: Parser a -> Parser a
-allInput = between space eof
+allInput = between theVoid eof
 
 fileP :: Parser DidFile
 fileP = many defP *> actorP
@@ -58,7 +57,7 @@ typeP = withPredicate (const (Left "type definitions not yet supported")) $
     s "type"
 
 importP :: Parser ()
-importP = withPredicate (const (Left "improts not yet supported")) $
+importP = withPredicate (const (Left "imports not yet supported")) $
     s "import"
 
 actorP :: Parser DidFile
@@ -100,7 +99,7 @@ blobElem = choice
     ]
 
 stringElem :: Parser Char
-stringElem = l $ (char '\\' *> go) <|> noneOf "\""
+stringElem = (char '\\' *> go) <|> noneOf "\""
   where
     go :: Parser Char
     go = choice
@@ -109,7 +108,7 @@ stringElem = l $ (char '\\' *> go) <|> noneOf "\""
         , '\r' <$ char 'r'
         , '\"' <$ char '\"'
         , '\'' <$ char '\''
-        , '\"' <$ char '\"'
+        , '\\' <$ char '\\'
         , between (string "u{") (string "}") hexnum
         ]
 
@@ -236,7 +235,28 @@ fieldValP in_variant = (,)
 
 -- A lexeme
 l :: Parser a -> Parser a
-l x = x <* space
+l x = x <* theVoid
+
+-- The space between a lexeme
+theVoid :: Parser ()
+theVoid = void $ many (space1 <|> comment)
+
+comment :: Parser ()
+comment = lineComment <|> multiLineComment
+
+-- a parser for nested multi-line comments. there might be a nicer way
+multiLineComment :: Parser ()
+multiLineComment = between (string "/*") (string "*/") $
+    void $ many $
+        multiLineComment <|>
+        try (try $ char '*' *> notFollowedBy (char '/')) <|>
+        void (anySingleBut '*')
+
+lineComment :: Parser ()
+lineComment = do
+    void (string "//")
+    void (takeWhileP (Just "character") (/= '\n'))
+    void (char '\n')
 
 -- a symbol
 s :: String -> Parser ()
