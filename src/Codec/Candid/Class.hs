@@ -156,10 +156,19 @@ instance CandidVal Natural where
     fromCandidVal' (NatV n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
+inBounds :: forall a. (Integral a, Bounded a) => Integer -> Either String a
+inBounds i
+    | fromIntegral (minBound :: a) <= i
+    , fromIntegral (maxBound :: a) >= i
+    = Right (fromIntegral i)
+    | otherwise
+    = Left $ "Out of bounds: " ++ show i
+
 instance Candid Word8
 instance CandidVal Word8 where
     asType = Nat8T
     toCandidVal' = Nat8V
+    fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Nat8V n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
@@ -167,6 +176,7 @@ instance Candid Word16
 instance CandidVal Word16 where
     asType = Nat16T
     toCandidVal' = Nat16V
+    fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Nat16V n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
@@ -174,6 +184,7 @@ instance Candid Word32
 instance CandidVal Word32 where
     asType = Nat32T
     toCandidVal' = Nat32V
+    fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Nat32V n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
@@ -181,6 +192,7 @@ instance Candid Word64
 instance CandidVal Word64 where
     asType = Nat64T
     toCandidVal' = Nat64V
+    fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Nat64V n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
@@ -199,6 +211,7 @@ instance Candid Int8
 instance CandidVal Int8 where
     asType = Int8T
     toCandidVal' = Int8V
+    fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Int8V n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
@@ -206,6 +219,7 @@ instance Candid Int16
 instance CandidVal Int16 where
     asType = Int16T
     toCandidVal' = Int16V
+    fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Int16V n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
@@ -213,6 +227,7 @@ instance Candid Int32
 instance CandidVal Int32 where
     asType = Int32T
     toCandidVal' = Int32V
+    fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Int32V n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
@@ -220,6 +235,7 @@ instance Candid Int64
 instance CandidVal Int64 where
     asType = Int64T
     toCandidVal' = Int64V
+    fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Int64V n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
