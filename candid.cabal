@@ -43,12 +43,14 @@ library
   build-depends: leb128-cereal
   build-depends: containers
   build-depends: unordered-containers
-  build-depends: row-types == 0.3.*
+  build-depends: row-types == 0.4.*
   build-depends: constraints
   build-depends: prettyprinter
   build-depends: template-haskell
   build-depends: base32
   build-depends: split
+  -- work around https://github.com/typeclasses/hex-text/pull/5
+  build-depends: base16-bytestring < 1
   hs-source-dirs: src
   default-language: Haskell2010
   ghc-options: -Wall -Wno-name-shadowing
@@ -61,7 +63,7 @@ executable hcandid
   build-depends: optparse-applicative
   build-depends: text
   build-depends: bytestring
-  build-depends: hex-text
+  build-depends: hex-text == 0.1.0.0
   build-depends: prettyprinter
   ghc-options: -Wall -Wno-name-shadowing
 
@@ -82,7 +84,7 @@ test-suite test
   build-depends: vector
   build-depends: prettyprinter
   build-depends: unordered-containers
-  build-depends: row-types == 0.3.*
+  build-depends: row-types == 0.4.*
   ghc-options: -rtsopts
 
 test-suite doctest
@@ -90,6 +92,6 @@ test-suite doctest
   ghc-options:   -threaded
   main-is:       doctests.hs
   build-depends: base, candid, doctest >= 0.8
-  build-depends: row-types == 0.3.*
+  build-depends: row-types == 0.4.*
   build-depends: leb128-cereal
   build-depends: prettyprinter
