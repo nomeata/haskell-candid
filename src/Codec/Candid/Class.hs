@@ -42,8 +42,12 @@ import Data.Int
 import Data.Void
 import Data.Text.Prettyprint.Doc
 import Data.Constraint ((\\))
-import Language.Haskell.TH (mkName)
-import Language.Haskell.TH.Lib (appT, tupleT, varT, litT, strTyLit, tupP, varP, labelE, varE, tupE)
+import Language.Haskell.TH (mkName, tupleDataName)
+import Language.Haskell.TH.Lib
+  ( appT, tupleT, varT, litT, strTyLit
+  , tupP, varP, wildP, infixP
+  , labelE, varE, conE, tupE, listE, uInfixE
+  )
 
 import Codec.Candid.Tuples
 import Codec.Candid.Data
@@ -106,11 +110,7 @@ instance Candid a => CandidSeq (Unary a) where
     fromVals (x:_) = Unary <$> fromCandidVal x -- Subtyping
     fromVals _ = Left "Not enough arguments"
 
-instance (Candid a, Candid b) => CandidSeq (a, b) where
-    asTypes = [asType' @a, asType' @b]
-    seqVal (x, y) = [ toCandidVal x, toCandidVal y ]
-    fromVals (x:y:_) = (,) <$> fromCandidVal x <*> fromCandidVal y
-    fromVals _ = Left "Not enough arguments"
+-- see below for tuple  instances
 
 -- | The internal class of Haskell types that canonically map to Candid.
 -- You would add instances to the 'Candid' type class.
@@ -147,7 +147,7 @@ instance CandidVal Bool where
     asType = BoolT
     toCandidVal' = BoolV
     fromCandidVal' (BoolV b) = Right b
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected bool: " ++ show (pretty v)
 
 instance Candid Natural
 instance CandidVal Natural where
@@ -157,7 +157,7 @@ instance CandidVal Natural where
         | n >= 0, Right i <- floatingOrInteger @Double n = Right i
         | otherwise = Left $ "Not a natural number: " ++ show n
     fromCandidVal' (NatV n) = Right n
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected nat: " ++ show (pretty v)
 
 inBounds :: forall a. (Integral a, Bounded a) => Integer -> Either String a
 inBounds i
@@ -173,7 +173,7 @@ instance CandidVal Word8 where
     toCandidVal' = Nat8V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Nat8V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected word8: " ++ show (pretty v)
 
 instance Candid Word16
 instance CandidVal Word16 where
@@ -181,7 +181,7 @@ instance CandidVal Word16 where
     toCandidVal' = Nat16V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Nat16V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected word16: " ++ show (pretty v)
 
 instance Candid Word32
 instance CandidVal Word32 where
@@ -189,7 +189,7 @@ instance CandidVal Word32 where
     toCandidVal' = Nat32V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Nat32V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected word32: " ++ show (pretty v)
 
 instance Candid Word64
 instance CandidVal Word64 where
@@ -197,7 +197,7 @@ instance CandidVal Word64 where
     toCandidVal' = Nat64V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Nat64V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected word64: " ++ show (pretty v)
 
 instance Candid Integer
 instance CandidVal Integer where
@@ -208,7 +208,7 @@ instance CandidVal Integer where
         | otherwise = Left $ "Not an integer: " ++ show n
     fromCandidVal' (NatV n) = Right (fromIntegral n)
     fromCandidVal' (IntV n) = Right n
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected int: " ++ show (pretty v)
 
 instance Candid Int8
 instance CandidVal Int8 where
@@ -216,7 +216,7 @@ instance CandidVal Int8 where
     toCandidVal' = Int8V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Int8V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected int8: " ++ show (pretty v)
 
 instance Candid Int16
 instance CandidVal Int16 where
@@ -224,7 +224,7 @@ instance CandidVal Int16 where
     toCandidVal' = Int16V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Int16V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected int16: " ++ show (pretty v)
 
 instance Candid Int32
 instance CandidVal Int32 where
@@ -232,7 +232,7 @@ instance CandidVal Int32 where
     toCandidVal' = Int32V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Int32V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected int32: " ++ show (pretty v)
 
 instance Candid Int64
 instance CandidVal Int64 where
@@ -240,7 +240,7 @@ instance CandidVal Int64 where
     toCandidVal' = Int64V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Int64V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected int64: " ++ show (pretty v)
 
 instance Candid Float
 instance CandidVal Float where
@@ -248,7 +248,7 @@ instance CandidVal Float where
     toCandidVal' = Float32V
     fromCandidVal' (NumV n) = Right (toRealFloat n)
     fromCandidVal' (Float32V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected float32: " ++ show (pretty v)
 
 instance Candid Double
 instance CandidVal Double where
@@ -256,20 +256,20 @@ instance CandidVal Double where
     toCandidVal' = Float64V
     fromCandidVal' (NumV n) = Right (toRealFloat n)
     fromCandidVal' (Float64V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected float64: " ++ show (pretty v)
 
 instance Candid Void
 instance CandidVal Void where
     asType = EmptyT
     toCandidVal' = absurd
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected empty: " ++ show (pretty v)
 
 instance Candid T.Text
 instance CandidVal T.Text where
     asType = TextT
     toCandidVal' = TextV
     fromCandidVal' (TextV t) = return t
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected text: " ++ show (pretty v)
 
 instance Candid BS.ByteString
 instance CandidVal BS.ByteString where
@@ -277,14 +277,14 @@ instance CandidVal BS.ByteString where
     toCandidVal' = BlobV
     fromCandidVal' (VecV v) =  BS.pack . Vec.toList <$> mapM (fromCandidVal @Word8) v
     fromCandidVal' (BlobV t) = return t
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected blob: " ++ show (pretty v)
 
 instance Candid Principal
 instance CandidVal Principal where
     asType = PrincipalT
     toCandidVal' = PrincipalV
     fromCandidVal' (PrincipalV t) = return t
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected principal: " ++ show (pretty v)
 
 instance Candid Reserved
 instance CandidVal Reserved where
@@ -298,7 +298,7 @@ instance Candid a => CandidVal (Maybe a) where
     toCandidVal' = OptV . fmap toCandidVal
     fromCandidVal' (OptV x) = traverse fromCandidVal x
     fromCandidVal' NullV = return Nothing
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected opt: " ++ show (pretty v)
 
 instance Candid a => Candid (Vec.Vector a)
 instance Candid a => CandidVal (Vec.Vector a) where
@@ -306,7 +306,7 @@ instance Candid a => CandidVal (Vec.Vector a) where
     toCandidVal' = VecV . fmap toCandidVal
     fromCandidVal' (VecV x) = traverse fromCandidVal x
     fromCandidVal' (BlobV b) = traverse (fromCandidVal . Nat8V) $ Vec.fromList $ BS.unpack b
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected vec: " ++ show (pretty v)
 
 -- | Maybe a bit opinionated, but 'null' seems to be the unit of Candid
 instance Candid ()
@@ -314,7 +314,7 @@ instance CandidVal () where
     asType = NullT
     toCandidVal' () = NullV
     fromCandidVal' NullV = Right ()
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected null: " ++ show (pretty v)
 
 fromField :: FieldName -> [(FieldName, a)] -> Either String a
 fromField f m = case lookup f m of
@@ -348,7 +348,7 @@ instance CandidRow r => CandidVal (Rec r) where
     fromCandidVal' = \case
         RecV m -> toRowRec m
         TupV m -> toRowRec (zip (map hashedField [0..]) m)
-        v -> Left $ "Unexpected " ++ show (pretty v)
+        v -> Left $ "Unexpected record: " ++ show (pretty v)
       where
         toRowRec m = R.fromLabelsA @Candid $ \l ->
             fromField (unescapeFieldName (R.toKey l)) m >>= fromCandidVal
@@ -367,7 +367,7 @@ instance CandidRow r => CandidVal (V.Var r) where
                 return $ fromCandidVal v
             ) <|> Left ("Unexpected variant tag " ++ show (pretty f))
         V.sequence (needle :: V.Var (V.Map (Either String) r))
-    fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
+    fromCandidVal' v = Left $ "Unexpected variant: " ++ show (pretty v)
 
 -- https://github.com/target/row-types/issues/66
 fromLabelsMapA :: forall c f g ρ. (Alternative f, Forall ρ c, AllUniqueLabels ρ)
@@ -394,6 +394,12 @@ instance (Candid a, Candid b) => Candid (a, b) where
     toCandid (a,b) = #_0_ .== a .+ #_1_ .== b
     fromCandid r = (r .! #_0_, r .! #_1_)
 
+instance (Candid a, Candid b) => CandidSeq (a, b) where
+    asTypes = [asType' @a, asType' @b]
+    seqVal (x, y) = [ toCandidVal x, toCandidVal y ]
+    fromVals (x:y:_) = (,) <$> fromCandidVal x <*> fromCandidVal y
+    fromVals _ = Left "Not enough arguments"
+
 $(
   let tupT ts  = foldl appT (tupleT (length ts)) ts in
   let fieldLabelT n = litT $ strTyLit ("_" ++ show (n::Int) ++ "_") in
@@ -401,11 +407,12 @@ $(
 
   fmap concat . sequence $
   [
-    let tvs = take n $ map (varT . mkName . (:[])) ['a'..]
-        pvs = take n $ map (varP . mkName . (:[])) ['a'..]
-        vs  = take n $ map (varE . mkName . (:[])) ['a'..]
+    let names = take n $ map (mkName . (:[])) ['a'..]
+        tvs = map varT names
+        pvs = map varP names
+        vs  = map varE names
     in [d|
-     instance  $(tupT [ [t|Candid $v |] | v <- tvs ]) => Candid $(tupT tvs) where
+      instance  $(tupT [ [t|Candid $v |] | v <- tvs ]) => Candid $(tupT tvs) where
         type AsCandid $(tupT tvs) =
           Rec $(
             foldr1 (\a b -> [t| $a .+ $b |])
@@ -418,11 +425,19 @@ $(
         fromCandid $(varP (mkName "r")) =
           $( tupE [ [| $(varE (mkName "r")) .! $(fieldLabelE n) |]
                   | (n,_) <- zip [0..] vs])
+
+      instance  $(tupT [ [t|Candid $v |] | v <- tvs ]) => CandidSeq $(tupT tvs) where
+        asTypes = $(listE [ [| asType' @ $v |] | v <- tvs ])
+        seqVal $(tupP pvs) = $(listE [ [| toCandidVal $v |] | v <- vs ])
+        fromVals $(foldr (`infixP` '(:)) wildP pvs)
+          = $( foldl (`uInfixE` varE '(<*>))
+                [| pure $(conE (tupleDataName n)) |]
+                [ [| fromCandidVal $v |] | v <- vs ] )
+        fromVals _ = Left "Not enough arguments"
      |]
   | n <- [3..15]
   ]
  )
-
 
 
 instance Candid a => Candid [a] where
