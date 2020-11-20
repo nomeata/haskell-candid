@@ -129,7 +129,7 @@ decodeTypTableEntry max = getSLEB128 @Integer >>= \case
 decodeTypRef :: Natural -> G.Get (Type Int)
 decodeTypRef max = do
     i <- getSLEB128
-    when (i > fromIntegral max) $ fail "Type reference out of range"
+    when (i >= fromIntegral max) $ fail "Type reference out of range"
     if i < 0
     then case primTyp i of
         Just t -> return t
