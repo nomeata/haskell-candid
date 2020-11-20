@@ -219,9 +219,12 @@ numP :: Parser Scientific
 numP = l p >>= conv <?> "number"
   where
     p =(:) <$> oneOf "-+0123456789" <*> many (oneOf "-+.0123456789eE_")
-    conv raw = case readMaybe (filter (/= '_') raw) of
+    conv raw = case readMaybe (filter (/= '_') (handle_trailing_perdiod raw)) of
         Nothing -> fail $ "Invald number literal: " ++ show raw
         Just s -> return s
+    -- 1. is allowed by candid, but not by scientific
+    handle_trailing_perdiod s =
+        if not (null s) && last s == '.' then s ++ "0" else s
 
 valueP :: Parser Value
 valueP = choice

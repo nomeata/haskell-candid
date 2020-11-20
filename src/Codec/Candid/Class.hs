@@ -246,6 +246,7 @@ instance Candid Float
 instance CandidVal Float where
     asType = Float32T
     toCandidVal' = Float32V
+    fromCandidVal' (NumV n) = Right (toRealFloat n)
     fromCandidVal' (Float32V n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
@@ -253,6 +254,7 @@ instance Candid Double
 instance CandidVal Double where
     asType = Float64T
     toCandidVal' = Float64V
+    fromCandidVal' (NumV n) = Right (toRealFloat n)
     fromCandidVal' (Float64V n) = Right n
     fromCandidVal' v = Left $ "Unexpected " ++ show (pretty v)
 
