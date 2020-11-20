@@ -365,6 +365,7 @@ data CandidTest a = CandidTest
     , testType :: [Type a]
     , testDesc :: Maybe T.Text
     }
+  deriving (Functor, Foldable, Traversable)
 
 data TestInput
     = FromTextual T.Text

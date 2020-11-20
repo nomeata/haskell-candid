@@ -17,6 +17,7 @@ import Codec.Candid.Parse
 
 import Codec.Candid.TH
   ( candidTypeQ
+  , generateCandidDefs
   )
 
 

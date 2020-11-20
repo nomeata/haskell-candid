@@ -353,6 +353,9 @@ tests = testGroup "tests"
     , t "vec {record {}; record {0 = true}}" (V.fromList [R.empty, R.empty])
     , t "vec {variant {a = true}; variant {b = null}}"
         (V.fromList [IsJust #a True, IsJust #b () :: V.Var ("a" V..== Bool V..+ "b" V..== ())])
+    , t "\"hello\"" ("hello" :: T.Text)
+    , t "blob \"hello\"" ("hello" :: BS.ByteString)
+    , t "blob \"\\00\\ff\"" ("\x00\xff" :: BS.ByteString)
     , t' "vec {true; 4}"
     ]
 

@@ -22,13 +22,14 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Language.Haskell.TH.Syntax as TH (Name)
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Lib
-import Language.Haskell.TH.Syntax (Q, lookupTypeName, newName)
+import Language.Haskell.TH.Syntax (Q, lookupTypeName, newName, Dec)
 
 import Codec.Candid.Parse
 import Codec.Candid.Data
 import Codec.Candid.Tuples
 import Codec.Candid.Types
 import Codec.Candid.FieldName
+import Codec.Candid.Class (Candid)
 
 -- | This quasi-quoter turns a Candid description into a Haskell type. It assumes a type variable @m@ to be in scope.
 candid :: QuasiQuoter
@@ -46,9 +47,8 @@ candidType :: QuasiQuoter
 candidType = QuasiQuoter { quoteExp = err, quotePat = err, quoteDec = err, quoteType = quoteCandidType }
   where err _ = fail "[candid| … |] can only be used as a type"
 
-generateCandidDefs :: [DidDef TypeName] -> Q (DecsQ, TypeName -> Q TH.Name)
+generateCandidDefs :: [DidDef TypeName] -> Q ([Dec], TypeName -> Q TH.Name)
 generateCandidDefs defs = do
-    -- generate fresh names for each type types
     assocs <- for defs $ \(tn, _) -> do
         thn <- newName ("Candid_" ++ T.unpack tn)
         return (tn, thn)
@@ -57,10 +57,13 @@ generateCandidDefs defs = do
     let resolve tn =  case M.lookup tn m of
             Just thn -> return thn
             Nothing -> fail $ "Could not find type " ++ T.unpack tn
-    let decls = for defs $ \(tn, t) -> do
+    decls <- for defs $ \(tn, t) -> do
           t' <- traverse resolve t
           n <- resolve tn
-          tySynD n [] (typ t')
+          dn <- newName ("Candid_" ++ T.unpack tn)
+          newtypeD (cxt []) n [] Nothing
+            (normalC dn [bangType (bang noSourceUnpackedness noSourceStrictness) (typ t')])
+            [derivClause Nothing [conT ''Candid, conT ''Eq]]
     return (decls, resolve)
 
 quoteCandidService :: String -> TypeQ
@@ -124,4 +127,4 @@ typ (OptT t) = [t| Maybe $( typ t ) |]
 typ (VecT t) = [t| V.Vector $( typ t ) |]
 typ (RecT fs) = [t| R.Rec $(row [t| (R..==) |] [t| (R..+) |] [t| R.Empty |] fs) |]
 typ (VariantT fs) = [t| V.Var $(row [t| (V..==) |] [t| (V..+) |] [t| V.Empty |] fs) |]
-typ (RefT v) = varT v
+typ (RefT v) = conT v
