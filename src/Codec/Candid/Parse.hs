@@ -282,16 +282,26 @@ valueP = choice
   , NullV <$ k "null"
   , OptV . Just <$ k "opt" <*> valueP
   , VecV . V.fromList <$ k "vec" <*> braceSemi annValueP
-  , RecV <$ k "record" <*> braceSemi (fieldValP False)
-  , uncurry VariantV <$ k "variant" <*> braces (fieldValP True)
+  , RecV . resolveShorthand <$ k "record" <*> braceSemi recordFieldValP
+  , uncurry VariantV <$ k "variant" <*> braces variantFieldValP
   , PrincipalV <$ k "service" <*> withPredicate parsePrincipal textP
   , BlobV <$ k "blob" <*> blobP
   ]
 
-fieldValP :: Bool -> Parser (FieldName, Value)
-fieldValP in_variant = (,)
-  <$> (hashedField . fromIntegral <$> natP <|> labledField <$> nameP)
-  <*> ((s "=" *> annValueP) <|> NullV <$ guard in_variant)
+variantFieldValP :: Parser (FieldName, Value)
+variantFieldValP = (,) <$> fieldLabelP <*> ((s "=" *> annValueP) <|> pure NullV)
+
+recordFieldValP :: Parser (Word32 -> (FieldName, Value))
+recordFieldValP = choice
+  [ try $ do
+    l <- fieldLabelP
+    s "="
+    v <- annValueP
+    return $ const (l,v)
+  , do
+    v <- annValueP
+    return $ \next -> (hashedField next, v)
+  ]
 
 -- A lexeme
 l :: Parser a -> Parser a
