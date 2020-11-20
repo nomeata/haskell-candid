@@ -41,7 +41,7 @@ library
   build-depends: megaparsec >= 8
   build-depends: scientific
   build-depends: cereal
-  build-depends: leb128-cereal
+  build-depends: leb128-cereal >= 1.2
   build-depends: containers
   build-depends: unordered-containers
   build-depends: row-types == 0.4.*
