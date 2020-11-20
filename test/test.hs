@@ -365,6 +365,8 @@ tests = testGroup "tests"
       DidFile [] [ DidMethod "foo" [TextT] [TextT] ]
     , parseTest "service : { foo : (opt text) -> () }" $
       DidFile [] [ DidMethod "foo" [OptT TextT] []  ]
+    , parseTest "service : { foo : (record { text; blob }) -> () }" $
+      DidFile [] [ DidMethod "foo" [RecT [(hashedField 0, TextT), (hashedField 1, BlobT)]] []  ]
     , parseTest "service : { foo : (record { x_ : null; 5 : nat8 }) -> () }" $
       DidFile [] [ DidMethod "foo" [RecT [("x_", NullT), (hashedField 5, Nat8T)]] [] ]
     , parseTest "service : { foo : (record { x : null; 5 : nat8 }) -> () }" $

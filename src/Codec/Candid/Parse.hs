@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE TupleSections #-}
 module Codec.Candid.Parse
   ( DidFile(..)
   , DidDef
@@ -25,6 +26,7 @@ import Text.Megaparsec.Char
 import Data.Bifunctor
 import Data.Char
 import Data.Functor
+import Data.Word
 import Numeric.Natural
 import Numeric
 import Control.Monad
@@ -189,14 +191,38 @@ constTypeP :: Parser (Type TypeName)
 constTypeP = choice
   [ OptT <$ k "opt" <*> dataTypeP
   , VecT <$ k "vec" <*> dataTypeP
-  , RecT <$ k "record" <*> braceSemi (fieldTypeP False)
-  , VariantT <$ k "variant" <*> braceSemi (fieldTypeP True)
+  , RecT . resolveShorthand <$ k "record" <*> braceSemi recordFieldTypeP
+  , VariantT <$ k "variant" <*> braceSemi variantFieldTypeP
   ]
 
-fieldTypeP :: Bool -> Parser (FieldName, Type TypeName)
-fieldTypeP in_variant = (,)
-  <$> (hashedField . fromIntegral <$> natP <|>  labledField <$> nameP)
-  <*> ((s ":" *> dataTypeP) <|> NullT <$ guard in_variant)
+fieldLabelP :: Parser FieldName
+fieldLabelP  =
+    hashedField . fromIntegral <$> natP <|>
+    labledField <$> nameP
+
+variantFieldTypeP :: Parser (FieldName, Type TypeName)
+variantFieldTypeP =
+  (,) <$> fieldLabelP <*> ((s ":" *> dataTypeP) <|> pure NullT)
+
+resolveShorthand :: [Word32 -> (FieldName, a)] -> [(FieldName, a)]
+resolveShorthand = go 0
+  where
+    go _ [] = []
+    go n (f:fs) =
+        let f' = f n in
+        f' : go (succ (fieldHash (fst f'))) fs
+
+recordFieldTypeP :: Parser (Word32 -> (FieldName, Type TypeName))
+recordFieldTypeP = choice
+  [ try $ do
+    l <- fieldLabelP
+    s ":"
+    t <- dataTypeP
+    return $ const (l,t)
+  , do
+    t <- dataTypeP
+    return $ \next -> (hashedField next, t)
+  ]
 
 idP :: Parser T.Text
 idP = T.pack <$> l ((:)
