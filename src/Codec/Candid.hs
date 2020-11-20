@@ -47,9 +47,8 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 * Writing interface descriptions
 * Service and function types
 * Future types
-* Parsing dynamically against expected expected type
+* Parsing dynamically against expected type
 * Some short-hands in textual form
-* Parsing type definitions
 
 -}
 

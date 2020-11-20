@@ -6,13 +6,14 @@ module Codec.Candid.TestExports
     ) where
 
 import Codec.Candid.Parse
-  ( CandidTests
+  ( CandidTestFile(..)
   , CandidTest(..)
+  , DidFile(..)
+  , DidMethod(..)
   , TestInput(..)
   , TestAssertion(..)
   , parseCandidTests
   )
-
 
 import Codec.Candid.TH
   ( candidTypeQ

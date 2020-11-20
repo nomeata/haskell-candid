@@ -71,15 +71,16 @@ specTests = testGroup "Candid spec tests" $(do
                         assertFailure $ "unexpected decoding error (right arg):\n" ++ err
                 |]
           )|]
-          | CandidTest{..} <- tests
+          | CandidTest{..} <- testTests tests
           , let name = "[l" ++ show testLine ++ "]" ++
                      case testDesc of
                          Nothing -> ""
                          Just dsc -> " " ++ T.unpack dsc
-          , let parseInput (FromBinary blob) =
-                  [| decode @ $(candidTypeQ testType) (BS.pack $(lift (BS.unpack blob))) |]
+          , let testType' = fmap (error . T.unpack) <$> testType
+                parseInput (FromBinary blob) =
+                  [| decode @ $(candidTypeQ testType') (BS.pack $(lift (BS.unpack blob))) |]
                 parseInput (FromTextual txt) =
-                  [| parseValues $(liftString (T.unpack txt)) >>= fromCandidVals @ $(candidTypeQ testType) |]
+                  [| parseValues $(liftString (T.unpack txt)) >>= fromCandidVals @ $(candidTypeQ testType') |]
           ])
         |]
       | (name, tests) <- candid_tests

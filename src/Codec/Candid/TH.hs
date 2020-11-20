@@ -1,8 +1,13 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DataKinds #-}
-module Codec.Candid.TH (candid, candidFile, candidType, candidTypeQ) where
+module Codec.Candid.TH
+ ( candid, candidFile, candidType, candidTypeQ
+ , generateCandidDefs
+ ) where
 
+import qualified Data.Map as M
 import qualified Data.Row.Records as R
 import qualified Data.Row.Variants as V
 import qualified Data.Text as T
@@ -11,11 +16,13 @@ import Numeric.Natural
 import Data.Word
 import Data.Int
 import Data.Void
+import Data.Traversable
 import qualified Data.ByteString.Lazy as BS
 
+import qualified Language.Haskell.TH.Syntax as TH (Name)
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Lib
-import Language.Haskell.TH.Syntax (lookupTypeName)
+import Language.Haskell.TH.Syntax (Q, lookupTypeName, newName)
 
 import Codec.Candid.Parse
 import Codec.Candid.Data
@@ -39,31 +46,53 @@ candidType :: QuasiQuoter
 candidType = QuasiQuoter { quoteExp = err, quotePat = err, quoteDec = err, quoteType = quoteCandidType }
   where err _ = fail "[candid| … |] can only be used as a type"
 
+generateCandidDefs :: [DidDef TypeName] -> Q (DecsQ, TypeName -> Q TH.Name)
+generateCandidDefs defs = do
+    -- generate fresh names for each type types
+    assocs <- for defs $ \(tn, _) -> do
+        thn <- newName ("Candid_" ++ T.unpack tn)
+        return (tn, thn)
+
+    let m = M.fromList assocs
+    let resolve tn =  case M.lookup tn m of
+            Just thn -> return thn
+            Nothing -> fail $ "Could not find type " ++ T.unpack tn
+    let decls = for defs $ \(tn, t) -> do
+          t' <- traverse resolve t
+          n <- resolve tn
+          tySynD n [] (typ t')
+    return (decls, resolve)
+
 quoteCandidService :: String -> TypeQ
 quoteCandidService s = case parseDid s of
   Left err -> fail err
-  Right [] -> [t|R.Empty|]
-  Right s -> do
+  Right DidFile{ defs = _:_} ->
+    fail "Type definitions not supported yet"
+  Right DidFile{ service = []} -> [t|R.Empty|]
+  Right DidFile{ service = s} -> do
     Just m <- lookupTypeName "m"
+    s' <- traverse (traverse (\n -> fail $ "Unbound type definition" ++ T.unpack n)) s
     foldl1 (\a b -> [t|$(a) R..+ $(b)|])
-        [ [t|  $(litT (strTyLit (T.unpack meth)) )
-               R..== ($(candidTypeQ ts1) -> $(varT m) $(candidTypeQ ts2)) |]
-        | (meth, ts1, ts2) <- s
+        [ [t|  $(litT (strTyLit (T.unpack methodName)))
+               R..== ($(candidTypeQ methodParams) -> $(varT m) $(candidTypeQ methodResults)) |]
+        | DidMethod{..} <- s'
         ]
 
 quoteCandidType :: String -> TypeQ
 quoteCandidType s = case parseDidType s of
   Left err -> fail err
-  Right t -> typ t
+  Right t -> typ (err <$> t)
+   where
+     err s = error $ "Type occurrences not supported: " ++ T.unpack s
 
-candidTypeQ :: [Type Void] -> TypeQ
+candidTypeQ :: [Type TH.Name] -> TypeQ
 candidTypeQ [] = [t| () |]
 candidTypeQ [NullT] = [t| Unary () |]
 candidTypeQ [t] = typ t
 candidTypeQ ts = foldl appT (tupleT (length ts)) (map typ ts)
 
 
-row :: TypeQ -> TypeQ -> TypeQ -> Fields Void -> TypeQ
+row :: TypeQ -> TypeQ -> TypeQ -> Fields TH.Name -> TypeQ
 row eq add = foldr (\(fn, t) rest -> [t|
     $add ($eq $(fieldName fn) $(typ t)) $rest
   |])
@@ -71,7 +100,7 @@ row eq add = foldr (\(fn, t) rest -> [t|
 fieldName :: FieldName -> TypeQ
 fieldName f = litT (strTyLit (T.unpack (escapeFieldName f)))
 
-typ :: Type Void -> TypeQ
+typ :: Type TH.Name -> TypeQ
 typ NatT = [t| Natural |]
 typ Nat8T = [t| Word8 |]
 typ Nat16T = [t| Word16 |]
@@ -95,4 +124,4 @@ typ (OptT t) = [t| Maybe $( typ t ) |]
 typ (VecT t) = [t| V.Vector $( typ t ) |]
 typ (RecT fs) = [t| R.Rec $(row [t| (R..==) |] [t| (R..+) |] [t| R.Empty |] fs) |]
 typ (VariantT fs) = [t| V.Var $(row [t| (V..==) |] [t| (V..+) |] [t| V.Empty |] fs) |]
-typ (RefT v) = absurd v
+typ (RefT v) = varT v

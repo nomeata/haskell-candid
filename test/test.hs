@@ -17,7 +17,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedLabels #-}
-{-# LANGUAGE QuasiQuotes #-}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -45,7 +44,9 @@ import qualified Data.Row.Records as R
 import qualified Data.Row.Variants as V
 
 import Codec.Candid
+import Codec.Candid.TestExports
 
+import THTests (thTests)
 import SpecTests (specTests)
 
 main :: IO ()
@@ -355,31 +356,23 @@ tests = testGroup "tests"
     , t' "vec {true; 4}"
     ]
 
-  , testGroup "candid type parsing" $
-    let m x y z = (x, y, z) in
-    [ parseTest "service : {}" []
-    , parseTest "service : { foo : (text) -> (text) }"
-        [ m "foo" [TextT] [TextT] ]
-    , parseTest "service : { foo : (text,) -> (text,); }"
-        [ m "foo" [TextT] [TextT] ]
-    , parseTest "service : { foo : (opt text) -> () }"
-        [ m "foo" [OptT TextT] []  ]
-    , parseTest "service : { foo : (record { x_ : null; 5 : nat8 }) -> () }"
-        [ m "foo" [RecT [("x_", NullT), (hashedField 5, Nat8T)]] [] ]
-    , parseTest "service : { foo : (record { x : null; 5 : nat8 }) -> () }"
-        [ m "foo" [RecT [("x", NullT), (hashedField 5, Nat8T)]] [] ]
+  , testGroup "candid type parsing"
+    [ parseTest "service : {}" $
+      DidFile [] []
+    , parseTest "service : { foo : (text) -> (text) }" $
+      DidFile [] [ DidMethod "foo" [TextT] [TextT] ]
+    , parseTest "service : { foo : (text,) -> (text,); }" $
+      DidFile [] [ DidMethod "foo" [TextT] [TextT] ]
+    , parseTest "service : { foo : (opt text) -> () }" $
+      DidFile [] [ DidMethod "foo" [OptT TextT] []  ]
+    , parseTest "service : { foo : (record { x_ : null; 5 : nat8 }) -> () }" $
+      DidFile [] [ DidMethod "foo" [RecT [("x_", NullT), (hashedField 5, Nat8T)]] [] ]
+    , parseTest "service : { foo : (record { x : null; 5 : nat8 }) -> () }" $
+      DidFile [] [ DidMethod "foo" [RecT [("x", NullT), (hashedField 5, Nat8T)]] [] ]
+    , parseTest "type t = int; service : { foo : (t) -> (t) }" $
+      DidFile [("t", IntT)] [ DidMethod "foo" [RefT "t"] [RefT "t"] ]
     ]
-  , testGroup "Using TH interface" $
-    [ testCase "demo1: direct" $ do
-        x <- greet1 .! #greet $ "World"
-        x @?= "Hello World"
-    , testCase "demo1: via toCandidService" $ do
-        x <- greet2 .! #greet $ "World"
-        x @?= "World"
-    , testCase "demo2" $ do
-        x <- demo2 .! #greet $ ("World", True)
-        x @?= "WorldTrue"
-    ]
+  , thTests
   , testProperty "field name escaping round-tripping" $ \e ->
       let f = either labledField hashedField e in
       let f' = unescapeFieldName (escapeFieldName f) in
@@ -400,17 +393,3 @@ instance (Monad m, Forall r (Serial m), AllUniqueLabels r) => Serial m (Rec r) w
 
 instance (Monad m, Forall r (Serial m), AllUniqueLabels r) => Serial m (Var r) where
     series = V.fromLabels @(Serial m) (\_l -> series)
-
--- NB: Fields in the wrong order
-type Demo1 m = [candid|service : { "greet": (text) -> (text); "a" : () -> () } |]
-
-greet1 :: Monad m => Rec (Demo1 m)
-greet1 = #a .== (\() -> return ()) .+ #greet .== (\who -> return $ "Hello " <> who)
-
-greet2 :: forall m. Monad m => Rec (Demo1 m)
-greet2 = toCandidService error (\_ x -> return x)
-
-type Demo2 m = [candid| service : { "greet": (text, bool) -> (text); } |]
-
-demo2 :: Monad m => Rec (Demo2 m)
-demo2 = #greet .== \(who, b) -> return $ who <> T.pack (show b)

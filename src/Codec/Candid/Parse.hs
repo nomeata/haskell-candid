@@ -1,10 +1,14 @@
+{-# LANGUAGE DeriveTraversable #-}
 module Codec.Candid.Parse
-  ( DidFile
+  ( DidFile(..)
+  , DidDef
+  , DidMethod(..)
+  , TypeName
   , parseDid
   , parseDidType
   , parseValue
   , parseValues
-  , CandidTests
+  , CandidTestFile(..)
   , CandidTest(..)
   , TestInput(..)
   , TestAssertion(..)
@@ -37,13 +41,26 @@ type Parser = Parsec Void String
 -- | A candid service, as a list of methods with argument and result types
 --
 -- (no support for annotations like query yet)
-type DidFile = [ (T.Text, [Type Void], [Type Void]) ]
+data DidMethod a = DidMethod
+    { methodName :: T.Text
+    , methodParams :: [Type a]
+    , methodResults :: [Type a]
+    }
+  deriving (Eq, Show, Functor, Foldable, Traversable)
+type TypeName = T.Text
+type DidService a = [ DidMethod a ]
+type DidDef a = (TypeName, Type TypeName)
+data DidFile = DidFile
+    { defs :: [ DidDef TypeName ]
+    , service :: DidService TypeName
+    }
+  deriving (Eq, Show)
 
 -- | Parses a Candid description (@.did@) from a string
 parseDid :: String -> Either String DidFile
 parseDid = first errorBundlePretty . parse (allInput fileP) "Candid service"
 
-parseDidType :: String -> Either String (Type Void)
+parseDidType :: String -> Either String (Type TypeName)
 parseDidType = first errorBundlePretty . parse (allInput dataTypeP) "Candid type"
 
 -- | Parses a Candid textual value from a string
@@ -58,40 +75,43 @@ allInput :: Parser a -> Parser a
 allInput = between theVoid eof
 
 fileP :: Parser DidFile
-fileP = many defP *> actorP
+fileP = DidFile <$> defsP <*> actorP
 
-defP :: Parser ()
-defP = typeP <|> importP
+defsP :: Parser [DidDef TypeName]
+defsP = concat <$> many defP
 
-typeP :: Parser ()
-typeP = withPredicate (const (Left "type definitions not yet supported")) $
-    s "type"
+defP :: Parser [DidDef TypeName]
+defP = (typeP <|> importP) <* s ";"
 
-importP :: Parser ()
+typeP :: Parser [DidDef TypeName]
+typeP = fmap (:[]) $
+    (,) <$ k "type" <*> idP <* s "=" <*> dataTypeP
+
+importP :: Parser [DidDef TypeName]
 importP = withPredicate (const (Left "imports not yet supported")) $
-    s "import"
+    [] <$ k "import"
 
-actorP :: Parser DidFile
-actorP = s "service" *> optional idP *> s ":" *> actorTypeP -- TODO could be a type id
+actorP :: Parser (DidService TypeName)
+actorP = k "service" *> optional idP *> s ":" *> actorTypeP -- TODO could be a type id
 
-actorTypeP :: Parser DidFile
+actorTypeP :: Parser (DidService TypeName)
 actorTypeP = braceSemi methTypeP
 
-methTypeP :: Parser (T.Text, [Type Void], [Type Void])
+methTypeP :: Parser (DidMethod TypeName)
 methTypeP = do
     n <- nameP
     s ":"
     (ts1, ts2) <- funcTypeP  -- TODO could be a type id
-    return (n, ts1, ts2)
+    return $ DidMethod n ts1 ts2
 
-funcTypeP :: Parser ([Type Void], [Type Void])
+funcTypeP :: Parser ([Type TypeName], [Type TypeName])
 funcTypeP = (,) <$> seqP <* s "->" <*> seqP <* many funcAnnP
 
 funcAnnP :: Parser () -- TODO: Annotations are dropped
 funcAnnP = s "oneway" <|> s "query"
 
 nameP :: Parser T.Text
-nameP = textP <|> T.pack <$> idP <?> "name"
+nameP = textP <|> idP <?> "name"
 
 textP :: Parser T.Text
 textP = T.pack <$> l (between (char '"') (char '"') (many stringElem)) <?> "text"
@@ -133,16 +153,16 @@ stringElem = (char '\\' *> go) <|> noneOf "\""
 hexdigit :: Parser Char
 hexdigit = oneOf "0123456789ABCDEFabcdef"
 
-seqP :: Parser [Type Void]
+seqP :: Parser [Type TypeName]
 seqP = parenComma argTypeP
 
-argTypeP :: Parser (Type Void)
+argTypeP :: Parser (Type TypeName)
 argTypeP = dataTypeP <|> (nameP *> s ":" *> dataTypeP)
 
-dataTypeP :: Parser (Type Void)
-dataTypeP = primTypeP <|> constTypeP -- TODO: Ids, reftypes
+dataTypeP :: Parser (Type TypeName)
+dataTypeP = primTypeP <|> constTypeP <|> (RefT <$> idP)-- TODO: reftypes
 
-primTypeP :: Parser (Type Void)
+primTypeP :: Parser (Type TypeName)
 primTypeP = choice
     [ NatT <$ k "nat"
     , Nat8T <$ k "nat8"
@@ -165,7 +185,7 @@ primTypeP = choice
     , PrincipalT <$ k "principal"
     ]
 
-constTypeP :: Parser (Type Void)
+constTypeP :: Parser (Type TypeName)
 constTypeP = choice
   [ OptT <$ k "opt" <*> dataTypeP
   , VecT <$ k "vec" <*> dataTypeP
@@ -173,13 +193,13 @@ constTypeP = choice
   , VariantT <$ k "variant" <*> braceSemi (fieldTypeP True)
   ]
 
-fieldTypeP :: Bool -> Parser (FieldName, Type Void)
+fieldTypeP :: Bool -> Parser (FieldName, Type TypeName)
 fieldTypeP in_variant = (,)
   <$> (hashedField . fromIntegral <$> natP <|>  labledField <$> nameP)
   <*> ((s ":" *> dataTypeP) <|> NullT <$ guard in_variant)
 
-idP :: Parser String
-idP = l ((:)
+idP :: Parser T.Text
+idP = T.pack <$> l ((:)
   <$> satisfy (\c -> isAscii c && isLetter c || c == '_')
   <*> many (satisfy (\c -> isAscii c && isAlphaNum c || c == '_'))
   ) <?> "id"
@@ -197,7 +217,7 @@ annValueP =
             smartAnnV v t
        <|> return v
 
-smartAnnV :: Value -> Type Void -> Parser Value
+smartAnnV :: Value -> Type TypeName -> Parser Value
 smartAnnV (NumV n) Nat8T = Nat8V <$> toBounded n
 smartAnnV (NumV n) Nat16T = Nat16V <$> toBounded n
 smartAnnV (NumV n) Nat32T = Nat32V <$> toBounded n
@@ -308,12 +328,15 @@ withPredicate f p = do
 -- | A candid test file
 --
 -- (no support for type definitions yet)
-type CandidTests = [CandidTest]
+data CandidTestFile = CandidTestFile
+    { testDefs :: [ DidDef TypeName ]
+    , testTests ::  [ CandidTest TypeName ]
+    }
 
-data CandidTest = CandidTest
+data CandidTest a = CandidTest
     { testLine :: Int
     , testAssertion :: TestAssertion
-    , testType :: [Type Void]
+    , testType :: [Type a]
     , testDesc :: Maybe T.Text
     }
 
@@ -327,13 +350,13 @@ data TestAssertion
     | ParseEq Bool TestInput TestInput
 
 -- | Parses a candid spec test file from a string
-parseCandidTests :: String -> String -> Either String CandidTests
+parseCandidTests :: String -> String -> Either String CandidTestFile
 parseCandidTests source = first errorBundlePretty . parse (allInput testFileP) source
 
-testFileP :: Parser CandidTests
-testFileP = many defP *> sepEndBy testP (s ";")
+testFileP :: Parser CandidTestFile
+testFileP = CandidTestFile <$> defsP <*> sepEndBy testP (s ";")
 
-testP :: Parser CandidTest
+testP :: Parser (CandidTest TypeName)
 testP = CandidTest
     <$> (unPos . sourceLine <$> getSourcePos)
     <*  k "assert"
