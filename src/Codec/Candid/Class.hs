@@ -327,7 +327,13 @@ instance Candid a => CandidVal (Maybe a) where
     toCandidVal' = OptV . fmap toCandidVal
     fromCandidVal' (OptV x) = traverse fromCandidVal'' x
     fromCandidVal' NullV = return Nothing
-    fromCandidVal' v = cannotCoerce "opt" v
+    fromCandidVal' ReservedV = return Nothing
+    fromCandidVal' v = case asType @(AsCandid a) of
+        OptT _    -> cannotCoerce "opt" v
+        NullT     -> cannotCoerce "opt" v
+        ReservedT -> cannotCoerce "opt" v
+        _         -> Just <$> fromCandidVal'' v
+
 
 instance Candid a => Candid (Vec.Vector a)
 instance Candid a => CandidVal (Vec.Vector a) where
