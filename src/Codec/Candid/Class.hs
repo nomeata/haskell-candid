@@ -122,6 +122,14 @@ data DeserializeError
 -- TODO: Can we get rid of this?
 instance Error DeserializeError where strMsg = DecodeError
 
+isRecoverable :: DeserializeError -> Bool
+isRecoverable (DecodeError _) = False
+isRecoverable _ = True
+
+recoverWith :: a -> Either DeserializeError a -> Either DeserializeError a
+recoverWith x (Left e) | isRecoverable e = Right x
+recoverWith _ y = y
+
 showDeserializeError :: DeserializeError -> String
 showDeserializeError e = case e of
     DecodeError err -> err
@@ -325,14 +333,17 @@ instance Candid a => Candid (Maybe a)
 instance Candid a => CandidVal (Maybe a) where
     asType = OptT (asType' @a)
     toCandidVal' = OptV . fmap toCandidVal
-    fromCandidVal' (OptV x) = traverse fromCandidVal'' x
+    fromCandidVal' (OptV x) = recoverWith Nothing $
+        traverse fromCandidVal'' x
     fromCandidVal' NullV = return Nothing
     fromCandidVal' ReservedV = return Nothing
     fromCandidVal' v = case asType @(AsCandid a) of
-        OptT _    -> cannotCoerce "opt" v
-        NullT     -> cannotCoerce "opt" v
-        ReservedT -> cannotCoerce "opt" v
-        _         -> Just <$> fromCandidVal'' v
+        OptT _    -> pure Nothing
+        NullT     -> pure Nothing
+        ReservedT -> pure Nothing
+        _         -> recoverWith Nothing $
+            Just <$> fromCandidVal'' v
+
 
 
 instance Candid a => Candid (Vec.Vector a)
