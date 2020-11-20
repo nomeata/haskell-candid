@@ -1,7 +1,4 @@
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -21,43 +18,37 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
+
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Builder as B
 import qualified Data.Vector as V hiding (singleton)
-import qualified Data.HashMap.Lazy as HM
 import Test.Tasty
 import Test.Tasty.Ingredients.Rerun
 import Test.Tasty.HUnit
 import Test.Tasty.SmallCheck
 import Test.SmallCheck.Series
-import System.Environment
 import Data.Void
 import Data.Either
 import GHC.Int
 import GHC.Word
 import Numeric.Natural
 import Control.Monad
-import GHC.TypeLits
 import GHC.Generics (Generic)
 import Data.Text.Prettyprint.Doc
 import Data.Row
 import Data.Proxy
-import System.Directory
-import System.FilePath
-import System.IO
-import System.Exit
 import qualified Data.Row.Records as R
 import qualified Data.Row.Variants as V
-import Language.Haskell.TH
-import Language.Haskell.TH.Syntax
 
 import Codec.Candid
-import Codec.Candid.TestExports
 
+import SpecTests (specTests)
+
+main :: IO ()
 main = defaultMainWithRerun tests
 
 newtype Peano = Peano (Maybe Peano)
@@ -71,7 +62,9 @@ newtype LinkedList a = LinkedList (Maybe (a, LinkedList a))
     deriving (Show, Eq)
     deriving newtype Candid
 
+cons :: a -> LinkedList a -> LinkedList a
 cons x y = LinkedList $ Just (x, y)
+nil :: LinkedList a
 nil = LinkedList Nothing
 
 natList :: LinkedList Natural
@@ -146,7 +139,7 @@ subTypeTest v1 v2 = do
   -- now try the other direction
   let bytes2 = encode v2
   case decode @a bytes2 of
-    Left err -> return ()
+    Left _err -> return ()
     Right _ -> assertFailure "converse subtype test succeeded"
 
 instance Monad m => Serial m T.Text where
@@ -222,63 +215,7 @@ withSomeTypes groupName mkTest =
 
 tests :: TestTree
 tests = testGroup "tests"
-  [ testGroup "Candid spec tests" $(do -- WARNING: Big Template Haskell mess ahead
-    candid_tests <- runIO (lookupEnv "CANDID_TESTS") >>= \case
-        Nothing -> runIO $ [] <$ putStrLn "CANDID_TESTS not set, will not run candid spec test"
-        Just dir -> do
-            files <- runIO $ listDirectory dir
-            sequence
-              [ do addDependentFile file
-                   content <- runIO $ readFile file
-                   case parseCandidTests file content of
-                       Left err -> runIO $ do
-                         hPutStrLn stderr $ "Failed to parse " ++ file ++ ":"
-                         hPutStrLn stderr err
-                         exitFailure
-                       Right x -> return (name, x)
-              | basename <- files
-              , let file = dir </> basename
-              , Just name <- pure $ T.stripSuffix ".test.did" (T.pack basename)
-              , name /= "construct" -- for now
-              ]
-    listE
-      [ [| testGroup ("File " ++ $(liftString (T.unpack name))) $(listE
-          [ [| testCase name $( case testAssertion of
-            CanParse i1 -> [|
-                case $(parseInput i1) of
-                    Right _  -> return ()
-                    Left err -> assertFailure $ "unexpected decoding error:\n" ++ err
-                |]
-            CannotParse i1 -> [|
-                case $(parseInput i1) of
-                    Right _ -> assertFailure $ "unexpected decoding success"
-                    Left _  -> return ()
-                |]
-            ParseEq exp i1 i2 -> [|
-                case ($(parseInput i1), $(parseInput i2)) of
-                    (Right v1, Right v2) ->
-                        if exp then assertBool "values differ" (v1 == v2)
-                               else assertBool "values do not differ" (v1 /= v2)
-                    (Left err, _) ->
-                        assertFailure $ "unexpected decoding error (left arg):\n" ++ err
-                    (_, Left err) ->
-                        assertFailure $ "unexpected decoding error (right arg):\n" ++ err
-                |]
-          )|]
-          | CandidTest{..} <- tests
-          , let name = "[l" ++ show testLine ++ "]" ++
-                     case testDesc of
-                         Nothing -> ""
-                         Just dsc -> " " ++ T.unpack dsc
-          , let parseInput (FromBinary blob) =
-                  [| decode @ $(candidTypeQ testType) (BS.pack $(lift (BS.unpack blob))) |]
-                parseInput (FromTextual txt) =
-                  [| parseValues $(liftString (T.unpack txt)) >>= fromCandidVals @ $(candidTypeQ testType) |]
-          ])
-        |]
-      | (name, tests) <- candid_tests
-      ]
-  )
+  [ specTests
   , testGroup "encode tests"
     [ testCase "empty" $ encode () @?= B.pack "DIDL\0\0"
     , testCase "bool" $ encode (Unary True) @?= B.pack "DIDL\0\1\x7e\1"
@@ -401,7 +338,7 @@ tests = testGroup "tests"
         t' s = testCase ("Bad: " <> s) $ do
           vs <- either assertFailure return $ parseValues s
           case encodeDynValues vs of
-            Left err -> return ()
+            Left _err -> return ()
             Right _ -> assertFailure "Ill-typed value encoded?"
     in
     [ t "true" True
@@ -459,10 +396,10 @@ instance Monad m => Serial m Reserved where
     series = Reserved <$ series @m @()
 
 instance (Monad m, Forall r (Serial m), AllUniqueLabels r) => Serial m (Rec r) where
-    series = R.fromLabelsA @(Serial m) (\l -> series)
+    series = R.fromLabelsA @(Serial m) (\_l -> series)
 
 instance (Monad m, Forall r (Serial m), AllUniqueLabels r) => Serial m (Var r) where
-    series = V.fromLabels @(Serial m) (\l -> series)
+    series = V.fromLabels @(Serial m) (\_l -> series)
 
 -- NB: Fields in the wrong order
 type Demo1 m = [candid|service : { "greet": (text) -> (text); "a" : () -> () } |]
