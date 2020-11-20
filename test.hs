@@ -286,7 +286,7 @@ tests = testGroup "tests"
   , testGroup "decode error message"
       [ testCase "simple mismatch" $ fromCandidVals @(Unary ()) (toCandidVals True) @?= Left "Unexpected null: true"
       , testCase "missing variant" $ fromCandidVals @(Either () ()) (toCandidVals (V.singleton #foo ())) @?= Left "Unexpected variant tag foo"
-      , testCase "error in variant" $ fromCandidVals @(Either () ()) (toCandidVals (Left @Bool @() True)) @?= Left "Unexpected nulll: true"
+      , testCase "error in variant" $ fromCandidVals @(Either () ()) (toCandidVals (Left @Bool @() True)) @?= Left "Unexpected null: true"
       ]
   , testGroup "roundtrip"
     [ testCase "empty" $ roundTripTest ()
