@@ -14,7 +14,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS -Wno-orphans #-}
+{-# OPTIONS -Wno-orphans -Wno-deprecations #-}
 -- | This (internal) module contains the encoding and decoding, as well
 -- as the relevant classes
 module Codec.Candid.Class where
@@ -31,6 +31,7 @@ import qualified Data.Row.Records as R
 import qualified Data.Row.Internal as R
 import qualified Data.Row.Variants as V
 import Control.Monad.State.Lazy
+import Control.Monad.Trans.Error
 import Control.Applicative ((<|>), Alternative)
 import Data.Functor.Const
 import Data.Bifunctor
@@ -112,12 +113,37 @@ instance Candid a => CandidSeq (Unary a) where
 
 -- see below for tuple  instances
 
+data DeserializeError
+    = DecodeError String -- ^ fatal
+    | CoerceError String Value -- ^ can be recovered
+    | MissingFieldError FieldName -- ^ can be recovered
+    | UnexpectedTagError FieldName -- ^ can be recovered
+
+-- TODO: Can we get rid of this?
+instance Error DeserializeError where strMsg = DecodeError
+
+showDeserializeError :: DeserializeError -> String
+showDeserializeError e = case e of
+    DecodeError err -> err
+    CoerceError t v -> "Cannot coerce " ++ show (pretty v) ++ " into " ++ t
+    MissingFieldError f -> "Missing field " ++ show (pretty f)
+    UnexpectedTagError f -> "Unexpected tag " ++ show (pretty f)
+
+cannotDecode :: String -> Either DeserializeError a
+cannotDecode s = Left (DecodeError s)
+cannotCoerce :: String -> Value -> Either DeserializeError a
+cannotCoerce t v = Left (CoerceError t v)
+missingField :: FieldName -> Either DeserializeError a
+missingField f = Left (MissingFieldError f)
+unexpectedTag :: FieldName -> Either DeserializeError a
+unexpectedTag f = Left (UnexpectedTagError f)
+
 -- | The internal class of Haskell types that canonically map to Candid.
 -- You would add instances to the 'Candid' type class.
 class Typeable a => CandidVal a where
     asType :: Type (Ref TypeRep Type)
     toCandidVal' :: a -> Value
-    fromCandidVal' :: Value -> Either String a
+    fromCandidVal' :: Value -> Either DeserializeError a
 
 -- | The class of Haskell types that can be converted to Candid.
 --
@@ -137,7 +163,10 @@ toCandidVal :: Candid a => a -> Value
 toCandidVal = toCandidVal' . toCandid
 
 fromCandidVal :: Candid a => Value -> Either String a
-fromCandidVal = fmap fromCandid . fromCandidVal'
+fromCandidVal = first showDeserializeError . fromCandidVal''
+
+fromCandidVal'' :: Candid a => Value -> Either DeserializeError a
+fromCandidVal'' = fmap fromCandid . fromCandidVal'
 
 asType' :: forall a.  Candid a => Type (Ref TypeRep Type)
 asType' = RefT (Ref (typeRep (Proxy @(AsCandid a))) (asType @(AsCandid a)))
@@ -147,7 +176,7 @@ instance CandidVal Bool where
     asType = BoolT
     toCandidVal' = BoolV
     fromCandidVal' (BoolV b) = Right b
-    fromCandidVal' v = Left $ "Unexpected bool: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "bool" v
 
 instance Candid Natural
 instance CandidVal Natural where
@@ -155,17 +184,17 @@ instance CandidVal Natural where
     toCandidVal' = NatV
     fromCandidVal' (NumV n)
         | n >= 0, Right i <- floatingOrInteger @Double n = Right i
-        | otherwise = Left $ "Not a natural number: " ++ show n
+        | otherwise = cannotDecode $ "Not a natural number: " ++ show n
     fromCandidVal' (NatV n) = Right n
-    fromCandidVal' v = Left $ "Unexpected nat: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "nat" v
 
-inBounds :: forall a. (Integral a, Bounded a) => Integer -> Either String a
+inBounds :: forall a. (Integral a, Bounded a) => Integer -> Either DeserializeError a
 inBounds i
     | fromIntegral (minBound :: a) <= i
     , fromIntegral (maxBound :: a) >= i
     = Right (fromIntegral i)
     | otherwise
-    = Left $ "Out of bounds: " ++ show i
+    = cannotDecode $ "Out of bounds: " ++ show i
 
 instance Candid Word8
 instance CandidVal Word8 where
@@ -173,7 +202,7 @@ instance CandidVal Word8 where
     toCandidVal' = Nat8V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Nat8V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected word8: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "word8" v
 
 instance Candid Word16
 instance CandidVal Word16 where
@@ -181,7 +210,7 @@ instance CandidVal Word16 where
     toCandidVal' = Nat16V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Nat16V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected word16: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "word16" v
 
 instance Candid Word32
 instance CandidVal Word32 where
@@ -189,7 +218,7 @@ instance CandidVal Word32 where
     toCandidVal' = Nat32V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Nat32V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected word32: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "word32" v
 
 instance Candid Word64
 instance CandidVal Word64 where
@@ -197,7 +226,7 @@ instance CandidVal Word64 where
     toCandidVal' = Nat64V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Nat64V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected word64: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "word64" v
 
 instance Candid Integer
 instance CandidVal Integer where
@@ -205,10 +234,10 @@ instance CandidVal Integer where
     toCandidVal' = IntV
     fromCandidVal' (NumV n)
         | Right i <- floatingOrInteger @Double n = Right i
-        | otherwise = Left $ "Not an integer: " ++ show n
+        | otherwise = cannotDecode $ "Not an integer: " ++ show n
     fromCandidVal' (NatV n) = Right (fromIntegral n)
     fromCandidVal' (IntV n) = Right n
-    fromCandidVal' v = Left $ "Unexpected int: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "int" v
 
 instance Candid Int8
 instance CandidVal Int8 where
@@ -216,7 +245,7 @@ instance CandidVal Int8 where
     toCandidVal' = Int8V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Int8V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected int8: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "int8" v
 
 instance Candid Int16
 instance CandidVal Int16 where
@@ -224,7 +253,7 @@ instance CandidVal Int16 where
     toCandidVal' = Int16V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Int16V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected int16: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "int16" v
 
 instance Candid Int32
 instance CandidVal Int32 where
@@ -232,7 +261,7 @@ instance CandidVal Int32 where
     toCandidVal' = Int32V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Int32V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected int32: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "int32" v
 
 instance Candid Int64
 instance CandidVal Int64 where
@@ -240,7 +269,7 @@ instance CandidVal Int64 where
     toCandidVal' = Int64V
     fromCandidVal' (NumV n) | Right i <- floatingOrInteger @Double n = inBounds i
     fromCandidVal' (Int64V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected int64: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "int64" v
 
 instance Candid Float
 instance CandidVal Float where
@@ -248,7 +277,7 @@ instance CandidVal Float where
     toCandidVal' = Float32V
     fromCandidVal' (NumV n) = Right (toRealFloat n)
     fromCandidVal' (Float32V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected float32: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "float32" v
 
 instance Candid Double
 instance CandidVal Double where
@@ -256,35 +285,35 @@ instance CandidVal Double where
     toCandidVal' = Float64V
     fromCandidVal' (NumV n) = Right (toRealFloat n)
     fromCandidVal' (Float64V n) = Right n
-    fromCandidVal' v = Left $ "Unexpected float64: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "float64" v
 
 instance Candid Void
 instance CandidVal Void where
     asType = EmptyT
     toCandidVal' = absurd
-    fromCandidVal' v = Left $ "Unexpected empty: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "void" v
 
 instance Candid T.Text
 instance CandidVal T.Text where
     asType = TextT
     toCandidVal' = TextV
     fromCandidVal' (TextV t) = return t
-    fromCandidVal' v = Left $ "Unexpected text: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "text" v
 
 instance Candid BS.ByteString
 instance CandidVal BS.ByteString where
     asType = BlobT
     toCandidVal' = BlobV
-    fromCandidVal' (VecV v) =  BS.pack . Vec.toList <$> mapM (fromCandidVal @Word8) v
+    fromCandidVal' (VecV v) =  BS.pack . Vec.toList <$> mapM (fromCandidVal'' @Word8) v
     fromCandidVal' (BlobV t) = return t
-    fromCandidVal' v = Left $ "Unexpected blob: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "blob" v
 
 instance Candid Principal
 instance CandidVal Principal where
     asType = PrincipalT
     toCandidVal' = PrincipalV
     fromCandidVal' (PrincipalV t) = return t
-    fromCandidVal' v = Left $ "Unexpected principal: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "principal" v
 
 instance Candid Reserved
 instance CandidVal Reserved where
@@ -296,17 +325,17 @@ instance Candid a => Candid (Maybe a)
 instance Candid a => CandidVal (Maybe a) where
     asType = OptT (asType' @a)
     toCandidVal' = OptV . fmap toCandidVal
-    fromCandidVal' (OptV x) = traverse fromCandidVal x
+    fromCandidVal' (OptV x) = traverse fromCandidVal'' x
     fromCandidVal' NullV = return Nothing
-    fromCandidVal' v = Left $ "Unexpected opt: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "opt" v
 
 instance Candid a => Candid (Vec.Vector a)
 instance Candid a => CandidVal (Vec.Vector a) where
     asType = VecT (asType' @a)
     toCandidVal' = VecV . fmap toCandidVal
-    fromCandidVal' (VecV x) = traverse fromCandidVal x
-    fromCandidVal' (BlobV b) = traverse (fromCandidVal . Nat8V) $ Vec.fromList $ BS.unpack b
-    fromCandidVal' v = Left $ "Unexpected vec: " ++ show (pretty v)
+    fromCandidVal' (VecV x) = traverse fromCandidVal'' x
+    fromCandidVal' (BlobV b) = traverse (fromCandidVal'' . Nat8V) $ Vec.fromList $ BS.unpack b
+    fromCandidVal' v = cannotCoerce "vec" v
 
 -- | Maybe a bit opinionated, but 'null' seems to be the unit of Candid
 instance Candid ()
@@ -314,12 +343,12 @@ instance CandidVal () where
     asType = NullT
     toCandidVal' () = NullV
     fromCandidVal' NullV = Right ()
-    fromCandidVal' v = Left $ "Unexpected null: " ++ show (pretty v)
+    fromCandidVal' v = cannotCoerce "null" v
 
-fromField :: FieldName -> [(FieldName, a)] -> Either String a
+fromField :: FieldName -> [(FieldName, a)] -> Either DeserializeError a
 fromField f m = case lookup f m of
     Just v -> return v
-    Nothing -> Left $ "Could not find field " ++ show (pretty f)
+    Nothing -> missingField f
 
 -- row-types integration
 
@@ -348,10 +377,10 @@ instance CandidRow r => CandidVal (Rec r) where
     fromCandidVal' = \case
         RecV m -> toRowRec m
         TupV m -> toRowRec (zip (map hashedField [0..]) m)
-        v -> Left $ "Unexpected record: " ++ show (pretty v)
+        v -> cannotCoerce "record" v
       where
         toRowRec m = R.fromLabelsA @Candid $ \l ->
-            fromField (unescapeFieldName (R.toKey l)) m >>= fromCandidVal
+            fromField (unescapeFieldName (R.toKey l)) m >>= fromCandidVal''
 
 instance CandidRow r => Candid (V.Var r)
 instance CandidRow r => CandidVal (V.Var r) where
@@ -361,13 +390,13 @@ instance CandidRow r => CandidVal (V.Var r) where
       where (t, val) = V.eraseWithLabels @Candid toCandidVal v
 
     fromCandidVal' (VariantV f v) = do
-        needle :: V.Var (V.Map (Either String) r) <-
+        needle :: V.Var (V.Map (Either DeserializeError) r) <-
             (fromLabelsMapA @Candid @_ @_ @r $ \l -> do
                 guard (f == unescapeFieldName (R.toKey l))
-                return $ fromCandidVal v
-            ) <|> Left ("Unexpected variant tag " ++ show (pretty f))
-        V.sequence (needle :: V.Var (V.Map (Either String) r))
-    fromCandidVal' v = Left $ "Unexpected variant: " ++ show (pretty v)
+                return $ fromCandidVal'' v
+            ) <|> unexpectedTag f
+        V.sequence (needle :: V.Var (V.Map (Either DeserializeError) r))
+    fromCandidVal' v = cannotCoerce "variant" v
 
 -- https://github.com/target/row-types/issues/66
 fromLabelsMapA :: forall c f g ρ. (Alternative f, Forall ρ c, AllUniqueLabels ρ)

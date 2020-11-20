@@ -222,9 +222,9 @@ tests = testGroup "tests"
     , testCase "bool" $ encode (Unary True) @?= B.pack "DIDL\0\1\x7e\1"
     ]
   , testGroup "decode error message"
-      [ testCase "simple mismatch" $ fromCandidVals @(Unary ()) (toCandidVals True) @?= Left "Unexpected null: true"
-      , testCase "missing variant" $ fromCandidVals @(Either () ()) (toCandidVals (V.singleton #foo ())) @?= Left "Unexpected variant tag foo"
-      , testCase "error in variant" $ fromCandidVals @(Either () ()) (toCandidVals (Left @Bool @() True)) @?= Left "Unexpected null: true"
+      [ testCase "simple mismatch" $ fromCandidVals @(Unary ()) (toCandidVals True) @?= Left "Cannot coerce true into null"
+      , testCase "missing variant" $ fromCandidVals @(Either () ()) (toCandidVals (V.singleton #foo ())) @?= Left "Unexpected tag foo"
+      , testCase "error in variant" $ fromCandidVals @(Either () ()) (toCandidVals (Left @Bool @() True)) @?= Left "Cannot coerce true into null"
       ]
   , testGroup "roundtrip"
     [ testCase "empty" $ roundTripTest ()
