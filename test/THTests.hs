@@ -24,6 +24,9 @@ thTests = testGroup "Using TH interface"
   , testCase "demo2" $ do
       x <- demo2 .! #greet $ ("World", True)
       x @?= "WorldTrue"
+  , testCase "demo3" $ do
+      x <- demo3 .! #greet $ ("World", True)
+      x @?= "WorldTrue"
   ]
 
 -- NB: Fields in the wrong order
@@ -40,11 +43,9 @@ type Demo2 m = [candid| service : { "greet": (text, bool) -> (text); } |]
 demo2 :: Monad m => Rec (Demo2 m)
 demo2 = #greet .== \(who, b) -> return $ who <> T.pack (show b)
 
-{-
 -- NB type definitions:
 type Demo3 m = [candid| type t = text; service : { "greet": (t, bool) -> (t); } |]
 
 demo3 :: Monad m => Rec (Demo3 m)
 demo3 = demo2
--}
 

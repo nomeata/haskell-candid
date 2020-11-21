@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Codec.Candid.TH
  ( candid, candidFile, candidType, candidTypeQ
  , generateCandidDefs
@@ -16,7 +17,11 @@ import Numeric.Natural
 import Data.Word
 import Data.Int
 import Data.Void
+import Data.Foldable
 import Data.Traversable
+import Data.List
+import Data.Graph (stronglyConnComp, SCC(..))
+import Control.Monad
 import qualified Data.ByteString.Lazy as BS
 
 import qualified Language.Haskell.TH.Syntax as TH (Name)
@@ -47,6 +52,8 @@ candidType :: QuasiQuoter
 candidType = QuasiQuoter { quoteExp = err, quotePat = err, quoteDec = err, quoteType = quoteCandidType }
   where err _ = fail "[candid| … |] can only be used as a type"
 
+-- | Turns all candid type definitions into newtypes
+-- Used, so far, only in the Candid test suite runner
 generateCandidDefs :: [DidDef TypeName] -> Q ([Dec], TypeName -> Q TH.Name)
 generateCandidDefs defs = do
     assocs <- for defs $ \(tn, _) -> do
@@ -54,7 +61,7 @@ generateCandidDefs defs = do
         return (tn, thn)
 
     let m = M.fromList assocs
-    let resolve tn =  case M.lookup tn m of
+    let resolve tn = case M.lookup tn m of
             Just thn -> return thn
             Nothing -> fail $ "Could not find type " ++ T.unpack tn
     decls <- for defs $ \(tn, t) -> do
@@ -66,19 +73,43 @@ generateCandidDefs defs = do
             [derivClause Nothing [conT ''Candid, conT ''Eq]]
     return (decls, resolve)
 
+-- | Inlines all candid type definitions, after checking for loops
+inlineDefs ::
+    forall m k.
+    (MonadFail m, Show k, Ord k) =>
+    [DidDef k] -> m (k -> m (), k -> Type Void)
+inlineDefs defs = do
+    for_ sccs $ \scc ->
+        fail $ "Cyclic type definitions not supported: " ++ intercalate ", " (map show scc)
+    for_ defs $ \(_, t) -> for_ t checkKey
+    return (checkKey, f)
+  where
+    sccs = [ tns | CyclicSCC tns <-
+        stronglyConnComp [ (tn, tn, toList t) | (tn, t) <- defs ] ]
+    f :: k -> Type Void
+    f k = m M.! k
+    m :: M.Map k (Type Void)
+    m = (>>= f) <$> M.fromList defs
+    checkKey tn = unless (tn `M.member` m) $ unboundErr tn
+
+
+    unboundErr k = fail $ "Unbound type: " ++ show k
+
+
 quoteCandidService :: String -> TypeQ
 quoteCandidService s = case parseDid s of
   Left err -> fail err
-  Right DidFile{ defs = _:_} ->
-    fail "Type definitions not supported yet"
   Right DidFile{ service = []} -> [t|R.Empty|]
-  Right DidFile{ service = s} -> do
+  Right DidFile{ defs = ds, service = s} -> do
     Just m <- lookupTypeName "m"
-    s' <- traverse (traverse (\n -> fail $ "Unbound type definition" ++ T.unpack n)) s
+    (check, inline) <- inlineDefs ds
+    for_ s $ \m -> for_ m check
     foldl1 (\a b -> [t|$(a) R..+ $(b)|])
         [ [t|  $(litT (strTyLit (T.unpack methodName)))
-               R..== ($(candidTypeQ methodParams) -> $(varT m) $(candidTypeQ methodResults)) |]
-        | DidMethod{..} <- s'
+               R..== ($(candidTypeQ params) -> $(varT m) $(candidTypeQ results)) |]
+        | DidMethod{..} <- s
+        , let params = map ((absurd <$>) . (>>= inline)) methodParams
+        , let results = map ((absurd <$>) . (>>= inline)) methodResults
         ]
 
 quoteCandidType :: String -> TypeQ
@@ -86,7 +117,7 @@ quoteCandidType s = case parseDidType s of
   Left err -> fail err
   Right t -> typ (err <$> t)
    where
-     err s = error $ "Type occurrences not supported: " ++ T.unpack s
+     err s = error $ "Type name in stand-alone Candid type: " ++ T.unpack s
 
 candidTypeQ :: [Type TH.Name] -> TypeQ
 candidTypeQ [] = [t| () |]

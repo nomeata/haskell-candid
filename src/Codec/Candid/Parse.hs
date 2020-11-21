@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE TupleSections #-}
 module Codec.Candid.Parse
   ( DidFile(..)
   , DidDef
@@ -51,7 +50,7 @@ data DidMethod a = DidMethod
   deriving (Eq, Show, Functor, Foldable, Traversable)
 type TypeName = T.Text
 type DidService a = [ DidMethod a ]
-type DidDef a = (TypeName, Type TypeName)
+type DidDef a = (a, Type a)
 data DidFile = DidFile
     { defs :: [ DidDef TypeName ]
     , service :: DidService TypeName

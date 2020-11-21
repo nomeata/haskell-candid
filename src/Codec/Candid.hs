@@ -332,6 +332,8 @@ You can then use this with 'toCandidService' to talk to a service.
 
 If you want to read the description from a @.did@ file, you can use 'candidFile'.
 
+If this encounters a Candid type definition, it will just inline them. This means that cyclic type definitions are not supported.
+
 
 -}
 
