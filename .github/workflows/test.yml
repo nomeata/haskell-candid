@@ -17,6 +17,11 @@ jobs:
         path: ~/.cabal/store
         key: ${{ runner.os }}-${{ matrix.ghc }}-cabal-store
     - uses: actions/checkout@v2
+    - uses: actions/checkout@v2
+      with:
+        repository: 'dfinity/candid'
+        path: candid
+        ref: f6f794ffc4a3cdc59abdd12cbebf768a95eca241
     - uses: actions/setup-haskell@v1
       with:
         ghc-version: ${{ matrix.ghc }}
@@ -30,6 +35,8 @@ jobs:
         # build first, so that the .ghc.environment file is written
         cabal build -w ghc-${{ matrix.ghc }}
         # then the doctest has a chance of succeeding
+
+        export CANDID_TESTS=$PWD/candid/test
         cabal v2-test -w ghc-${{ matrix.ghc }}
   docs:
     strategy:
