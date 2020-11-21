@@ -316,8 +316,8 @@ likely you want to talk to a service whose is given to you in the form of a
 
 You can parse such a description:
 
->>> pretty <$> parseDid "service : { get : () -> (int); inc : (int) -> (); }"
-Right [(get, (), (int)), (inc, (int), ())]
+>>> either error pretty $ parseDid "service : { get : () -> (int); inc : (int) -> (); }"
+service : {get : () -> (int); inc : (int) -> ();}
 
 And you can even, using Template Haskell, turn this into a proper Haskell type. The 'candid' antiquotation produces a type, and expects a free type variable @m@ for the monad you want to use.
 

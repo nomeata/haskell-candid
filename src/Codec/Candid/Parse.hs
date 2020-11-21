@@ -39,24 +39,6 @@ import Codec.Candid.FieldName
 
 type Parser = Parsec Void String
 
--- | A candid service, as a list of methods with argument and result types
---
--- (no support for annotations like query yet)
-data DidMethod a = DidMethod
-    { methodName :: T.Text
-    , methodParams :: [Type a]
-    , methodResults :: [Type a]
-    }
-  deriving (Eq, Show, Functor, Foldable, Traversable)
-type TypeName = T.Text
-type DidService a = [ DidMethod a ]
-type DidDef a = (a, Type a)
-data DidFile = DidFile
-    { defs :: [ DidDef TypeName ]
-    , service :: DidService TypeName
-    }
-  deriving (Eq, Show)
-
 -- | Parses a Candid description (@.did@) from a string
 parseDid :: String -> Either String DidFile
 parseDid = first errorBundlePretty . parse (allInput fileP) "Candid service"
