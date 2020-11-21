@@ -74,10 +74,7 @@ generateCandidDefs defs = do
     return (decls, resolve)
 
 -- | Inlines all candid type definitions, after checking for loops
-inlineDefs ::
-    forall m k.
-    (MonadFail m, Show k, Ord k) =>
-    [DidDef k] -> m (k -> m (), k -> Type Void)
+inlineDefs :: forall k.  (Show k, Ord k) => [DidDef k] -> Q (k -> Q (), k -> Type Void)
 inlineDefs defs = do
     for_ sccs $ \scc ->
         fail $ "Cyclic type definitions not supported: " ++ intercalate ", " (map show scc)
@@ -91,8 +88,6 @@ inlineDefs defs = do
     m :: M.Map k (Type Void)
     m = (>>= f) <$> M.fromList defs
     checkKey tn = unless (tn `M.member` m) $ unboundErr tn
-
-
     unboundErr k = fail $ "Unbound type: " ++ show k
 
 
