@@ -5,6 +5,16 @@ license:            Apache
 license-file:       LICENSE
 maintainer:         mail@joachim-breitner.de
 author:             Joachim Breitner
+homepage:           https://github.com/dfinity/candid
+synopsis:           Candid integration
+description:
+    This package brings the Candid interface definition language to Haskell,
+    supporting serialization, deserialization, importing type definition and
+    other features.
+    .
+    See "Codec.Candid" for an overview and <https://github.com/dfinity/candid> to
+    learn more about Candid.
+
 build-type:         Simple
 extra-source-files: CHANGELOG.md
 

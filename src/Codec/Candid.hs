@@ -166,8 +166,6 @@ True
 
 Here, no type annotations are needed, the library can infer them from the types of the Haskell values. You can see the Candid types used using `typeDesc` and `seqDesc`:
 
-(TODO: fix pretty-printing of a TypeDesc)
-
 >>> :type +d ([True, False], Just 100)
 ([True, False], Just 100) :: ([Bool], Maybe Integer)
 >>> :set -XTypeApplications
