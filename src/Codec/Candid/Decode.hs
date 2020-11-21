@@ -136,8 +136,17 @@ decodeTypRef max = do
         Nothing -> fail  $ "Unknown prim typ " ++ show i
     else return $ RefT (fromIntegral i)
 
+isOrdered :: Ord a => [a] -> Bool
+isOrdered [] = True
+isOrdered [_] = True
+isOrdered (x:y:xs) = x < y && isOrdered (y:xs)
+
 decodeTypFields :: Natural -> G.Get (Fields Int)
-decodeTypFields max = decodeSeq (decodeTypField max)
+decodeTypFields max = do
+    fs <- decodeSeq (decodeTypField max)
+    unless (isOrdered (map fst fs)) $
+        fail "Fields not in strict order"
+    return fs
 
 decodeTypField :: Natural -> G.Get (FieldName, Type Int)
 decodeTypField max = do
