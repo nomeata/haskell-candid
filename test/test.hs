@@ -17,14 +17,14 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedLabels #-}
-{-# LANGUAGE QuasiQuotes #-}
+
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString.Builder as B
 import qualified Data.Vector as V hiding (singleton)
-import qualified Data.HashMap.Lazy as HM
 import Test.Tasty
 import Test.Tasty.Ingredients.Rerun
 import Test.Tasty.HUnit
@@ -36,7 +36,6 @@ import GHC.Int
 import GHC.Word
 import Numeric.Natural
 import Control.Monad
-import GHC.TypeLits
 import GHC.Generics (Generic)
 import Data.Text.Prettyprint.Doc
 import Data.Row
@@ -45,7 +44,12 @@ import qualified Data.Row.Records as R
 import qualified Data.Row.Variants as V
 
 import Codec.Candid
+import Codec.Candid.TestExports
 
+import THTests (thTests)
+import SpecTests (specTests)
+
+main :: IO ()
 main = defaultMainWithRerun tests
 
 newtype Peano = Peano (Maybe Peano)
@@ -59,7 +63,9 @@ newtype LinkedList a = LinkedList (Maybe (a, LinkedList a))
     deriving (Show, Eq)
     deriving newtype Candid
 
+cons :: a -> LinkedList a -> LinkedList a
 cons x y = LinkedList $ Just (x, y)
+nil :: LinkedList a
 nil = LinkedList Nothing
 
 natList :: LinkedList Natural
@@ -134,7 +140,7 @@ subTypeTest v1 v2 = do
   -- now try the other direction
   let bytes2 = encode v2
   case decode @a bytes2 of
-    Left err -> return ()
+    Left _err -> return ()
     Right _ -> assertFailure "converse subtype test succeeded"
 
 instance Monad m => Serial m T.Text where
@@ -208,15 +214,17 @@ withSomeTypes groupName mkTest =
     , mkTest (Proxy @(V.Var ("upgrade" .== () .+ "reinstall" .== () .+ "install" .== ())))
     ]
 
+tests :: TestTree
 tests = testGroup "tests"
-  [ testGroup "encode tests"
+  [ specTests
+  , testGroup "encode tests"
     [ testCase "empty" $ encode () @?= B.pack "DIDL\0\0"
     , testCase "bool" $ encode (Unary True) @?= B.pack "DIDL\0\1\x7e\1"
     ]
   , testGroup "decode error message"
-      [ testCase "simple mismatch" $ fromCandidVals @(Unary ()) (toCandidVals True) @?= Left "Unexpected true"
-      , testCase "missing variant" $ fromCandidVals @(Either () ()) (toCandidVals (V.singleton #foo ())) @?= Left "Unexpected variant tag foo"
-      , testCase "error in variant" $ fromCandidVals @(Either () ()) (toCandidVals (Left @Bool @() True)) @?= Left "Unexpected true"
+      [ testCase "simple mismatch" $ fromCandidVals @(Unary ()) (toCandidVals True) @?= Left "Cannot coerce true into null"
+      , testCase "missing variant" $ fromCandidVals @(Either () ()) (toCandidVals (V.singleton #foo ())) @?= Left "Unexpected tag foo"
+      , testCase "error in variant" $ fromCandidVals @(Either () ()) (toCandidVals (Left @Bool @() True)) @?= Left "Cannot coerce true into null"
       ]
   , testGroup "roundtrip"
     [ testCase "empty" $ roundTripTest ()
@@ -331,7 +339,7 @@ tests = testGroup "tests"
         t' s = testCase ("Bad: " <> s) $ do
           vs <- either assertFailure return $ parseValues s
           case encodeDynValues vs of
-            Left err -> return ()
+            Left _err -> return ()
             Right _ -> assertFailure "Ill-typed value encoded?"
     in
     [ t "true" True
@@ -345,34 +353,31 @@ tests = testGroup "tests"
     , t "vec {record {}; record {0 = true}}" (V.fromList [R.empty, R.empty])
     , t "vec {variant {a = true}; variant {b = null}}"
         (V.fromList [IsJust #a True, IsJust #b () :: V.Var ("a" V..== Bool V..+ "b" V..== ())])
+    , t "\"hello\"" ("hello" :: T.Text)
+    , t "blob \"hello\"" ("hello" :: BS.ByteString)
+    , t "blob \"\\00\\ff\"" ("\x00\xff" :: BS.ByteString)
     , t' "vec {true; 4}"
     ]
 
-  , testGroup "candid type parsing" $
-    let m x y z = (x, y, z) in
-    [ parseTest "service : {}" []
-    , parseTest "service : { foo : (text) -> (text) }"
-        [ m "foo" [TextT] [TextT] ]
-    , parseTest "service : { foo : (text,) -> (text,); }"
-        [ m "foo" [TextT] [TextT] ]
-    , parseTest "service : { foo : (opt text) -> () }"
-        [ m "foo" [OptT TextT] []  ]
-    , parseTest "service : { foo : (record { x_ : null; 5 : nat8 }) -> () }"
-        [ m "foo" [RecT [("x_", NullT), (hashedField 5, Nat8T)]] [] ]
-    , parseTest "service : { foo : (record { x : null; 5 : nat8 }) -> () }"
-        [ m "foo" [RecT [("x", NullT), (hashedField 5, Nat8T)]] [] ]
+  , testGroup "candid type parsing"
+    [ parseTest "service : {}" $
+      DidFile [] []
+    , parseTest "service : { foo : (text) -> (text) }" $
+      DidFile [] [ DidMethod "foo" [TextT] [TextT] ]
+    , parseTest "service : { foo : (text,) -> (text,); }" $
+      DidFile [] [ DidMethod "foo" [TextT] [TextT] ]
+    , parseTest "service : { foo : (opt text) -> () }" $
+      DidFile [] [ DidMethod "foo" [OptT TextT] []  ]
+    , parseTest "service : { foo : (record { text; blob }) -> () }" $
+      DidFile [] [ DidMethod "foo" [RecT [(hashedField 0, TextT), (hashedField 1, BlobT)]] []  ]
+    , parseTest "service : { foo : (record { x_ : null; 5 : nat8 }) -> () }" $
+      DidFile [] [ DidMethod "foo" [RecT [("x_", NullT), (hashedField 5, Nat8T)]] [] ]
+    , parseTest "service : { foo : (record { x : null; 5 : nat8 }) -> () }" $
+      DidFile [] [ DidMethod "foo" [RecT [("x", NullT), (hashedField 5, Nat8T)]] [] ]
+    , parseTest "type t = int; service : { foo : (t) -> (t) }" $
+      DidFile [("t", IntT)] [ DidMethod "foo" [RefT "t"] [RefT "t"] ]
     ]
-  , testGroup "Using TH interface" $
-    [ testCase "demo1: direct" $ do
-        x <- greet1 .! #greet $ "World"
-        x @?= "Hello World"
-    , testCase "demo1: via toCandidService" $ do
-        x <- greet2 .! #greet $ "World"
-        x @?= "World"
-    , testCase "demo2" $ do
-        x <- demo2 .! #greet $ ("World", True)
-        x @?= "WorldTrue"
-    ]
+  , thTests
   , testProperty "field name escaping round-tripping" $ \e ->
       let f = either labledField hashedField e in
       let f' = unescapeFieldName (escapeFieldName f) in
@@ -389,21 +394,7 @@ instance Monad m => Serial m Reserved where
     series = Reserved <$ series @m @()
 
 instance (Monad m, Forall r (Serial m), AllUniqueLabels r) => Serial m (Rec r) where
-    series = R.fromLabelsA @(Serial m) (\l -> series)
+    series = R.fromLabelsA @(Serial m) (\_l -> series)
 
 instance (Monad m, Forall r (Serial m), AllUniqueLabels r) => Serial m (Var r) where
-    series = V.fromLabels @(Serial m) (\l -> series)
-
--- NB: Fields in the wrong order
-type Demo1 m = [candid|service : { "greet": (text) -> (text); "a" : () -> () } |]
-
-greet1 :: Monad m => Rec (Demo1 m)
-greet1 = #a .== (\() -> return ()) .+ #greet .== (\who -> return $ "Hello " <> who)
-
-greet2 :: forall m. Monad m => Rec (Demo1 m)
-greet2 = toCandidService error (\_ x -> return x)
-
-type Demo2 m = [candid| service : { "greet": (text, bool) -> (text); } |]
-
-demo2 :: Monad m => Rec (Demo2 m)
-demo2 = #greet .== \(who, b) -> return $ who <> T.pack (show b)
+    series = V.fromLabels @(Serial m) (\_l -> series)

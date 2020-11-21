@@ -1,10 +1,12 @@
 {-|
 
-This module provides preliminary Haskell supprot for decoding and encoding the __Candid__ data format.
+This module provides preliminary Haskell supprot for decoding and encoding the __Candid__ data format. See <https://github.com/dfinity/candid/blob/master/spec/Candid.md> for the official Candid specification.
 
 __Warning:__ The interface of this library is still in flux, as we are yet learning the best idioms around Candid and Haskell.
 
 -}
+
+{-# LANGUAGE CPP #-}
 
 module Codec.Candid
  (
@@ -35,6 +37,8 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 -- ** Importing Candid
 
 -- $import
+-- $import2
+-- $import3
 
 -- ** Dynamic use
 
@@ -44,12 +48,11 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 
 {- |
 
-* Writing interface descriptions
+* Generating interface descriptions (.did files) from Haskell functions
 * Service and function types
 * Future types
-* Parsing dynamically against expected expected type
-* Some short-hands in textual form
-* Parsing type definitions
+* Parsing the textual representation dynamically against an expected type
+* Method annotations in service types
 
 -}
 
@@ -122,7 +125,6 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
  , parseDid
  , parseValue
  , parseValues
-
 
 -- Convenience re-exports
 -- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837
@@ -318,21 +320,40 @@ likely you want to talk to a service whose is given to you in the form of a
 
 You can parse such a description:
 
->>> pretty <$> parseDid "service : { get : () -> (int); inc : (int) -> (); }"
-Right [(get, (), (int)), (inc, (int), ())]
+>>> either error pretty $ parseDid "service : { get : () -> (int); inc : (int) -> (); }"
+service : {get : () -> (int); inc : (int) -> ();}
 
 And you can even, using Template Haskell, turn this into a proper Haskell type. The 'candid' antiquotation produces a type, and expects a free type variable @m@ for the monad you want to use.
 
+-}
+
+#if MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
+{- $import2
+>>> :set -XQuasiQuotes
+>>> import Data.Row.Internal
+>>> type Counter m = [candid| service : { get : () -> (int); inc : (int) -> (); } |]
+>>> :info Counter
+type Counter :: (* -> *) -> Row *
+type Counter m = ("get" .== (() -> m Integer)) .+ ("inc" .== (Integer -> m ())) :: Row *
+...
+-}
+#else
+{- $import2
 >>> :set -XQuasiQuotes
 >>> import Data.Row.Internal
 >>> type Counter m = [candid| service : { get : () -> (int); inc : (int) -> (); } |]
 >>> :info Counter
 type Counter (m :: * -> *) = ("get" .== (() -> m Integer)) .+ ("inc" .== (Integer -> m ())) :: Row *
 ...
+-}
+#endif
 
+{- $import3
 You can then use this with 'toCandidService' to talk to a service.
 
 If you want to read the description from a @.did@ file, you can use 'candidFile'.
+
+If this encounters a Candid type definition, it will just inline them. This means that cyclic type definitions are not supported.
 
 
 -}

@@ -20,7 +20,7 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Codec.Candid.Tuples (Unary(..), Tuplable, AsTuple, asTuple, fromTuple ) where
+module Codec.Candid.Tuples ( Unary(..), Tuplable, AsTuple, asTuple, fromTuple ) where
 
 import Data.Type.Bool
 
@@ -30,9 +30,15 @@ newtype Unary a = Unary {unUnary :: a} deriving (Eq, Show)
 type family IsTuple a :: Bool where
     IsTuple () = 'True
     IsTuple (Unary t) = 'True
-    IsTuple (t1,t2) = 'True
-    IsTuple (t1,t2,t3) = 'True
-    IsTuple (t1,t2,t3,t4) = 'True
+    IsTuple (_,_) = 'True
+    IsTuple (_,_,_) = 'True
+    IsTuple (_,_,_,_) = 'True
+    IsTuple (_,_,_,_,_) = 'True
+    IsTuple (_,_,_,_,_,_) = 'True
+    IsTuple (_,_,_,_,_,_,_) = 'True
+    IsTuple (_,_,_,_,_,_,_,_) = 'True
+    IsTuple (_,_,_,_,_,_,_,_,_) = 'True
+    IsTuple (_,_,_,_,_,_,_,_,_,_) = 'True
     IsTuple t = 'False
 
 type AsTuple a = If (IsTuple a) a (Unary a)

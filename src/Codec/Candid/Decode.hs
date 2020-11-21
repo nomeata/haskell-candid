@@ -13,7 +13,7 @@ import qualified Data.Map as M
 import Control.Monad.State.Lazy
 import Data.List
 import Data.Void
-import Data.Serialize.LEB128
+import Data.Serialize.LEB128.Lenient
 import qualified Data.Serialize.Get as G
 import qualified Data.Serialize.IEEE754 as G
 
@@ -99,14 +99,20 @@ decodeMagic = do
 getLEB128Int :: Integral a => G.Get a
 getLEB128Int = fromIntegral <$> getLEB128 @Natural
 
+-- eagerly detect overshoot
+checkOvershoot :: Natural -> G.Get ()
+checkOvershoot n = void (G.lookAhead $ G.ensure $ fromIntegral n)
+
 decodeSeq :: G.Get a -> G.Get [a]
 decodeSeq act = do
     len <- getLEB128Int
+    checkOvershoot (fromIntegral len)
     replicateM len act
 
 decodeTypTable :: G.Get SeqDesc
 decodeTypTable = do
     len <- getLEB128
+    checkOvershoot len
     table <- replicateM (fromIntegral len) (decodeTypTableEntry len)
     ts <- decodeSeq (decodeTypRef len)
     let m = M.fromList (zip [0..] table)
@@ -123,15 +129,24 @@ decodeTypTableEntry max = getSLEB128 @Integer >>= \case
 decodeTypRef :: Natural -> G.Get (Type Int)
 decodeTypRef max = do
     i <- getSLEB128
-    when (i > fromIntegral max) $ fail "Type reference out of range"
+    when (i >= fromIntegral max) $ fail "Type reference out of range"
     if i < 0
     then case primTyp i of
         Just t -> return t
         Nothing -> fail  $ "Unknown prim typ " ++ show i
     else return $ RefT (fromIntegral i)
 
+isOrdered :: Ord a => [a] -> Bool
+isOrdered [] = True
+isOrdered [_] = True
+isOrdered (x:y:xs) = x < y && isOrdered (y:xs)
+
 decodeTypFields :: Natural -> G.Get (Fields Int)
-decodeTypFields max = decodeSeq (decodeTypField max)
+decodeTypFields max = do
+    fs <- decodeSeq (decodeTypField max)
+    unless (isOrdered (map fst fs)) $
+        fail "Fields not in strict order"
+    return fs
 
 decodeTypField :: Natural -> G.Get (FieldName, Type Int)
 decodeTypField max = do

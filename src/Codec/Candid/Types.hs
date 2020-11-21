@@ -1,6 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 module Codec.Candid.Types where
 
@@ -237,4 +235,34 @@ primTyp (-16) = Just ReservedT
 primTyp (-17) = Just EmptyT
 primTyp (-24) = Just PrincipalT
 primTyp _     = Nothing
+
+-- | A candid service, as a list of methods with argument and result types
+--
+-- (no support for annotations like query yet)
+data DidMethod a = DidMethod
+    { methodName :: T.Text
+    , methodParams :: [Type a]
+    , methodResults :: [Type a]
+    }
+  deriving (Eq, Show, Functor, Foldable, Traversable)
+type TypeName = T.Text
+type DidService a = [ DidMethod a ]
+type DidDef a = (a, Type a)
+data DidFile = DidFile
+    { defs :: [ DidDef TypeName ]
+    , service :: DidService TypeName
+    }
+  deriving (Eq, Show)
+
+instance Pretty a => Pretty (DidMethod a) where
+  pretty (DidMethod name params results) =
+    pretty name <+> colon <+> pretty params <+> "->" <+> pretty results <> semi
+
+prettyDef :: Pretty a => DidDef a -> Doc ann
+prettyDef (tn, t) = "type" <+> pretty tn <+> "=" <+> pretty t <> semi
+
+instance Pretty DidFile where
+  pretty (DidFile defs s) = vsep $
+    (prettyDef <$> defs) ++
+    [ "service" <+> ":" <+> braces (group (align (vsep $ pretty <$> s))) ]
 

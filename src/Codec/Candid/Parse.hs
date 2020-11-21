@@ -1,4 +1,19 @@
-module Codec.Candid.Parse where
+{-# LANGUAGE DeriveTraversable #-}
+module Codec.Candid.Parse
+  ( DidFile(..)
+  , DidDef
+  , DidMethod(..)
+  , TypeName
+  , parseDid
+  , parseDidType
+  , parseValue
+  , parseValues
+  , CandidTestFile(..)
+  , CandidTest(..)
+  , TestInput(..)
+  , TestAssertion(..)
+  , parseCandidTests
+  )  where
 
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text.Encoding as T
@@ -10,6 +25,7 @@ import Text.Megaparsec.Char
 import Data.Bifunctor
 import Data.Char
 import Data.Functor
+import Data.Word
 import Numeric.Natural
 import Numeric
 import Control.Monad
@@ -23,16 +39,11 @@ import Codec.Candid.FieldName
 
 type Parser = Parsec Void String
 
--- | A candid service, as a list of methods with argument and result types
---
--- (no support for annotations like query yet)
-type DidFile = [ (T.Text, [Type Void], [Type Void]) ]
-
 -- | Parses a Candid description (@.did@) from a string
 parseDid :: String -> Either String DidFile
 parseDid = first errorBundlePretty . parse (allInput fileP) "Candid service"
 
-parseDidType :: String -> Either String (Type Void)
+parseDidType :: String -> Either String (Type TypeName)
 parseDidType = first errorBundlePretty . parse (allInput dataTypeP) "Candid type"
 
 -- | Parses a Candid textual value from a string
@@ -47,40 +58,43 @@ allInput :: Parser a -> Parser a
 allInput = between theVoid eof
 
 fileP :: Parser DidFile
-fileP = many defP *> actorP
+fileP = DidFile <$> defsP <*> actorP
 
-defP :: Parser ()
-defP = typeP <|> importP
+defsP :: Parser [DidDef TypeName]
+defsP = concat <$> many defP
 
-typeP :: Parser ()
-typeP = withPredicate (const (Left "type definitions not yet supported")) $
-    s "type"
+defP :: Parser [DidDef TypeName]
+defP = (typeP <|> importP) <* s ";"
 
-importP :: Parser ()
+typeP :: Parser [DidDef TypeName]
+typeP = fmap (:[]) $
+    (,) <$ k "type" <*> idP <* s "=" <*> dataTypeP
+
+importP :: Parser [DidDef TypeName]
 importP = withPredicate (const (Left "imports not yet supported")) $
-    s "import"
+    [] <$ k "import"
 
-actorP :: Parser DidFile
-actorP = s "service" *> optional idP *> s ":" *> actorTypeP -- TODO could be a type id
+actorP :: Parser (DidService TypeName)
+actorP = k "service" *> optional idP *> s ":" *> actorTypeP -- TODO could be a type id
 
-actorTypeP :: Parser DidFile
+actorTypeP :: Parser (DidService TypeName)
 actorTypeP = braceSemi methTypeP
 
-methTypeP :: Parser (T.Text, [Type Void], [Type Void])
+methTypeP :: Parser (DidMethod TypeName)
 methTypeP = do
     n <- nameP
     s ":"
     (ts1, ts2) <- funcTypeP  -- TODO could be a type id
-    return (n, ts1, ts2)
+    return $ DidMethod n ts1 ts2
 
-funcTypeP :: Parser ([Type Void], [Type Void])
+funcTypeP :: Parser ([Type TypeName], [Type TypeName])
 funcTypeP = (,) <$> seqP <* s "->" <*> seqP <* many funcAnnP
 
 funcAnnP :: Parser () -- TODO: Annotations are dropped
 funcAnnP = s "oneway" <|> s "query"
 
 nameP :: Parser T.Text
-nameP = textP <|> T.pack <$> idP <?> "name"
+nameP = textP <|> idP <?> "name"
 
 textP :: Parser T.Text
 textP = T.pack <$> l (between (char '"') (char '"') (many stringElem)) <?> "text"
@@ -122,16 +136,16 @@ stringElem = (char '\\' *> go) <|> noneOf "\""
 hexdigit :: Parser Char
 hexdigit = oneOf "0123456789ABCDEFabcdef"
 
-seqP :: Parser [Type Void]
+seqP :: Parser [Type TypeName]
 seqP = parenComma argTypeP
 
-argTypeP :: Parser (Type Void)
+argTypeP :: Parser (Type TypeName)
 argTypeP = dataTypeP <|> (nameP *> s ":" *> dataTypeP)
 
-dataTypeP :: Parser (Type Void)
-dataTypeP = primTypeP <|> constTypeP -- TODO: Ids, reftypes
+dataTypeP :: Parser (Type TypeName)
+dataTypeP = primTypeP <|> constTypeP <|> (RefT <$> idP)-- TODO: reftypes
 
-primTypeP :: Parser (Type Void)
+primTypeP :: Parser (Type TypeName)
 primTypeP = choice
     [ NatT <$ k "nat"
     , Nat8T <$ k "nat8"
@@ -154,21 +168,45 @@ primTypeP = choice
     , PrincipalT <$ k "principal"
     ]
 
-constTypeP :: Parser (Type Void)
+constTypeP :: Parser (Type TypeName)
 constTypeP = choice
   [ OptT <$ k "opt" <*> dataTypeP
   , VecT <$ k "vec" <*> dataTypeP
-  , RecT <$ k "record" <*> braceSemi (fieldTypeP False)
-  , VariantT <$ k "variant" <*> braceSemi (fieldTypeP True)
+  , RecT . resolveShorthand <$ k "record" <*> braceSemi recordFieldTypeP
+  , VariantT <$ k "variant" <*> braceSemi variantFieldTypeP
   ]
 
-fieldTypeP :: Bool -> Parser (FieldName, Type Void)
-fieldTypeP in_variant = (,)
-  <$> (hashedField . fromIntegral <$> natP <|>  labledField <$> nameP)
-  <*> ((s ":" *> dataTypeP) <|> NullT <$ guard in_variant)
+fieldLabelP :: Parser FieldName
+fieldLabelP  =
+    hashedField . fromIntegral <$> natP <|>
+    labledField <$> nameP
 
-idP :: Parser String
-idP = l ((:)
+variantFieldTypeP :: Parser (FieldName, Type TypeName)
+variantFieldTypeP =
+  (,) <$> fieldLabelP <*> ((s ":" *> dataTypeP) <|> pure NullT)
+
+resolveShorthand :: [Word32 -> (FieldName, a)] -> [(FieldName, a)]
+resolveShorthand = go 0
+  where
+    go _ [] = []
+    go n (f:fs) =
+        let f' = f n in
+        f' : go (succ (fieldHash (fst f'))) fs
+
+recordFieldTypeP :: Parser (Word32 -> (FieldName, Type TypeName))
+recordFieldTypeP = choice
+  [ try $ do
+    l <- fieldLabelP
+    s ":"
+    t <- dataTypeP
+    return $ const (l,t)
+  , do
+    t <- dataTypeP
+    return $ \next -> (hashedField next, t)
+  ]
+
+idP :: Parser T.Text
+idP = T.pack <$> l ((:)
   <$> satisfy (\c -> isAscii c && isLetter c || c == '_')
   <*> many (satisfy (\c -> isAscii c && isAlphaNum c || c == '_'))
   ) <?> "id"
@@ -186,7 +224,7 @@ annValueP =
             smartAnnV v t
        <|> return v
 
-smartAnnV :: Value -> Type Void -> Parser Value
+smartAnnV :: Value -> Type TypeName -> Parser Value
 smartAnnV (NumV n) Nat8T = Nat8V <$> toBounded n
 smartAnnV (NumV n) Nat16T = Nat16V <$> toBounded n
 smartAnnV (NumV n) Nat32T = Nat32V <$> toBounded n
@@ -208,9 +246,12 @@ numP :: Parser Scientific
 numP = l p >>= conv <?> "number"
   where
     p =(:) <$> oneOf "-+0123456789" <*> many (oneOf "-+.0123456789eE_")
-    conv raw = case readMaybe (filter (/= '_') raw) of
+    conv raw = case readMaybe (filter (/= '_') (handle_trailing_perdiod raw)) of
         Nothing -> fail $ "Invald number literal: " ++ show raw
         Just s -> return s
+    -- 1. is allowed by candid, but not by scientific
+    handle_trailing_perdiod s =
+        if not (null s) && last s == '.' then s ++ "0" else s
 
 valueP :: Parser Value
 valueP = choice
@@ -222,16 +263,26 @@ valueP = choice
   , NullV <$ k "null"
   , OptV . Just <$ k "opt" <*> valueP
   , VecV . V.fromList <$ k "vec" <*> braceSemi annValueP
-  , RecV <$ k "record" <*> braceSemi (fieldValP False)
-  , uncurry VariantV <$ k "variant" <*> braces (fieldValP True)
+  , RecV . resolveShorthand <$ k "record" <*> braceSemi recordFieldValP
+  , uncurry VariantV <$ k "variant" <*> braces variantFieldValP
   , PrincipalV <$ k "service" <*> withPredicate parsePrincipal textP
   , BlobV <$ k "blob" <*> blobP
   ]
 
-fieldValP :: Bool -> Parser (FieldName, Value)
-fieldValP in_variant = (,)
-  <$> (hashedField . fromIntegral <$> natP <|> labledField <$> nameP)
-  <*> ((s "=" *> annValueP) <|> NullV <$ guard in_variant)
+variantFieldValP :: Parser (FieldName, Value)
+variantFieldValP = (,) <$> fieldLabelP <*> ((s "=" *> annValueP) <|> pure NullV)
+
+recordFieldValP :: Parser (Word32 -> (FieldName, Value))
+recordFieldValP = choice
+  [ try $ do
+    l <- fieldLabelP
+    s "="
+    v <- annValueP
+    return $ const (l,v)
+  , do
+    v <- annValueP
+    return $ \next -> (hashedField next, v)
+  ]
 
 -- A lexeme
 l :: Parser a -> Parser a
@@ -289,3 +340,57 @@ withPredicate f p = do
   case f r of
     Left msg -> parseError (FancyError o (Set.singleton (ErrorFail msg)))
     Right x -> return x
+
+
+-- | A candid test file
+--
+-- (no support for type definitions yet)
+data CandidTestFile = CandidTestFile
+    { testDefs :: [ DidDef TypeName ]
+    , testTests ::  [ CandidTest TypeName ]
+    }
+
+data CandidTest a = CandidTest
+    { testLine :: Int
+    , testAssertion :: TestAssertion
+    , testType :: [Type a]
+    , testDesc :: Maybe T.Text
+    }
+  deriving (Functor, Foldable, Traversable)
+
+data TestInput
+    = FromTextual T.Text
+    | FromBinary BS.ByteString
+
+data TestAssertion
+    = CanParse TestInput
+    | CannotParse TestInput
+    | ParseEq Bool TestInput TestInput
+
+-- | Parses a candid spec test file from a string
+parseCandidTests :: String -> String -> Either String CandidTestFile
+parseCandidTests source = first errorBundlePretty . parse (allInput testFileP) source
+
+testFileP :: Parser CandidTestFile
+testFileP = CandidTestFile <$> defsP <*> sepEndBy testP (s ";")
+
+testP :: Parser (CandidTest TypeName)
+testP = CandidTest
+    <$> (unPos . sourceLine <$> getSourcePos)
+    <*  k "assert"
+    <*> testAssertP
+    <*> seqP
+    <*> optional textP
+
+testAssertP :: Parser TestAssertion
+testAssertP = do
+    input1 <- testInputP
+    choice
+        [ CanParse input1 <$ s ":"
+        , CannotParse input1 <$ s "!:"
+        , ParseEq True input1 <$ s "==" <*> testInputP <* s ":"
+        , ParseEq False input1 <$ s "!=" <*> testInputP <* s ":"
+        ]
+
+testInputP :: Parser TestInput
+testInputP = FromTextual <$> textP <|> FromBinary <$> (k "blob" *> blobP)
