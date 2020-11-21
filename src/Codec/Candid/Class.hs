@@ -152,6 +152,8 @@ class Typeable a => CandidVal a where
     asType :: Type (Ref TypeRep Type)
     toCandidVal' :: a -> Value
     fromCandidVal' :: Value -> Either DeserializeError a
+    fromMissingField :: Maybe a
+    fromMissingField = Nothing
 
 -- | The class of Haskell types that can be converted to Candid.
 --
@@ -328,6 +330,7 @@ instance CandidVal Reserved where
     asType = ReservedT
     toCandidVal' Reserved = ReservedV
     fromCandidVal' _ = return Reserved
+    fromMissingField = Just Reserved
 
 instance Candid a => Candid (Maybe a)
 instance Candid a => CandidVal (Maybe a) where
@@ -343,6 +346,7 @@ instance Candid a => CandidVal (Maybe a) where
         ReservedT -> pure Nothing
         _         -> recoverWith Nothing $
             Just <$> fromCandidVal'' v
+    fromMissingField = Just Nothing
 
 
 
@@ -361,11 +365,6 @@ instance CandidVal () where
     toCandidVal' () = NullV
     fromCandidVal' NullV = Right ()
     fromCandidVal' v = cannotCoerce "null" v
-
-fromField :: FieldName -> [(FieldName, a)] -> Either DeserializeError a
-fromField f m = case lookup f m of
-    Just v -> return v
-    Nothing -> missingField f
 
 -- row-types integration
 
@@ -397,7 +396,12 @@ instance CandidRow r => CandidVal (Rec r) where
         v -> cannotCoerce "record" v
       where
         toRowRec m = R.fromLabelsA @Candid $ \l ->
-            fromField (unescapeFieldName (R.toKey l)) m >>= fromCandidVal''
+            let fn = unescapeFieldName (R.toKey l) in
+            case lookup fn m of
+                Just v -> fromCandidVal'' v
+                Nothing -> case fromMissingField of
+                    Just v -> return (fromCandid v)
+                    Nothing -> missingField fn
 
 instance CandidRow r => Candid (V.Var r)
 instance CandidRow r => CandidVal (V.Var r) where
