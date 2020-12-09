@@ -367,9 +367,15 @@ This library allows the parsing and pretty-printing of candid values. The binary
 >>> let bytes = encode (#bar .== Just 100 .+ #foo .== [True,False])
 >>> let Right vs = decodeVals bytes
 >>> pretty vs
-(record {4895187 = opt +100; 5097222 = vec {true; false}})
+(record {bar = opt +100; foo = vec {true; false}})
 
-As you can see, the binary format does not preserve the field names. Future versions of this library will allow you to specify the (dynamic) 'Type' at which you want to decode these values, to overcome that problem.
+If you know Candid well you might be surprised to see the fieldnames here, becuase the Candid binary format does actually transmit the field name, but only a hash. This library tries to invert this hash, trying to find the shortest field name consisting of lower case letters and underscores that is equivalent to it. It does not work always:
+
+>>> let Right vs = decodeVals $ encode (#stopped .== True .+ #canister_id .== Principal (BS.pack []))
+>>> pretty vs
+(record {stopped = true; hymijyo = service "aaaaa-aa"})
+
+Future versions of this library will allow you to specify the (dynamic) 'Type' at which you want to decode these values, in which case the field name would be taken from there.
 
 Conversely, you can encode from the textual representation:
 
@@ -379,8 +385,7 @@ Conversely, you can encode from the textual representation:
 >>> decode @(Rec ("bar" .== Maybe Integer .+ "foo" .== [Bool])) bytes
 Right (#bar .== Just 100 .+ #foo .== [True,False])
 
-
-This function does not support the full textual format yet; in particular type annotation can only be used around number literals.
+This function does not support the full textual format yet; in particular type annotations can only be used around number literals.
 
 -}
 

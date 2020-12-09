@@ -94,6 +94,7 @@ test-suite test
         tasty >=0.7 && <1.5,
         tasty-hunit >=0.10.0.2 && <0.11,
         tasty-smallcheck >=0.8.1 && <0.9,
+        tasty-quickcheck >=0.8.1 && <0.9,
         tasty-rerun >=1.1.17 && <1.2,
         smallcheck >=1.1.7 && <1.2,
         candid -any,

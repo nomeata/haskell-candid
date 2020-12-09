@@ -29,6 +29,7 @@ import Test.Tasty
 import Test.Tasty.Ingredients.Rerun
 import Test.Tasty.HUnit
 import Test.Tasty.SmallCheck
+import qualified Test.Tasty.QuickCheck as QC
 import Test.SmallCheck.Series
 import Data.Void
 import Data.Either
@@ -318,9 +319,9 @@ tests = testGroup "tests"
           show (pretty vs) @?= e
     in
     [ t True "(true)"
-    , t (SimpleRecord False 42) "(record {4895187 = (42 : nat8); 5097222 = false})"
-    , t (JustRight (Just (3 :: Natural))) "(variant {2089909180 = opt 3})"
-    , t (JustRight (3 :: Word8)) "(variant {2089909180 = (3 : nat8)})"
+    , t (SimpleRecord False 42) "(record {bar = (42 : nat8); foo = false})"
+    , t (JustRight (Just (3 :: Natural))) "(variant {gp_jocd = opt 3})"
+    , t (JustRight (3 :: Word8)) "(variant {gp_jocd = (3 : nat8)})"
     , t () "()"
     , t (Unary ()) "(null)"
     , t (Unary (True, False)) "(record {true; false})"
@@ -382,6 +383,18 @@ tests = testGroup "tests"
       let f = either labledField hashedField e in
       let f' = unescapeFieldName (escapeFieldName f) in
       f' == f
+  , testGroup "candid hash inversion"
+    [ QC.testProperty "small names invert" $
+        QC.forAll (QC.chooseInt (0,4)) $ \len ->
+        QC.forAll (T.pack <$> QC.vectorOf len (QC.elements ('_':['a'..'z']))) $ \s ->
+        candidHash s >= 32 QC.==>
+        invertHash (candidHash s) QC.=== Just s
+    , QC.testProperty "all hashes find something" $
+        QC.forAll QC.arbitraryBoundedIntegral $ \w ->
+        w >= 32 QC.==> case invertHash w of
+            Nothing -> False
+            Just s -> candidHash s == w
+    ]
   ]
 
 instance Monad m => Serial m BS.ByteString where
