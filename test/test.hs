@@ -29,9 +29,11 @@ import Test.Tasty
 import Test.Tasty.Ingredients.Rerun
 import Test.Tasty.HUnit
 import Test.Tasty.SmallCheck
+import qualified Test.Tasty.QuickCheck as QC
 import Test.SmallCheck.Series
 import Data.Void
 import Data.Either
+import Data.Maybe
 import GHC.Int
 import GHC.Word
 import Numeric.Natural
@@ -382,6 +384,18 @@ tests = testGroup "tests"
       let f = either labledField hashedField e in
       let f' = unescapeFieldName (escapeFieldName f) in
       f' == f
+  , testGroup "candid hash inversion"
+    [ QC.testProperty "small names invert" $
+        QC.forAll (QC.chooseInt (0,4)) $ \len ->
+        QC.forAll (T.pack <$> QC.vectorOf len (QC.elements ('_':['a'..'z']))) $ \s ->
+        candidHash s >= 32 QC.==>
+        invertHash (candidHash s) QC.=== Just s
+    , QC.testProperty "all hashes find something" $
+        QC.forAll QC.arbitraryBoundedIntegral $ \w ->
+        w >= 32 QC.==> case invertHash w of
+            Nothing -> False
+            Just s -> candidHash s == w
+    ]
   ]
 
 instance Monad m => Serial m BS.ByteString where

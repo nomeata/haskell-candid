@@ -3,6 +3,7 @@
 module Codec.Candid.TestExports
     ( module Codec.Candid.Parse
     , module Codec.Candid.TH
+    , module Codec.Candid.FieldName
     ) where
 
 import Codec.Candid.Parse
@@ -21,3 +22,6 @@ import Codec.Candid.TH
   )
 
 
+import Codec.Candid.FieldName
+  ( invertHash
+  )
