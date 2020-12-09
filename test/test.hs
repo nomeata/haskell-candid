@@ -385,7 +385,7 @@ tests = testGroup "tests"
       f' == f
   , testGroup "candid hash inversion"
     [ QC.testProperty "small names invert" $
-        QC.forAll (QC.chooseInt (0,4)) $ \len ->
+        QC.forAll (QC.choose (0,4)) $ \len ->
         QC.forAll (T.pack <$> QC.vectorOf len (QC.elements ('_':['a'..'z']))) $ \s ->
         candidHash s >= 32 QC.==>
         invertHash (candidHash s) QC.=== Just s
