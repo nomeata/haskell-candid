@@ -21,7 +21,7 @@ jobs:
       with:
         repository: 'dfinity/candid'
         path: candid
-        ref: f6f794ffc4a3cdc59abdd12cbebf768a95eca241
+        ref: 2021-01-06
     - uses: actions/setup-haskell@v1
       with:
         ghc-version: ${{ matrix.ghc }}
