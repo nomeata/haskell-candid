@@ -82,6 +82,8 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
  , prettyPrincipal
  , parsePrincipal
  , Reserved(..)
+ , FuncRef(..)
+ , ServiceRef(..)
 
 -- ** Generics
 
@@ -373,7 +375,7 @@ If you know Candid well you might be surprised to see the fieldnames here, becua
 
 >>> let Right vs = decodeVals $ encode (#stopped .== True .+ #canister_id .== Principal (BS.pack []))
 >>> pretty vs
-(record {stopped = true; hymijyo = service "aaaaa-aa"})
+(record {stopped = true; hymijyo = principal "aaaaa-aa"})
 
 Future versions of this library will allow you to specify the (dynamic) 'Type' at which you want to decode these values, in which case the field name would be taken from there.
 

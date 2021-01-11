@@ -213,6 +213,8 @@ withSomeTypes groupName mkTest =
     , mkTest (Proxy @SimpleRecord)
     , mkTest (Proxy @(Rec ("a" .== Bool .+ "b" .== Bool .+ "c" .== Bool)))
     , mkTest (Proxy @(V.Var ("upgrade" .== () .+ "reinstall" .== () .+ "install" .== ())))
+    , mkTest (Proxy @FuncRef)
+    , mkTest (Proxy @ServiceRef)
     ]
 
 tests :: TestTree
@@ -307,9 +309,11 @@ tests = testGroup "tests"
     , t (IntV (-1)) "-1"
     , t (Nat8V 1) "(1 : nat8)"
     , t (RecV [("bar", TextV "baz")]) "record {bar = \"baz\"}"
-    , t (PrincipalV (Principal "")) "service \"aaaaa-aa\""
-    , t (PrincipalV (Principal "\xab\xcd\x01")) "service \"em77e-bvlzu-aq\""
-    , t (PrincipalV (Principal "\xde\xad\xbe\xef")) "service \"psokg-ww6vw-7o6\""
+    , t (FuncV (Principal "\xde\xad\xbe\xef") "foo") "func \"psokg-ww6vw-7o6\".\"foo\""
+    , t (ServiceV (Principal "\xde\xad\xbe\xef")) "service \"psokg-ww6vw-7o6\""
+    , t (PrincipalV (Principal "")) "principal \"aaaaa-aa\""
+    , t (PrincipalV (Principal "\xab\xcd\x01")) "principal \"em77e-bvlzu-aq\""
+    , t (PrincipalV (Principal "\xde\xad\xbe\xef")) "principal \"psokg-ww6vw-7o6\""
     ]
   , testGroup "candid value printing (via binary) " $
     let t :: forall a. (HasCallStack, CandidArg a) => a -> String -> TestTree
@@ -357,6 +361,17 @@ tests = testGroup "tests"
     , t "\"hello\"" ("hello" :: T.Text)
     , t "blob \"hello\"" ("hello" :: BS.ByteString)
     , t "blob \"\\00\\ff\"" ("\x00\xff" :: BS.ByteString)
+    , t "func \"psokg-ww6vw-7o6\".\"foo\""
+        (FuncRef (ServiceRef (Principal "\xde\xad\xbe\xef")) "foo")
+    , t "func \"psokg-ww6vw-7o6\".foo"
+        (FuncRef (ServiceRef (Principal "\xde\xad\xbe\xef")) "foo")
+    , t "func \"psokg-ww6vw-7o6\".\"\""
+        (FuncRef (ServiceRef (Principal "\xde\xad\xbe\xef")) "")
+    , t "service \"psokg-ww6vw-7o6\""
+        (ServiceRef (Principal "\xde\xad\xbe\xef"))
+    , t "principal \"psokg-ww6vw-7o6\""
+        (Principal "\xde\xad\xbe\xef")
+
     , t' "vec {true; 4}"
     ]
 
@@ -405,6 +420,12 @@ instance Monad m => Serial m Principal where
 
 instance Monad m => Serial m Reserved where
     series = Reserved <$ series @m @()
+
+instance Monad m => Serial m FuncRef where
+    series = FuncRef <$> series <*> series
+
+instance Monad m => Serial m ServiceRef where
+    series = ServiceRef <$> series
 
 instance (Monad m, Forall r (Serial m), AllUniqueLabels r) => Serial m (Rec r) where
     series = R.fromLabelsA @(Serial m) (\_l -> series)

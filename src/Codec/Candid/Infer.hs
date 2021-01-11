@@ -39,6 +39,8 @@ inferTyp (VariantV f v) = do
     t <- inferTyp v
     return $ VariantT [ (f, t) ]
 inferTyp (TupV vs) = tupT <$> mapM inferTyp vs
+inferTyp (FuncV _ _) = return (FuncT [] []) -- no principal type
+inferTyp (ServiceV _) = return (ServiceT []) -- no principal type
 inferTyp (PrincipalV _) = return PrincipalT
 inferTyp (BlobV _) = return BlobT
 inferTyp (AnnV _ t) = return t -- Maybe do type checking?

@@ -8,6 +8,7 @@ module Codec.Candid.Encode (encodeValues, encodeDynValues) where
 
 import Numeric.Natural
 import qualified Data.Vector as V
+import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Builder as B
@@ -70,7 +71,7 @@ encodeVal Int32T (Int32V n) = B.int32LE n
 encodeVal Int64T (Int64V n) = B.int64LE n
 encodeVal Float32T (Float32V n) = B.floatLE n
 encodeVal Float64T (Float64V n) = B.doubleLE n
-encodeVal TextT (TextV t) = encodeBytes (BS.fromStrict (T.encodeUtf8 t))
+encodeVal TextT (TextV t) = encodeText t
 encodeVal NullT NullV = mempty
 encodeVal ReservedT _ = mempty -- NB Subtyping
 encodeVal (OptT _) (OptV Nothing) = B.word8 0
@@ -89,7 +90,12 @@ encodeVal (VariantT fs) (VariantV f x) =
         Nothing -> error $ "encodeVal: Variant field " ++ show (pretty f) ++ " not found"
   where
     fs' = sortOn fst fs
-encodeVal PrincipalT (PrincipalV (Principal s)) = B.int8 1 <> encodeBytes s
+encodeVal (ServiceT _) (ServiceV (Principal s))
+    = B.int8 1 <> encodeBytes s
+encodeVal (FuncT _ _) (FuncV (Principal s) n)
+    = B.int8 1 <> B.int8 1 <> encodeBytes s <> encodeText n
+encodeVal PrincipalT (PrincipalV (Principal s))
+    = B.int8 1 <> encodeBytes s
 encodeVal BlobT (BlobV b) = encodeBytes b
 encodeVal (VecT Nat8T) (BlobV b) = encodeBytes b
 encodeVal (RefT x) _ = absurd x
@@ -97,6 +103,9 @@ encodeVal t v = error $ "Unexpected value at type " ++ show (pretty t) ++ ": " +
 
 encodeBytes :: BS.ByteString -> B.Builder
 encodeBytes bytes = buildLEB128Int (BS.length bytes) <> B.lazyByteString bytes
+
+encodeText :: T.Text -> B.Builder
+encodeText t = encodeBytes (BS.fromStrict (T.encodeUtf8 t))
 
 -- Encodes the fields in order specified by the type
 encodeRec :: [(FieldName, Type Void)] -> [(FieldName, Value)] -> B.Builder
@@ -159,6 +168,29 @@ typTable (SeqDesc m (ts :: [Type k])) = mconcat
       VariantT fs -> addCon t $ recordLike (-21) fs
 
       -- References
+      FuncT as bs -> addCon t $ do
+        ais <- mapM go as
+        bis <- mapM go bs
+        return $ mconcat
+          [ buildSLEB128 @Integer (-22)
+          , leb128Len ais
+          , foldMap buildSLEB128 ais
+          , leb128Len bis
+          , foldMap buildSLEB128 bis
+          , buildLEB128 @Natural 0  -- NB: No anontations
+          ]
+
+      PreServiceT _ -> error "PreServiceT"
+      ServiceT ms -> addCon t $ do
+        ms' <- forM ms $ \(DidMethod n as bs) -> do
+          ti <- go (FuncT as bs)
+          return (n, ti)
+        return $ mconcat
+          [ buildSLEB128 @Integer (-23)
+          , leb128Len ms
+          , foldMap (\(n, ti) -> encodeText n <> buildSLEB128 ti) ms'
+          ]
+
       PrincipalT -> return $ -24
 
       -- Short-hands

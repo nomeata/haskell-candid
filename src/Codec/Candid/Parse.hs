@@ -143,7 +143,7 @@ argTypeP :: Parser (Type TypeName)
 argTypeP = dataTypeP <|> (nameP *> s ":" *> dataTypeP)
 
 dataTypeP :: Parser (Type TypeName)
-dataTypeP = primTypeP <|> constTypeP <|> (RefT <$> idP)-- TODO: reftypes
+dataTypeP = primTypeP <|> constTypeP <|> refTypeP <|> (RefT <$> idP)-- TODO: reftypes
 
 primTypeP :: Parser (Type TypeName)
 primTypeP = choice
@@ -175,6 +175,12 @@ constTypeP = choice
   , RecT . resolveShorthand <$ k "record" <*> braceSemi recordFieldTypeP
   , VariantT <$ k "variant" <*> braceSemi variantFieldTypeP
   ]
+
+refTypeP :: Parser (Type TypeName)
+refTypeP = choice
+    [ uncurry FuncT <$ k "func" <*> funcTypeP
+    , ServiceT <$ k "service" <*> actorTypeP
+    ]
 
 fieldLabelP :: Parser FieldName
 fieldLabelP  =
@@ -265,7 +271,9 @@ valueP = choice
   , VecV . V.fromList <$ k "vec" <*> braceSemi annValueP
   , RecV . resolveShorthand <$ k "record" <*> braceSemi recordFieldValP
   , uncurry VariantV <$ k "variant" <*> braces variantFieldValP
-  , PrincipalV <$ k "service" <*> withPredicate parsePrincipal textP
+  , FuncV <$ k "func" <*> withPredicate parsePrincipal textP <* s "." <*> nameP
+  , ServiceV <$ k "service" <*> withPredicate parsePrincipal textP
+  , PrincipalV <$ k "principal" <*> withPredicate parsePrincipal textP
   , BlobV <$ k "blob" <*> blobP
   ]
 

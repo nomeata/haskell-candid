@@ -36,6 +36,9 @@ data Type a
     | RecT (Fields a)
     | VariantT (Fields a)
     -- reference
+    | FuncT [Type a] [Type a]
+    | PreServiceT [(T.Text, a)] -- ^ Internal only, used during decoding
+    | ServiceT [DidMethod a]
     | PrincipalT
     -- short-hands
     | BlobT
@@ -76,6 +79,10 @@ instance Monad Type where
     VecT t >>= f = VecT (t >>= f)
     RecT fs >>= f = RecT (map (second (>>= f)) fs)
     VariantT fs >>= f = VariantT (map (second (>>= f)) fs)
+    FuncT as bs >>= f = FuncT (map (>>= f) as) (map (>>= f) bs)
+    ServiceT ms >>= f = ServiceT (map f' ms)
+      where f' (DidMethod n as bs) = DidMethod n (map (>>= f) as) (map (>>= f) bs)
+    PreServiceT _ >>= _ = error "PreServiceT"
     RefT x >>= f = f x
 
 type Fields a = [(FieldName, Type a)]
@@ -106,6 +113,10 @@ instance Pretty a => Pretty (Type a) where
     pretty (VariantT fs) = "variant" <+> prettyFields True fs
     pretty (RefT a) = pretty a
     pretty BlobT = "blob"
+    pretty (FuncT as bs) = "func" <+> pretty as <+> "->" <+> pretty bs
+    pretty (ServiceT s) =
+        "service" <+> ":" <+> braces (group (align (vsep $ pretty <$> s)))
+    pretty (PreServiceT _) = error "PreServiceT"
     pretty PrincipalT = "principal"
 
     prettyList = encloseSep lparen rparen (comma <> space) . map pretty
@@ -143,6 +154,8 @@ data Value
   | RecV [(FieldName, Value)]
   | TupV [Value]
   | VariantV FieldName Value
+  | FuncV Principal T.Text
+  | ServiceV Principal
   | PrincipalV Principal
   | BlobV BS.ByteString
   | AnnV Value (Type Void)
@@ -168,7 +181,9 @@ instance Pretty Value where
   pretty (TextV v) = prettyText v
   pretty NullV = "null"
   pretty ReservedV = prettyAnn ("null"::T.Text) ReservedT
-  pretty (PrincipalV b) = "service" <+> prettyText (prettyPrincipal b)
+  pretty (FuncV b m) = "func" <+> prettyText (prettyPrincipal b) <> "." <> prettyText m
+  pretty (ServiceV b) = "service" <+> prettyText (prettyPrincipal b)
+  pretty (PrincipalV b) = "principal" <+> prettyText (prettyPrincipal b)
   pretty (BlobV b) = "blob" <+> prettyBlob b
   pretty (OptV Nothing) = pretty NullV
   pretty (OptV (Just v)) = "opt" <+> pretty v
@@ -244,7 +259,7 @@ data DidMethod a = DidMethod
     , methodParams :: [Type a]
     , methodResults :: [Type a]
     }
-  deriving (Eq, Show, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 type TypeName = T.Text
 type DidService a = [ DidMethod a ]
 type DidDef a = (a, Type a)
