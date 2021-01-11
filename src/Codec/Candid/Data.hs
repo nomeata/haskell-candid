@@ -40,3 +40,9 @@ parsePrincipal s = do
         Left $ "Principal id " ++ show s ++ " malformed; did you mean " ++ show expected ++ "?"
     return p
 
+newtype ServiceRef = ServiceRef { rawServiceRef :: Principal }
+ deriving (Eq, Ord, Show)
+
+data FuncRef = FuncRef { service :: ServiceRef, method :: T.Text }
+ deriving (Eq, Ord, Show)
+

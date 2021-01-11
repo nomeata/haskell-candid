@@ -325,6 +325,20 @@ instance CandidVal Principal where
     fromCandidVal' (PrincipalV t) = return t
     fromCandidVal' v = cannotCoerce "principal" v
 
+instance Candid ServiceRef
+instance CandidVal ServiceRef where
+    asType = ServiceT [] -- TODO
+    toCandidVal' (ServiceRef p) = ServiceV p
+    fromCandidVal' (ServiceV p) = return (ServiceRef p)
+    fromCandidVal' v = cannotCoerce "service" v
+
+instance Candid FuncRef
+instance CandidVal FuncRef where
+    asType = FuncT [] []-- TODO
+    toCandidVal' (FuncRef (ServiceRef p) n) = FuncV p n
+    fromCandidVal' (FuncV p n) = return (FuncRef (ServiceRef p) n)
+    fromCandidVal' v = cannotCoerce "func" v
+
 instance Candid Reserved
 instance CandidVal Reserved where
     asType = ReservedT
