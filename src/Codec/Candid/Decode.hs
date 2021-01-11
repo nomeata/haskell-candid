@@ -29,7 +29,7 @@ decodeVals bytes = G.runGet go (BS.toStrict bytes)
     go = do
         decodeMagic
         arg_tys <- decodeTypTable
-        arg_tys <- resolvePreServiceT arg_tys
+        arg_tys <- either fail pure $ resolvePreServiceT arg_tys
         vs <- mapM decodeVal (tieKnot (voidEmptyTypes arg_tys))
         G.remaining >>= \case
             0 -> return vs
