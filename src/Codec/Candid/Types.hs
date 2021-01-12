@@ -37,7 +37,6 @@ data Type a
     | VariantT (Fields a)
     -- reference
     | FuncT [Type a] [Type a]
-    | PreServiceT [(T.Text, a)] -- ^ Internal only, used during decoding
     | ServiceT [DidMethod a]
     | PrincipalT
     -- short-hands
@@ -82,7 +81,6 @@ instance Monad Type where
     FuncT as bs >>= f = FuncT (map (>>= f) as) (map (>>= f) bs)
     ServiceT ms >>= f = ServiceT (map f' ms)
       where f' (DidMethod n as bs) = DidMethod n (map (>>= f) as) (map (>>= f) bs)
-    PreServiceT _ >>= _ = error "PreServiceT"
     RefT x >>= f = f x
 
 type Fields a = [(FieldName, Type a)]
@@ -116,7 +114,6 @@ instance Pretty a => Pretty (Type a) where
     pretty (FuncT as bs) = "func" <+> pretty as <+> "->" <+> pretty bs
     pretty (ServiceT s) =
         "service" <+> ":" <+> braces (group (align (vsep $ pretty <$> s)))
-    pretty (PreServiceT _) = error "PreServiceT"
     pretty PrincipalT = "principal"
 
     prettyList = encloseSep lparen rparen (comma <> space) . map pretty

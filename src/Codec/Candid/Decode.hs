@@ -29,7 +29,6 @@ decodeVals bytes = G.runGet go (BS.toStrict bytes)
     go = do
         decodeMagic
         arg_tys <- decodeTypTable
-        arg_tys <- either fail pure $ resolvePreServiceT arg_tys
         vs <- mapM decodeVal (tieKnot (voidEmptyTypes arg_tys))
         G.remaining >>= \case
             0 -> return vs
@@ -80,7 +79,6 @@ decodeVal (FuncT _ _) = do
     referenceByte
     referenceByte
     FuncV <$> decodePrincipal <*> decodeText
-decodeVal (PreServiceT _) = error "PreServiceT"
 decodeVal (ServiceT _) = do
     referenceByte
     ServiceV <$> decodePrincipal
@@ -135,25 +133,28 @@ decodeTypTable = do
     len <- getLEB128
     checkOvershoot len
     table <- replicateM (fromIntegral len) (decodeTypTableEntry len)
-    ts <- decodeSeq (decodeTypRef len)
+    table <- resolveServiceT table
     let m = M.fromList (zip [0..] table)
+    ts <- decodeSeq (decodeTypRef len)
     return $ SeqDesc m ts
 
-decodeTypTableEntry :: Natural -> G.Get (Type Int)
+type PreService = [(T.Text, Int)]
+
+decodeTypTableEntry :: Natural -> G.Get (Either (Type Int) PreService)
 decodeTypTableEntry max = getSLEB128 @Integer >>= \case
-    -18 -> OptT <$> decodeTypRef max
-    -19 -> VecT <$> decodeTypRef max
-    -20 -> RecT <$> decodeTypFields max
-    -21 -> VariantT <$> decodeTypFields max
-    -22 -> FuncT <$>
+    -18 -> Left . OptT <$> decodeTypRef max
+    -19 -> Left . VecT <$> decodeTypRef max
+    -20 -> Left . RecT <$> decodeTypFields max
+    -21 -> Left . VariantT <$> decodeTypFields max
+    -22 -> Left <$> (FuncT <$>
         decodeSeq (decodeTypRef max) <*>
         decodeSeq (decodeTypRef max) <*
-        decodeSeq decodeFuncAnn
+        decodeSeq decodeFuncAnn)
     -23 -> do
         m <- decodeSeq ((,) <$> decodeText <*> decodeFuncTypRef max)
         unless (isOrdered (map fst m)) $
             fail "Service methods not in strict order"
-        return (PreServiceT m)
+        return (Right m)
     _ -> fail "Unknown structural type"
 
 decodeTypRef :: Natural -> G.Get (Type Int)
@@ -175,6 +176,20 @@ decodeFuncTypRef max = do
         Just _ -> fail "Primitive type as method type in service type"
         Nothing -> fail  $ "Unknown prim typ " ++ show i
     else return $ fromIntegral i
+
+-- This resolves PreServiceT to ServiceT
+resolveServiceT :: [Either (Type Int) PreService] -> G.Get [Type Int]
+resolveServiceT table = mapM go table
+  where
+    m = M.fromList (zip [0..] table)
+
+    go (Left t) = pure t
+    go (Right is) = ServiceT <$> mapM goMethod is
+
+    goMethod (n, i) = case m M.! i of
+        Left (FuncT as bs) -> return $ DidMethod n as bs
+        _ -> fail "Method type not a function type"
+
 
 decodeFuncAnn :: G.Get ()
 decodeFuncAnn = G.getWord8 >>= \case

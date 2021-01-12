@@ -48,21 +48,6 @@ buildSeqDesc ts = SeqDesc m ts'
             return ()
         return k
 
--- This resolves PreServiceT to ServiceT
-resolvePreServiceT :: SeqDesc -> Either String SeqDesc
-resolvePreServiceT (SeqDesc m ts) = do
-    m' <- mapM go m
-    ts' <- mapM go ts
-    return $ SeqDesc m' ts'
-  where
-    go (PreServiceT ms) = ServiceT <$> mapM goMethod ms
-    -- No need to recurse; this will only show up top-level.
-    go t = pure t
-
-    goMethod (n, i) = case m M.! i of
-        FuncT as bs -> return $ DidMethod n as bs
-        _ -> Left "Method type not a function type"
-
 voidEmptyTypes :: SeqDesc -> SeqDesc
 voidEmptyTypes (SeqDesc m ts) = SeqDesc m' ts
   where

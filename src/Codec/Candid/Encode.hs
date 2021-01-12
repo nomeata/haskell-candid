@@ -180,7 +180,6 @@ typTable (SeqDesc m (ts :: [Type k])) = mconcat
           , buildLEB128 @Natural 0  -- NB: No anontations
           ]
 
-      PreServiceT _ -> error "PreServiceT"
       ServiceT ms -> addCon t $ do
         ms' <- forM ms $ \(DidMethod n as bs) -> do
           ti <- go (FuncT as bs)

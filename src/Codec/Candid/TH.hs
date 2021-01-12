@@ -155,5 +155,4 @@ typ (RecT fs) = [t| R.Rec $(row [t| (R..==) |] [t| (R..+) |] [t| R.Empty |] fs) 
 typ (VariantT fs) = [t| V.Var $(row [t| (V..==) |] [t| (V..+) |] [t| V.Empty |] fs) |]
 typ (FuncT _ _) = [t| FuncRef |]
 typ (ServiceT _) = [t| ServiceRef |]
-typ (PreServiceT _) = error "PreServiceT"
 typ (RefT v) = conT v
