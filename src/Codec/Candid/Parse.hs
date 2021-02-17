@@ -140,7 +140,7 @@ seqP :: Parser [Type TypeName]
 seqP = parenComma argTypeP
 
 argTypeP :: Parser (Type TypeName)
-argTypeP = dataTypeP <|> (nameP *> s ":" *> dataTypeP)
+argTypeP = (try (nameP *> s ":") *> dataTypeP) <|> dataTypeP
 
 dataTypeP :: Parser (Type TypeName)
 dataTypeP = primTypeP <|> constTypeP <|> refTypeP <|> (RefT <$> idP)-- TODO: reftypes

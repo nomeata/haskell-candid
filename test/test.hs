@@ -382,6 +382,8 @@ tests = testGroup "tests"
       DidFile [] [ DidMethod "foo" [TextT] [TextT] ]
     , parseTest "service : { foo : (text,) -> (text,); }" $
       DidFile [] [ DidMethod "foo" [TextT] [TextT] ]
+    , parseTest "service : { foo : (x : text,) -> (y : text,); }" $
+      DidFile [] [ DidMethod "foo" [TextT] [TextT] ]
     , parseTest "service : { foo : (opt text) -> () }" $
       DidFile [] [ DidMethod "foo" [OptT TextT] []  ]
     , parseTest "service : { foo : (record { text; blob }) -> () }" $
