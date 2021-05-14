@@ -21,12 +21,15 @@ thTests = testGroup "Using TH interface"
   , testCase "demo1: via toCandidService" $ do
       x <- greet2 .! #greet $ "World"
       x @?= "World"
-  , testCase "demo2" $ do
+  , testCase "demo2: n-ary arguments" $ do
       x <- demo2 .! #greet $ ("World", True)
       x @?= "WorldTrue"
-  , testCase "demo3" $ do
+  , testCase "demo3: type definitions" $ do
       x <- demo3 .! #greet $ ("World", True)
       x @?= "WorldTrue"
+  , testCase "demo4: tuple shorthands" $ do
+      x <- demo4 .! #greet $ Unary (1,True, empty)
+      x @?= Unary (#_0_ .== 2,False)
   ]
 
 -- NB: Fields in the wrong order
@@ -49,3 +52,8 @@ type Demo3 m = [candid| type t = text; service : { "greet": (t, bool) -> (t); } 
 demo3 :: Monad m => Rec (Demo3 m)
 demo3 = demo2
 
+-- NB tuples:
+type Demo4 m = [candid|service : { "greet": (record {int; bool; record {}}) -> (record {0 : record{int}; 1 : bool}); } |]
+
+demo4 :: Monad m => Rec (Demo4 m)
+demo4 = #greet .== \(Unary (i,b, _)) -> return $ Unary (#_0_ .== (i + 1), not b)

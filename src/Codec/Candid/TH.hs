@@ -117,14 +117,18 @@ quoteCandidType s = case parseDidType s of
 candidTypeQ :: [Type TH.Name] -> TypeQ
 candidTypeQ [] = [t| () |]
 candidTypeQ [NullT] = [t| Unary () |]
+candidTypeQ [t@(RecT fs)] | isTuple fs = [t| Unary $(typ t) |]
 candidTypeQ [t] = typ t
-candidTypeQ ts = foldl appT (tupleT (length ts)) (map typ ts)
+candidTypeQ ts = mkTupleT (map typ ts)
 
 
 row :: TypeQ -> TypeQ -> TypeQ -> Fields TH.Name -> TypeQ
 row eq add = foldr (\(fn, t) rest -> [t|
     $add ($eq $(fieldName fn) $(typ t)) $rest
   |])
+
+mkTupleT :: [TypeQ] -> TypeQ
+mkTupleT ts = foldl appT (tupleT (length ts)) ts
 
 fieldName :: FieldName -> TypeQ
 fieldName f = litT (strTyLit (T.unpack (escapeFieldName f)))
@@ -151,8 +155,13 @@ typ PrincipalT = [t| Principal |]
 typ BlobT = [t| BS.ByteString|]
 typ (OptT t) = [t| Maybe $( typ t ) |]
 typ (VecT t) = [t| V.Vector $( typ t ) |]
-typ (RecT fs) = [t| R.Rec $(row [t| (R..==) |] [t| (R..+) |] [t| R.Empty |] fs) |]
+typ (RecT fs)
+ | isTuple fs = mkTupleT (map (typ . snd) fs)
+ | otherwise = [t| R.Rec $(row [t| (R..==) |] [t| (R..+) |] [t| R.Empty |] fs) |]
 typ (VariantT fs) = [t| V.Var $(row [t| (V..==) |] [t| (V..+) |] [t| V.Empty |] fs) |]
 typ (FuncT _ _) = [t| FuncRef |]
 typ (ServiceT _) = [t| ServiceRef |]
 typ (RefT v) = conT v
+
+isTuple :: [(FieldName, b)] -> Bool
+isTuple fs = length fs > 1 && and (zipWith (==) (map fst fs) (map hashedField [0..]))
