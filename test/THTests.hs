@@ -27,6 +27,9 @@ thTests = testGroup "Using TH interface"
   , testCase "demo3" $ do
       x <- demo3 .! #greet $ ("World", True)
       x @?= "WorldTrue"
+  , testCase "demo4" $ do
+      x <- demo4 .! #greet $ (1,True, empty)
+      x @?= (#_0_ .== 2,False)
   ]
 
 -- NB: Fields in the wrong order
@@ -49,3 +52,8 @@ type Demo3 m = [candid| type t = text; service : { "greet": (t, bool) -> (t); } 
 demo3 :: Monad m => Rec (Demo3 m)
 demo3 = demo2
 
+-- NB tuples:
+type Demo4 m = [candid|service : { "greet": (record {int; bool; record {}}) -> (record {0 : record{int}; 1 : bool}); } |]
+
+demo4 :: Monad m => Rec (Demo4 m)
+demo4 = #greet .== \(i,b, _) -> return (#_0_ .== (i + 1), not b)
