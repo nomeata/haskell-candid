@@ -117,8 +117,9 @@ quoteCandidType s = case parseDidType s of
 candidTypeQ :: [Type TH.Name] -> TypeQ
 candidTypeQ [] = [t| () |]
 candidTypeQ [NullT] = [t| Unary () |]
+candidTypeQ [t@(RecT fs)] | isTuple fs = [t| Unary $(typ t) |]
 candidTypeQ [t] = typ t
-candidTypeQ ts = foldl appT (tupleT (length ts)) (map typ ts)
+candidTypeQ ts = mkTupleT (map typ ts)
 
 
 row :: TypeQ -> TypeQ -> TypeQ -> Fields TH.Name -> TypeQ
