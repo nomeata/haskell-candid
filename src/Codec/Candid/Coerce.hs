@@ -1,27 +1,41 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Codec.Candid.Coerce where
 
-import Data.Void
 import Data.Text.Prettyprint.Doc
+import qualified Data.Vector as V
+import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map as M
 import Data.List
+import Control.Monad.State.Lazy
+import Control.Monad.Except
 
+import Codec.Candid.FieldName
 import Codec.Candid.Types
+import Codec.Candid.TypTable
 
 type SeqCoercion = [Value] -> Either String [Value]
 type Coercion = Value -> Either String Value
 
-coerceSeq :: [Type Void] -> [Type Void] -> Either String SeqCoercion
+coerceSeqDesc :: SeqDesc -> SeqDesc -> Either String SeqCoercion
+coerceSeqDesc sd1 sd2 =
+    unrollTypeTable sd1 $ \ts1 ->
+    unrollTypeTable sd2 $ \ts2 ->
+    coerceSeq ts1 ts2
+
+coerceSeq :: (Pretty k1, Pretty k2, Ord k1, Ord k2) =>
+    [Type (Ref k1 Type)] -> [Type (Ref k2 Type)] -> Either String SeqCoercion
 coerceSeq _ []  = pure (const (return []))
-coerceSeq [] (OptT _ : ts) = do
-    cs2 <- coerceSeq [] ts
+coerceSeq ts1@[] (OptT _ : ts) = do
+    cs2 <- coerceSeq ts1 ts
     pure $ \_vs -> do
         vs2 <- cs2 []
         return (OptV Nothing : vs2)
-coerceSeq [] (ReservedT : ts) = do
-    cs2 <- coerceSeq [] ts
+coerceSeq ts1@[] (ReservedT : ts) = do
+    cs2 <- coerceSeq ts1 ts
     pure $ \_vs -> do
         vs2 <- cs2 []
         return (ReservedV : vs2)
@@ -47,79 +61,152 @@ coerceSeq (t1:ts1) (t2:ts2) = do
 --
 -- In a dependently typed language we’d maybe have something like
 -- `coerce :: foreach t1 -> foreach t2 -> Either String (t1 -> t2)`
--- instead, and thus return a total function 
-coerce :: Type Void -> Type Void -> Either String Coercion
+-- instead, and thus return a total function
+coerce ::
+    (Pretty k1, Pretty k2, Ord k1, Ord k2) =>
+    Type (Ref k1 Type) -> Type (Ref k2 Type) -> Either String Coercion
+
+-- we do the memoization only for coerce, not coerceSeq. Might miss some
+-- caching, but good enough.
+coerce t1 t2 = evalState (runExceptT (memo t1 t2)) mempty
+
+memo, go ::
+    (Pretty k1, Pretty k2, Ord k1, Ord k2) =>
+    Type (Ref k1 Type) ->
+    Type (Ref k2 Type) ->
+    ExceptT String (State (M.Map (Type (Ref k1 Type), Type (Ref k2 Type)) Coercion)) Coercion
+
+
+-- Memoization uses lazyiness: When we see a pair for the first time,
+-- we optimistically put the resulting coercion into the map.
+-- Either the following recursive call will fail (but then this optimistic
+-- value was never used), or it will succeed, but then the guess was correct.
+memo t1 t2 = gets (M.lookup (t1,t2)) >>= \case
+    Just c -> pure c
+    Nothing -> mdo
+        modify (M.insert (t1,t2) c)
+        c <- go t1 t2
+        return c
+
+-- Look through refs
+go (RefT (Ref _ t1)) t2 = go t1 t2
+go t1 (RefT (Ref _ t2)) = go t1 t2
+
 -- Identity coercion for primitive values
-coerce NatT NatT = pure pure
-coerce Nat8T Nat8T = pure pure
-coerce Nat16T Nat16T = pure pure
-coerce Nat32T Nat32T = pure pure
-coerce Nat64T Nat64T = pure pure
-coerce IntT IntT = pure pure
-coerce Int8T Int8T = pure pure
-coerce Int16T Int16T = pure pure
-coerce Int32T Int32T = pure pure
-coerce Int64T Int64T = pure pure
-coerce Float32T Float32T = pure pure
-coerce Float64T Float64T = pure pure
-coerce BoolT BoolT = pure pure
-coerce TextT TextT = pure pure
-coerce NullT NullT = pure pure
+go NatT NatT = pure pure
+go Nat8T Nat8T = pure pure
+go Nat16T Nat16T = pure pure
+go Nat32T Nat32T = pure pure
+go Nat64T Nat64T = pure pure
+go IntT IntT = pure pure
+go Int8T Int8T = pure pure
+go Int16T Int16T = pure pure
+go Int32T Int32T = pure pure
+go Int64T Int64T = pure pure
+go Float32T Float32T = pure pure
+go Float64T Float64T = pure pure
+go BoolT BoolT = pure pure
+go TextT TextT = pure pure
+go NullT NullT = pure pure
+go PrincipalT PrincipalT = pure pure
 
 -- Nat <: Int
-coerce NatT IntT = pure $ \case
+go NatT IntT = pure $ \case
     NatV n -> pure $ IntV (fromIntegral n)
-    v -> Left $ show $ "Unexpected value" <+> pretty v <+> "while coercing nat <: int"
+    v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing nat <: int"
 
 -- t <: reserved
-coerce _ ReservedT = pure (const (pure ReservedV))
+go _ ReservedT = pure (const (pure ReservedV))
 
 -- empty <: t
-coerce EmptyT _ = pure $ \v ->
-    Left $ show $ "Unexpected value" <+> pretty v <+> "while coercing empty"
+go EmptyT _ = pure $ \v ->
+    throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing empty"
 
 -- vec t1 <: vec t2
-coerce (VecT t1) (VecT t2) = do
-    c <- coerce t1 t2
+go (VecT t1) (VecT t2) = do
+    c <- memo t1 t2
     pure $ \case
         VecV vs -> VecV <$> mapM c vs
-        v -> Left $ show $ "Unexpected value" <+> pretty v <+> "while coercing vector"
+        v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing vector"
 
 -- Option: The normal rule
-coerce (OptT t1) (OptT t2) | Right c <- coerce t1 t2 = pure $ \case
-    OptV Nothing -> pure (OptV Nothing)
-    OptV (Just v) -> OptV . Just <$> c v
-    v -> Left $ show $ "Unexpected value" <+> pretty v <+> "while coercing option"
+go (OptT t1) (OptT t2) = lift (runExceptT (memo t1 t2)) >>= \case
+    Right c -> pure $ \case
+        OptV Nothing -> pure (OptV Nothing)
+        OptV (Just v) -> OptV . Just <$> c v
+        v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing option"
+    Left _ -> pure (const (pure (OptV Nothing)))
+
 -- Option: The consituent rule
-coerce t (OptT t2) | not (isOptLike t2), Right c <- coerce t t2 =
-    pure $ \v -> OptV . Just <$> c v
+go t (OptT t2) | not (isOptLike t2) = lift (runExceptT (memo t t2)) >>= \case
+    Right c -> pure $ \v -> OptV . Just <$> c v
+    Left _ -> pure (const (pure (OptV Nothing)))
 -- Option: The fallback rule
-coerce _ (OptT _) = pure (const (pure (OptV Nothing)))
+go _ (OptT _) = pure (const (pure (OptV Nothing)))
 
 -- Records
-coerce (RecT fs1) (RecT fs2) = do
+go (RecT fs1) (RecT fs2) = do
     let m1 = M.fromList fs1
     let m2 = M.fromList fs2
     new_fields <- sequence
             [ case t of
                 OptT _ -> pure (fn, OptV Nothing)
                 ReservedT -> pure (fn, ReservedV)
-                t -> Left $ show $ "Missing record field" <+> pretty fn <+> "of type" <+> pretty t
+                t -> throwError $ show $ "Missing record field" <+> pretty fn <+> "of type" <+> pretty t
             | (fn, t) <- M.toList $ m2 M.\\ m1
             ]
     field_coercions <- sequence
-            [ do c <- coerce t1 t2
+            [ do c <- memo t1 t2
                  pure $ \vm -> case M.lookup fn vm of
-                    Nothing -> Left $ show $ "Record value lacks field " <+> pretty fn <+> "of type" <+> pretty t1
+                    Nothing -> throwError $ show $ "Record value lacks field" <+> pretty fn <+> "of type" <+> pretty t1
                     Just v -> (fn, ) <$> c v
             | (fn, (t1, t2)) <- M.toList $ M.intersectionWith (,) m1 m2
             ]
     pure $ \case
+        TupV ts -> do
+            let vm = M.fromList $ zip [hashedField n | n <- [0..]] ts
+            coerced_fields <- mapM ($ vm) field_coercions
+            return $ RecV $ sortOn fst $ coerced_fields <> new_fields
         RecV fvs -> do
             let vm = M.fromList fvs
             coerced_fields <- mapM ($ vm) field_coercions
             return $ RecV $ sortOn fst $ coerced_fields <> new_fields
-        v -> Left $ show $ "Unexpected value" <+> pretty v <+> "while coercing record"
+        v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing record"
+
+-- Variants
+go (VariantT fs1) (VariantT fs2) = do
+    let m1 = M.fromList fs1
+    let m2 = M.fromList fs2
+    cm <- M.traverseWithKey (\fn t1 ->
+        case M.lookup fn m2 of
+            Just t2 -> memo t1 t2
+            Nothing -> throwError $ show $ "Missing variant field" <+> pretty fn <+> "of type" <+> pretty t1
+        ) m1
+    pure $ \case
+        VariantV fn v | Just c <- M.lookup fn cm -> VariantV fn <$> c v
+                      | otherwise -> throwError $ show $ "Unexpected variant field" <+> pretty fn
+        v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing variant"
+
+-- Reference types (TODO)
+go (FuncT _ta1 _tr1) (FuncT _ta2 _tr2) = pure pure
+go (ServiceT _m1) (ServiceT _m2) = pure pure
+
+-- BlobT
+go BlobT BlobT = pure pure
+go (VecT Nat8T) BlobT = pure $ \case
+    VecV vs ->  BlobV . BS.pack . V.toList <$> mapM goNat8 vs
+    v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing vec nat8 to blob"
+   where
+    goNat8 (Nat8V n) = pure n
+    goNat8 v = throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing vec nat8 to blob"
+go BlobT (VecT Nat8T) = pure $ \case
+    BlobV b -> return $ VecV $ V.fromList $ map (Nat8V . fromIntegral) $ BS.unpack b
+    v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing blob to vec nat8"
+
+
+
+go t1 t2 = throwError $ show $ "Type" <+> pretty t1 <+> "is not a subtype of" <+> pretty t2
+
 
 -- | `null <: t`?
 isOptLike :: Type a -> Bool

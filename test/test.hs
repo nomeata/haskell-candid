@@ -319,7 +319,7 @@ tests = testGroup "tests"
     let t :: forall a. (HasCallStack, CandidArg a) => a -> String -> TestTree
         t v e = testCase e $ do
           let bytes = encode v
-          vs <- either assertFailure return $ decodeVals bytes
+          (_, vs) <- either assertFailure return $ decodeVals bytes
           show (pretty vs) @?= e
     in
     [ t True "(true)"

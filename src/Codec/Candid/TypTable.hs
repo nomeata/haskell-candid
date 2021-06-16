@@ -34,6 +34,26 @@ instance Pretty SeqDesc where
 
 data Ref k f  = Ref k (f (Ref k f))
 
+instance Pretty k => Pretty (Ref k f) where
+    pretty (Ref k _) = pretty k
+instance Eq k => Eq (Ref k f) where
+    (==) (Ref k1 _) (Ref k2 _) = (==) k1 k2
+instance Ord k => Ord (Ref k f) where
+    compare (Ref k1 _) (Ref k2 _) = compare k1 k2
+
+unrollTypeTable :: SeqDesc -> (forall k. (Pretty k, Ord k) => [Type (Ref k Type)] -> r) -> r
+unrollTypeTable (SeqDesc m t) k = k (unrollTypeTable' m t)
+
+unrollTypeTable' :: forall k. Ord k => M.Map k (Type k) -> [Type k] -> [Type (Ref k Type)]
+unrollTypeTable' m ts = ts'
+  where
+    f :: k -> Type (Ref k Type)
+    f k = RefT (Ref k (m' M.! k))
+    m' :: M.Map k (Type (Ref k Type))
+    m' = (>>= f) <$> m
+    ts' :: [Type (Ref k Type)]
+    ts' = (>>= f) <$> ts
+
 buildSeqDesc :: forall k. (Pretty k, Ord k) => [Type (Ref k Type)] -> SeqDesc
 buildSeqDesc ts = SeqDesc m ts'
   where

@@ -23,7 +23,7 @@ import Codec.Candid.Types
 import Codec.Candid.FieldName
 
 -- | Decode to value representation
-decodeVals :: BS.ByteString -> Either String [Value]
+decodeVals :: BS.ByteString -> Either String (SeqDesc, [Value])
 decodeVals bytes = G.runGet go (BS.toStrict bytes)
   where
     go = do
@@ -31,7 +31,7 @@ decodeVals bytes = G.runGet go (BS.toStrict bytes)
         arg_tys <- decodeTypTable
         vs <- mapM decodeVal (tieKnot (voidEmptyTypes arg_tys))
         G.remaining >>= \case
-            0 -> return vs
+            0 -> return (arg_tys, vs)
             n -> fail $ "Unexpected " ++ show n ++ " left-over bytes"
 
 decodeVal :: Type Void -> G.Get Value
@@ -58,7 +58,7 @@ decodeVal (OptT t) = G.getWord8 >>= \case
     0 -> return $ OptV Nothing
     1 -> OptV . Just <$> decodeVal t
     _ -> fail "Invalid optional value"
-decodeVal (VecT Nat8T) = BlobV <$> decodeBytes
+decodeVal BlobT = BlobV <$> decodeBytes
 decodeVal (VecT t) = do
     n <- getLEB128Int
     VecV . V.fromList <$> replicateM n (decodeVal t)
@@ -86,7 +86,6 @@ decodeVal PrincipalT = do
     referenceByte
     PrincipalV <$> decodePrincipal
 
-decodeVal BlobT = error "shorthand encountered while decoding"
 decodeVal EmptyT = fail "Empty value"
 decodeVal (RefT v) = absurd v
 
@@ -143,7 +142,10 @@ type PreService = [(T.Text, Int)]
 decodeTypTableEntry :: Natural -> G.Get (Either (Type Int) PreService)
 decodeTypTableEntry max = getSLEB128 @Integer >>= \case
     -18 -> Left . OptT <$> decodeTypRef max
-    -19 -> Left . VecT <$> decodeTypRef max
+    -19 -> do
+        t <- decodeTypRef max
+        pure $ if t == Nat8T then Left BlobT
+                             else Left (VecT t)
     -20 -> Left . RecT <$> decodeTypFields max
     -21 -> Left . VariantT <$> decodeTypFields max
     -22 -> Left <$> (FuncT <$>

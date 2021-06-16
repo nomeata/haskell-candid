@@ -57,6 +57,7 @@ import Codec.Candid.Types
 import Codec.Candid.FieldName
 import Codec.Candid.Decode
 import Codec.Candid.Encode
+import Codec.Candid.Coerce
 
 -- | Encode based on Haskell type
 encode :: CandidArg a => a -> BS.ByteString
@@ -68,7 +69,13 @@ encodeBuilder x = encodeValues (seqDesc @a) (toCandidVals x)
 
 -- | Decode to Haskell type
 decode :: forall a. CandidArg a => BS.ByteString -> Either String a
-decode = decodeVals >=> fromCandidVals
+decode b = do
+    -- Decode
+    (ts, vs) <- decodeVals b
+    -- Coerce to expected type
+    c <- coerceSeqDesc ts (buildSeqDesc (asTypes @(AsTuple a)))
+    vs' <- c vs
+    fromCandidVals vs'
 
 -- | Decode values to Haskell type
 fromCandidVals :: CandidArg a => [Value] -> Either String a
