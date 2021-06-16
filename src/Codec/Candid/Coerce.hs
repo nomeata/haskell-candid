@@ -47,7 +47,7 @@ coerceSeq (t1:ts1) (t2:ts2) = do
 --
 -- In a dependently typed language we’d maybe have something like
 -- `coerce :: foreach t1 -> foreach t2 -> Either String (t1 -> t2)`
--- instead
+-- instead, and thus return a total function 
 coerce :: Type Void -> Type Void -> Either String Coercion
 -- Identity coercion for primitive values
 coerce NatT NatT = pure pure
