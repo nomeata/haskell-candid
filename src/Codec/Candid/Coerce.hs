@@ -37,6 +37,17 @@ coerceSeq (t1:ts1) (t2:ts2) = do
             vs' <- cs2 vs
             return (v':vs')
 
+-- | This function implements the `C[<t> <: <t>]` coercion function from the
+-- spec. It returns `Left` if no subtyping relation holds, or `Right c` if it
+-- holds, together with a coercion function.
+--
+-- The coercion function itself is not total because the intput value isn’t
+-- typed, so we have to cater for errors there. It should not fail if the
+-- passed value really is inherently of the input type.
+--
+-- In a dependently typed language we’d maybe have something like
+-- `coerce :: foreach t1 -> foreach t2 -> Either String (t1 -> t2)`
+-- instead
 coerce :: Type Void -> Type Void -> Either String Coercion
 -- Identity coercion for primitive values
 coerce NatT NatT = pure pure
