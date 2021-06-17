@@ -70,7 +70,7 @@ generateCandidDefs defs = do
           dn <- newName ("Candid_" ++ T.unpack tn)
           newtypeD (cxt []) n [] Nothing
             (normalC dn [bangType (bang noSourceUnpackedness noSourceStrictness) (typ t')])
-            [derivClause Nothing [conT ''Candid, conT ''Eq]]
+            [derivClause Nothing [conT ''Candid, conT ''Eq, conT ''Show]]
     return (decls, resolve)
 
 -- | Inlines all candid type definitions, after checking for loops

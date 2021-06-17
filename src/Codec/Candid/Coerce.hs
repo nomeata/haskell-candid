@@ -13,6 +13,8 @@ import Data.List
 import Control.Monad.State.Lazy
 import Control.Monad.Except
 
+import Debug.Trace
+
 import Codec.Candid.FieldName
 import Codec.Candid.Types
 import Codec.Candid.TypTable
@@ -29,16 +31,16 @@ coerceSeqDesc sd1 sd2 =
 coerceSeq :: (Pretty k1, Pretty k2, Ord k1, Ord k2) =>
     [Type (Ref k1 Type)] -> [Type (Ref k2 Type)] -> Either String SeqCoercion
 coerceSeq _ []  = pure (const (return []))
+coerceSeq ts1 (RefT (Ref _ t) : ts) = coerceSeq ts1 (t:ts)
+coerceSeq ts1@[] (NullT  : ts) = do
+    cs2 <- coerceSeq ts1 ts
+    pure $ \_vs -> (NullV :) <$> cs2 []
 coerceSeq ts1@[] (OptT _ : ts) = do
     cs2 <- coerceSeq ts1 ts
-    pure $ \_vs -> do
-        vs2 <- cs2 []
-        return (OptV Nothing : vs2)
+    pure $ \_vs -> (OptV Nothing :) <$> cs2 []
 coerceSeq ts1@[] (ReservedT : ts) = do
     cs2 <- coerceSeq ts1 ts
-    pure $ \_vs -> do
-        vs2 <- cs2 []
-        return (ReservedV : vs2)
+    pure $ \_vs -> (ReservedV :) <$> cs2 []
 coerceSeq [] ts =
     Left $ show $ "Argument type list too short, expecting types" <+> pretty ts
 coerceSeq (t1:ts1) (t2:ts2) = do
@@ -81,16 +83,22 @@ memo, go ::
 -- we optimistically put the resulting coercion into the map.
 -- Either the following recursive call will fail (but then this optimistic
 -- value was never used), or it will succeed, but then the guess was correct.
-memo t1 t2 = gets (M.lookup (t1,t2)) >>= \case
+memo t1 t2 = do
+  traceShowM $ "memo1" <+> pretty (t1, t2)
+  gets (M.lookup (t1,t2)) >>= \case
     Just c -> pure c
     Nothing -> mdo
+        traceShowM (pretty (t1, t2))
         modify (M.insert (t1,t2) c)
         c <- go t1 t2
+        traceShowM (pretty (t1, t2))
         return c
 
 -- Look through refs
-go (RefT (Ref _ t1)) t2 = go t1 t2
-go t1 (RefT (Ref _ t2)) = go t1 t2
+go (RefT (Ref _ t1)) t2 = memo t1 t2
+go t1 (RefT (Ref _ t2)) = memo t1 t2
+
+go t1 t2 | traceShow ("go:" <+> pretty (t1, t2)) False = undefined
 
 -- Identity coercion for primitive values
 go NatT NatT = pure pure
@@ -137,10 +145,12 @@ go (OptT t1) (OptT t2) = lift (runExceptT (memo t1 t2)) >>= \case
         v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing option"
     Left _ -> pure (const (pure (OptV Nothing)))
 
--- Option: The consituent rule
-go t (OptT t2) | not (isOptLike t2) = lift (runExceptT (memo t t2)) >>= \case
-    Right c -> pure $ \v -> OptV . Just <$> c v
-    Left _ -> pure (const (pure (OptV Nothing)))
+-- Option: The constituent rule
+go t (OptT t2) | not (isOptLike t2) = do
+    traceShowM $ "t<:optt:" <+> pretty (t, t2)
+    lift (runExceptT (memo t t2)) >>= \case
+        Right c -> pure $ \v -> OptV . Just <$> c v
+        Left _ -> pure (const (pure (OptV Nothing)))
 -- Option: The fallback rule
 go _ (OptT _) = pure (const (pure (OptV Nothing)))
 
@@ -149,7 +159,7 @@ go (RecT fs1) (RecT fs2) = do
     let m1 = M.fromList fs1
     let m2 = M.fromList fs2
     new_fields <- sequence
-            [ case t of
+            [ case unRef t of
                 OptT _ -> pure (fn, OptV Nothing)
                 ReservedT -> pure (fn, ReservedV)
                 t -> throwError $ show $ "Missing record field" <+> pretty fn <+> "of type" <+> pretty t
@@ -193,13 +203,13 @@ go (ServiceT _m1) (ServiceT _m2) = pure pure
 
 -- BlobT
 go BlobT BlobT = pure pure
-go (VecT Nat8T) BlobT = pure $ \case
+go (VecT t) BlobT | isNat8 t = pure $ \case
     VecV vs ->  BlobV . BS.pack . V.toList <$> mapM goNat8 vs
     v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing vec nat8 to blob"
    where
     goNat8 (Nat8V n) = pure n
     goNat8 v = throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing vec nat8 to blob"
-go BlobT (VecT Nat8T) = pure $ \case
+go BlobT (VecT t) | isNat8 t = pure $ \case
     BlobV b -> return $ VecV $ V.fromList $ map (Nat8V . fromIntegral) $ BS.unpack b
     v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing blob to vec nat8"
 
@@ -208,10 +218,20 @@ go BlobT (VecT Nat8T) = pure $ \case
 go t1 t2 = throwError $ show $ "Type" <+> pretty t1 <+> "is not a subtype of" <+> pretty t2
 
 
+unRef :: Type (Ref a Type) -> Type (Ref a Type)
+unRef (RefT (Ref _ t)) = unRef t
+unRef t = t
+
+isNat8 :: Type (Ref a Type) -> Bool
+isNat8 (RefT (Ref _ t)) = isNat8 t
+isNat8 Nat8T = True
+isNat8 _ = False
+
 -- | `null <: t`?
-isOptLike :: Type a -> Bool
+isOptLike :: Type (Ref a Type) -> Bool
+isOptLike (RefT (Ref _ t)) = isOptLike t
 isOptLike NullT = True
 isOptLike (OptT _) = True
 isOptLike ReservedT = True
-isOptLike _ = True
+isOptLike _ = False
 
