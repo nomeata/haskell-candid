@@ -1,6 +1,6 @@
 cabal-version:      >=1.10
 name:               candid
-version:            0.1
+version:            0.2
 license:            Apache
 license-file:       LICENSE
 maintainer:         mail@joachim-breitner.de
