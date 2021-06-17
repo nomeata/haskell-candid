@@ -332,8 +332,8 @@ instance CandidVal Principal where
     fromCandidVal' (PrincipalV t) = return t
     fromCandidVal' v = cannotCoerce "principal" v
 
-instance Candid ServiceRef
-instance CandidVal ServiceRef where
+instance CandidRow r => Candid ServiceRef
+instance CandidRow r => CandidVal (ServiceRef r) where
     asType = ServiceT [] -- TODO
     toCandidVal' (ServiceRef p) = ServiceV p
     fromCandidVal' (ServiceV p) = return (ServiceRef p)
