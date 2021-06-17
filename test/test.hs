@@ -36,7 +36,6 @@ import Data.Either
 import GHC.Int
 import GHC.Word
 import Numeric.Natural
-import Control.Monad
 import GHC.Generics (Generic)
 import Data.Text.Prettyprint.Doc
 import Data.Row
@@ -149,9 +148,6 @@ instance Monad m => Serial m T.Text where
 
 instance (Monad m, Serial m a) => Serial m (V.Vector a) where
     series = V.fromList <$> series
-
-instance Monad m => Serial m Void where
-    series = mzero
 
 parseTest :: HasCallStack => String -> DidFile -> TestTree
 parseTest c e = testCase c $

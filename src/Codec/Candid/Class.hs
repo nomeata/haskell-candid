@@ -26,14 +26,14 @@ import qualified Data.ByteString as SBS
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Builder as B
 import Data.Row
-import Data.Row.Internal (Row(R), LT((:->)), metamorph)
 import qualified Data.Row.Records as R
 import qualified Data.Row.Internal as R
 import qualified Data.Row.Dictionaries as R
 import qualified Data.Row.Variants as V
+import Data.Row.Internal (metamorph)
 import Control.Monad.State.Lazy
 import Control.Monad.Trans.Error
-import Control.Applicative ((<|>), Alternative)
+import Control.Applicative ((<|>))
 import Data.Functor.Const
 import Data.Bifunctor
 import Data.Proxy
@@ -43,7 +43,6 @@ import Data.Word
 import Data.Int
 import Data.Void
 import Data.Text.Prettyprint.Doc
-import Data.Constraint ((\\))
 import Language.Haskell.TH (mkName, tupleDataName)
 import Language.Haskell.TH.Lib
   ( appT, tupleT, varT, litT, strTyLit
@@ -384,16 +383,16 @@ instance CandidVal () where
 -- row-types integration
 
 fieldOfRow :: forall r. Forall r Candid => Fields (Ref TypeRep Type)
-fieldOfRow = getConst $ metamorph @_ @r @Candid @(Const ()) @(Const (Fields (Ref TypeRep Type))) @Proxy Proxy doNil doUncons doCons (Const ())
+fieldOfRow = getConst $ metamorph @_ @r @Candid @(,) @(Const ()) @(Const (Fields (Ref TypeRep Type))) @Proxy Proxy doNil doUncons doCons (Const ())
       where
         doNil :: Const () Empty -> Const (Fields (Ref TypeRep Type)) Empty
         doNil = const $ Const []
-        doUncons :: forall l t r. (KnownSymbol l)
-                 => Label l -> Const () ('R (l ':-> t ': r)) -> (Proxy t, Const () ('R r))
-        doUncons _ _ = (Proxy, Const ())
+        doUncons :: forall l t r. (KnownSymbol l, Candid t, HasType l t r)
+                 => Label l -> Const () r -> (Const () (r .- l), Proxy t)
+        doUncons _ _ = (Const (), Proxy)
         doCons :: forall l t r. (KnownSymbol l, Candid t)
-               => Label l -> Proxy t -> Const (Fields (Ref TypeRep Type)) ('R r) -> Const (Fields (Ref TypeRep Type)) ('R (l ':-> t ': r))
-        doCons l Proxy (Const lst) = Const $ (unescapeFieldName (R.toKey l), asType' @t) : lst
+               => Label l -> (Const (Fields (Ref TypeRep Type)) r, Proxy t) -> Const (Fields (Ref TypeRep Type)) (R.Extend l t r)
+        doCons l (Const lst, Proxy) = Const $ (unescapeFieldName (R.toKey l), asType' @t) : lst
 
 
 type CandidRow r = (Typeable r, AllUniqueLabels r, AllUniqueLabels (V.Map (Either String) r), Forall r Candid, Forall r R.Unconstrained1)
@@ -427,21 +426,12 @@ instance CandidRow r => CandidVal (V.Var r) where
 
     fromCandidVal' (VariantV f v) = do
         needle :: V.Var (V.Map (Either DeserializeError) r) <-
-            (fromLabelsMapA @Candid @_ @_ @r $ \l -> do
+            (V.fromLabelsMap @Candid @_ @_ @r $ \l -> do
                 guard (f == unescapeFieldName (R.toKey l))
                 return $ fromCandidVal'' v
             ) <|> unexpectedTag f
         V.sequence (needle :: V.Var (V.Map (Either DeserializeError) r))
     fromCandidVal' v = cannotCoerce "variant" v
-
--- https://github.com/target/row-types/issues/66
-fromLabelsMapA :: forall c f g ρ. (Alternative f, Forall ρ c, AllUniqueLabels ρ)
-               => (forall l a. (KnownSymbol l, c a) => Label l -> f (g a)) -> f (V.Var (V.Map g ρ))
-fromLabelsMapA f = V.fromLabels @(R.IsA c g) @(V.Map g ρ) @f inner
-                \\ R.mapForall @g @c @ρ
-                \\ R.uniqueMap @g @ρ
-   where inner :: forall l a. (KnownSymbol l, R.IsA c g a) => Label l -> f a
-         inner l = case R.as @c @g @a of R.As -> f l
 
 
 -- Derived forms
