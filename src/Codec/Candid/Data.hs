@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DataKinds #-}
 -- | A few extra data types
 module Codec.Candid.Data where
 
@@ -6,6 +8,7 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Builder as BS
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.Row.Internal as R
 import Data.Digest.CRC
 import Data.Digest.CRC32
 import Data.ByteString.Base32
@@ -40,7 +43,7 @@ parsePrincipal s = do
         Left $ "Principal id " ++ show s ++ " malformed; did you mean " ++ show expected ++ "?"
     return p
 
-newtype ServiceRef r = ServiceRef { rawServiceRef :: Principal }
+newtype ServiceRef (r :: R.Row *) = ServiceRef { rawServiceRef :: Principal }
  deriving (Eq, Ord, Show)
 
 data FuncRef a r = FuncRef { service :: Principal, method :: T.Text }

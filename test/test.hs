@@ -23,7 +23,6 @@
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as B
-import qualified Data.ByteString.Builder as B
 import qualified Data.Vector as V hiding (singleton)
 import Test.Tasty
 import Test.Tasty.Ingredients.Rerun
@@ -214,7 +213,7 @@ withSomeTypes groupName mkTest =
     , mkTest (Proxy @(Rec ("a" .== Bool .+ "b" .== Bool .+ "c" .== Bool)))
     , mkTest (Proxy @(V.Var ("upgrade" .== () .+ "reinstall" .== () .+ "install" .== ())))
     , mkTest (Proxy @(FuncRef Bool T.Text))
-    , mkTest (Proxy @ServiceRef)
+    , mkTest (Proxy @(ServiceRef Empty))
     ]
 
 tests :: TestTree
@@ -258,12 +257,8 @@ tests = testGroup "tests"
         decode @a (encode @a v)
   , roundTripTestGroup "Haskell → [Value] → Haskell" $ \(v :: a) ->
         fromCandidVals (toCandidVals @a v)
-  , roundTripTestGroup "Haskell → [Value] → Candid → Haskell" $ \(v :: a) ->
-        encodeDynValues (toCandidVals @a v) >>= decode @a . B.toLazyByteString
   , roundTripTestGroup "Haskell → [Value] → Textual → [Value] → Haskell" $ \(v :: a) ->
         parseValues (show (pretty (toCandidVals @a v))) >>= fromCandidVals @a
-  , roundTripTestGroup "Haskell → [Value] → Textual → [Value] → Candid → Haskell" $ \(v :: a) ->
-        parseValues (show (pretty (toCandidVals @a v))) >>= encodeDynValues >>= decode @a . B.toLazyByteString
 
   , testGroup "subtype smallchecks"
     [ subTypProp @Natural @Natural
@@ -362,13 +357,13 @@ tests = testGroup "tests"
     , t "blob \"hello\"" ("hello" :: BS.ByteString)
     , t "blob \"\\00\\ff\"" ("\x00\xff" :: BS.ByteString)
     , t "func \"psokg-ww6vw-7o6\".\"foo\""
-        (FuncRef @() @() (ServiceRef (Principal "\xde\xad\xbe\xef")) "foo")
+        (FuncRef @() @() (Principal "\xde\xad\xbe\xef") "foo")
     , t "func \"psokg-ww6vw-7o6\".foo"
-        (FuncRef @() @() (ServiceRef (Principal "\xde\xad\xbe\xef")) "foo")
+        (FuncRef @() @() (Principal "\xde\xad\xbe\xef") "foo")
     , t "func \"psokg-ww6vw-7o6\".\"\""
-        (FuncRef @() @() (ServiceRef (Principal "\xde\xad\xbe\xef")) "")
+        (FuncRef @() @() (Principal "\xde\xad\xbe\xef") "")
     , t "service \"psokg-ww6vw-7o6\""
-        (ServiceRef (Principal "\xde\xad\xbe\xef"))
+        (ServiceRef @Empty (Principal "\xde\xad\xbe\xef"))
     , t "principal \"psokg-ww6vw-7o6\""
         (Principal "\xde\xad\xbe\xef")
 
@@ -426,7 +421,7 @@ instance Monad m => Serial m Reserved where
 instance Monad m => Serial m (FuncRef a r) where
     series = FuncRef <$> series <*> series
 
-instance Monad m => Serial m ServiceRef where
+instance Monad m => Serial m (ServiceRef r) where
     series = ServiceRef <$> series
 
 instance (Monad m, Forall r (Serial m), AllUniqueLabels r) => Serial m (Rec r) where

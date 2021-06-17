@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -332,9 +333,9 @@ instance CandidVal Principal where
     fromCandidVal' (PrincipalV t) = return t
     fromCandidVal' v = cannotCoerce "principal" v
 
-instance CandidRow r => Candid ServiceRef
-instance CandidRow r => CandidVal (ServiceRef r) where
-    asType = ServiceT [] -- TODO
+instance CandidMethodsRow r => Candid (ServiceRef r)
+instance CandidMethodsRow r => CandidVal (ServiceRef r) where
+    asType = ServiceT (methodsOfRow @r)
     toCandidVal' (ServiceRef p) = ServiceV p
     fromCandidVal' (ServiceV p) = return (ServiceRef p)
     fromCandidVal' v = cannotCoerce "service" v
@@ -342,8 +343,8 @@ instance CandidRow r => CandidVal (ServiceRef r) where
 instance (CandidArg as, CandidArg rs) => Candid (FuncRef as rs)
 instance (CandidArg as, CandidArg rs) => CandidVal (FuncRef as rs) where
     asType = FuncT (asTypes @(AsTuple as)) (asTypes @(AsTuple rs))
-    toCandidVal' (FuncRef (ServiceRef p) n) = FuncV p n
-    fromCandidVal' (FuncV p n) = return (FuncRef (ServiceRef p) n)
+    toCandidVal' (FuncRef p n) = FuncV p n
+    fromCandidVal' (FuncV p n) = return (FuncRef p n)
     fromCandidVal' v = cannotCoerce "func" v
 
 instance Candid Reserved
@@ -389,8 +390,8 @@ instance CandidVal () where
 
 -- row-types integration
 
-fieldOfRow :: forall r. Forall r Candid => Fields (Ref TypeRep Type)
-fieldOfRow = getConst $ metamorph @_ @r @Candid @(Const ()) @(Const (Fields (Ref TypeRep Type))) @Proxy Proxy doNil doUncons doCons (Const ())
+fieldsOfRow :: forall r. Forall r Candid => Fields (Ref TypeRep Type)
+fieldsOfRow = getConst $ metamorph @_ @r @Candid @(Const ()) @(Const (Fields (Ref TypeRep Type))) @Proxy Proxy doNil doUncons doCons (Const ())
       where
         doNil :: Const () Empty -> Const (Fields (Ref TypeRep Type)) Empty
         doNil = const $ Const []
@@ -399,14 +400,38 @@ fieldOfRow = getConst $ metamorph @_ @r @Candid @(Const ()) @(Const (Fields (Ref
         doUncons _ _ = (Proxy, Const ())
         doCons :: forall l t r. (KnownSymbol l, Candid t)
                => Label l -> Proxy t -> Const (Fields (Ref TypeRep Type)) ('R r) -> Const (Fields (Ref TypeRep Type)) ('R (l ':-> t ': r))
-        doCons l Proxy (Const lst) = Const $ (unescapeFieldName (R.toKey l), asType' @t) : lst
+        doCons l Proxy (Const lst)
+            = Const $ (unescapeFieldName (R.toKey l), asType' @t) : lst
+
+class CandidMethodType a where
+    asArgTypes :: [Type (Ref TypeRep Type)]
+    asResTypes :: [Type (Ref TypeRep Type)]
+
+instance (CandidArg a, CandidArg b) => CandidMethodType (a,b) where
+    asArgTypes = asTypes @(AsTuple a)
+    asResTypes = asTypes @(AsTuple b)
+
+methodsOfRow :: forall r. Forall r CandidMethodType => [DidMethod (Ref TypeRep Type)]
+methodsOfRow = getConst $ metamorph @_ @r @CandidMethodType @(Const ()) @(Const [DidMethod (Ref TypeRep Type)]) @Proxy Proxy doNil doUncons doCons (Const ())
+      where
+        doNil :: Const () Empty -> Const [DidMethod (Ref TypeRep Type)] Empty
+        doNil = const $ Const []
+        doUncons :: forall l t r. (KnownSymbol l)
+                 => Label l -> Const () ('R (l ':-> t ': r)) -> (Proxy t, Const () ('R r))
+        doUncons _ _ = (Proxy, Const ())
+        doCons :: forall l t r. (KnownSymbol l, CandidMethodType t)
+               => Label l -> Proxy t -> Const [DidMethod (Ref TypeRep Type)] ('R r) -> Const [DidMethod (Ref TypeRep Type)] ('R (l ':-> t ': r))
+        doCons l Proxy (Const lst)
+            = Const $ DidMethod (R.toKey l) (asArgTypes @t) (asResTypes @t) : lst
+
 
 
 type CandidRow r = (Typeable r, AllUniqueLabels r, AllUniqueLabels (V.Map (Either String) r), Forall r Candid, Forall r R.Unconstrained1)
+type CandidMethodsRow r = (Typeable r, AllUniqueLabels r, AllUniqueLabels (V.Map (Either String) r), Forall r CandidMethodType, Forall r R.Unconstrained1)
 
 instance CandidRow r => Candid (Rec r)
 instance CandidRow r => CandidVal (Rec r) where
-    asType = RecT $ fieldOfRow @r
+    asType = RecT $ fieldsOfRow @r
 
     toCandidVal' = do
         RecV . fmap (first unescapeFieldName) . R.eraseWithLabels @Candid @r @T.Text @Value toCandidVal
@@ -426,7 +451,7 @@ instance CandidRow r => CandidVal (Rec r) where
 
 instance CandidRow r => Candid (V.Var r)
 instance CandidRow r => CandidVal (V.Var r) where
-    asType = VariantT $ fieldOfRow @r
+    asType = VariantT $ fieldsOfRow @r
 
     toCandidVal' v = VariantV (unescapeFieldName t) val
       where (t, val) = V.eraseWithLabels @Candid toCandidVal v

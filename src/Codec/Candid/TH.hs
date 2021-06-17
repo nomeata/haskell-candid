@@ -126,12 +126,21 @@ row :: TypeQ -> TypeQ -> TypeQ -> Fields TH.Name -> TypeQ
 row eq add = foldr (\(fn, t) rest -> [t|
     $add ($eq $(fieldName fn) $(typ t)) $rest
   |])
+  where
+    fieldName :: FieldName -> TypeQ
+    fieldName f = litT (strTyLit (T.unpack (escapeFieldName f)))
+
+mrow :: TypeQ -> TypeQ -> TypeQ -> [DidMethod TH.Name] -> TypeQ
+mrow eq add = foldr (\(DidMethod m a b) rest -> [t|
+    $add ($eq $(methodName m) ($(candidTypeQ a), $(candidTypeQ b))) $rest
+  |])
+  where
+    methodName :: T.Text -> TypeQ
+    methodName f = litT (strTyLit (T.unpack f))
 
 mkTupleT :: [TypeQ] -> TypeQ
 mkTupleT ts = foldl appT (tupleT (length ts)) ts
 
-fieldName :: FieldName -> TypeQ
-fieldName f = litT (strTyLit (T.unpack (escapeFieldName f)))
 
 typ :: Type TH.Name -> TypeQ
 typ NatT = [t| Natural |]
@@ -160,7 +169,7 @@ typ (RecT fs)
  | otherwise = [t| R.Rec $(row [t| (R..==) |] [t| (R..+) |] [t| R.Empty |] fs) |]
 typ (VariantT fs) = [t| V.Var $(row [t| (V..==) |] [t| (V..+) |] [t| V.Empty |] fs) |]
 typ (FuncT as rs) = [t| FuncRef $(candidTypeQ as) $(candidTypeQ rs) |]
-typ (ServiceT _) = [t| ServiceRef |]
+typ (ServiceT ms) = [t| ServiceRef $(mrow [t| (R..==) |] [t| (R..+) |] [t| R.Empty |] ms) |]
 typ (RefT v) = conT v
 
 isTuple :: [(FieldName, b)] -> Bool
