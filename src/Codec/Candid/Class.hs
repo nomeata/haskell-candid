@@ -28,7 +28,6 @@ import qualified Data.ByteString.Builder as B
 import Data.Row
 import qualified Data.Row.Records as R
 import qualified Data.Row.Internal as R
-import qualified Data.Row.Dictionaries as R
 import qualified Data.Row.Variants as V
 import Data.Row.Internal (metamorph)
 import Control.Monad.State.Lazy
@@ -508,4 +507,3 @@ instance (Candid a, Candid b) => Candid (Either a b) where
     fromCandid v = switch v $ empty
         .+ Label @"Left" .== Left
         .+ Label @"Right" .== Right
-
