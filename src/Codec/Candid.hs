@@ -376,7 +376,7 @@ This library allows the parsing and pretty-printing of candid values. The binary
 
 If you know Candid well you might be surprised to see the fieldnames here, becuase the Candid binary format does actually transmit the field name, but only a hash. This library tries to invert this hash, trying to find the shortest field name consisting of lower case letters and underscores that is equivalent to it. It does not work always:
 
->>> let Right vs = decodeVals $ encode (#stopped .== True .+ #canister_id .== Principal (BS.pack []))
+>>> let Right (_typs, vs) = decodeVals $ encode (#stopped .== True .+ #canister_id .== Principal (BS.pack []))
 >>> pretty vs
 (record {stopped = true; hymijyo = principal "aaaaa-aa"})
 
