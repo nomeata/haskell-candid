@@ -370,7 +370,7 @@ This library allows the parsing and pretty-printing of candid values. The binary
 >>> import Data.Row
 >>> :set -XDataKinds -XTypeOperators
 >>> let bytes = encode (#bar .== Just 100 .+ #foo .== [True,False])
->>> let Right vs = decodeVals bytes
+>>> let Right (_typs, vs) = decodeVals bytes
 >>> pretty vs
 (record {bar = opt +100; foo = vec {true; false}})
 
