@@ -88,7 +88,7 @@ toCandidVals = seqVal . asTuple
 
 -- | The class of types that can be used as Candid argument sequences.
 -- Essentially all types that are in 'Candid', but tuples need to be treated specially.
-type CandidArg a = (CandidSeq (AsTuple a), Tuplable a)
+type CandidArg a = (CandidSeq (AsTuple a), Tuplable a, Typeable a)
 
 
 class CandidSeq a where
@@ -339,9 +339,9 @@ instance CandidVal ServiceRef where
     fromCandidVal' (ServiceV p) = return (ServiceRef p)
     fromCandidVal' v = cannotCoerce "service" v
 
-instance Candid FuncRef
-instance CandidVal FuncRef where
-    asType = FuncT [] []-- TODO
+instance (CandidArg as, CandidArg rs) => Candid (FuncRef as rs)
+instance (CandidArg as, CandidArg rs) => CandidVal (FuncRef as rs) where
+    asType = FuncT (asTypes @(AsTuple as)) (asTypes @(AsTuple rs))
     toCandidVal' (FuncRef (ServiceRef p) n) = FuncV p n
     fromCandidVal' (FuncV p n) = return (FuncRef (ServiceRef p) n)
     fromCandidVal' v = cannotCoerce "func" v

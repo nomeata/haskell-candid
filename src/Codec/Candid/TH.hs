@@ -159,7 +159,7 @@ typ (RecT fs)
  | isTuple fs = mkTupleT (map (typ . snd) fs)
  | otherwise = [t| R.Rec $(row [t| (R..==) |] [t| (R..+) |] [t| R.Empty |] fs) |]
 typ (VariantT fs) = [t| V.Var $(row [t| (V..==) |] [t| (V..+) |] [t| V.Empty |] fs) |]
-typ (FuncT _ _) = [t| FuncRef |]
+typ (FuncT as rs) = [t| FuncRef $(candidTypeQ as) $(candidTypeQ rs) |]
 typ (ServiceT _) = [t| ServiceRef |]
 typ (RefT v) = conT v
 

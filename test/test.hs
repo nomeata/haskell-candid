@@ -213,7 +213,7 @@ withSomeTypes groupName mkTest =
     , mkTest (Proxy @SimpleRecord)
     , mkTest (Proxy @(Rec ("a" .== Bool .+ "b" .== Bool .+ "c" .== Bool)))
     , mkTest (Proxy @(V.Var ("upgrade" .== () .+ "reinstall" .== () .+ "install" .== ())))
-    , mkTest (Proxy @FuncRef)
+    , mkTest (Proxy @(FuncRef Bool T.Text))
     , mkTest (Proxy @ServiceRef)
     ]
 
@@ -362,11 +362,11 @@ tests = testGroup "tests"
     , t "blob \"hello\"" ("hello" :: BS.ByteString)
     , t "blob \"\\00\\ff\"" ("\x00\xff" :: BS.ByteString)
     , t "func \"psokg-ww6vw-7o6\".\"foo\""
-        (FuncRef (ServiceRef (Principal "\xde\xad\xbe\xef")) "foo")
+        (FuncRef @() @() (ServiceRef (Principal "\xde\xad\xbe\xef")) "foo")
     , t "func \"psokg-ww6vw-7o6\".foo"
-        (FuncRef (ServiceRef (Principal "\xde\xad\xbe\xef")) "foo")
+        (FuncRef @() @() (ServiceRef (Principal "\xde\xad\xbe\xef")) "foo")
     , t "func \"psokg-ww6vw-7o6\".\"\""
-        (FuncRef (ServiceRef (Principal "\xde\xad\xbe\xef")) "")
+        (FuncRef @() @() (ServiceRef (Principal "\xde\xad\xbe\xef")) "")
     , t "service \"psokg-ww6vw-7o6\""
         (ServiceRef (Principal "\xde\xad\xbe\xef"))
     , t "principal \"psokg-ww6vw-7o6\""
@@ -423,7 +423,7 @@ instance Monad m => Serial m Principal where
 instance Monad m => Serial m Reserved where
     series = Reserved <$ series @m @()
 
-instance Monad m => Serial m FuncRef where
+instance Monad m => Serial m (FuncRef a r) where
     series = FuncRef <$> series <*> series
 
 instance Monad m => Serial m ServiceRef where
