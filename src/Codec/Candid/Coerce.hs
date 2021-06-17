@@ -197,18 +197,12 @@ go (VariantT fs1) (VariantT fs2) = do
         v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing variant"
 
 -- Reference types
-go (FuncT ta1 tr1) (FuncT ta2 tr2) = do
-    void $ flipM $ goSeq ta2 ta1
-    void $ goSeq tr1 tr2
-    pure pure
+go (FuncT mt1) (FuncT mt2) = goMethodType mt1 mt2 >> pure pure
 go (ServiceT meths1) (ServiceT meths2) = do
-    let m1 = M.fromList [(m, (ta, tr)) | DidMethod m ta tr <- meths1 ]
-    forM_ meths2 $ \(DidMethod m ta2 tr2) -> do
-        case M.lookup m m1 of
-            Just (ta1, tr1) -> do
-                void $ flipM $ goSeq ta2 ta1
-                void $ goSeq tr1 tr2
-            Nothing -> throwError $ show $ "Missing service method" <+> pretty m <+> "of type" <+> pretty (FuncT ta2 tr2)
+    let m1 = M.fromList meths1
+    forM_ meths2 $ \(m, mt2) -> case M.lookup m m1 of
+        Just mt1 -> goMethodType mt1 mt2
+        Nothing -> throwError $ show $ "Missing service method" <+> pretty m <+> "of type" <+> pretty mt2
     pure pure
 
 -- BlobT
@@ -225,6 +219,16 @@ go BlobT (VecT t) | isNat8 t = pure $ \case
 
 go t1 t2 = throwError $ show $ "Type" <+> pretty t1 <+> "is not a subtype of" <+> pretty t2
 
+goMethodType ::
+    (Pretty k2, Pretty k1, Ord k2, Ord k1) =>
+    MethodType (Ref k1 Type) ->
+    MethodType (Ref k2 Type) ->
+    M k1 k2 ()
+goMethodType (MethodType ta1 tr1 q1 o1) (MethodType ta2 tr2 q2 o2) = do
+    unless (q1 == q2) $ throwError "Methods differ in query annotation"
+    unless (o1 == o2) $ throwError "Methods differ in oneway annotation"
+    void $ flipM $ goSeq ta2 ta1
+    void $ goSeq tr1 tr2
 
 goSeq _ []  = pure (const (return []))
 goSeq ts1 (RefT (Ref _ t) : ts) = goSeq ts1 (t:ts)

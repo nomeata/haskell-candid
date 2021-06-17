@@ -83,6 +83,8 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
  , parsePrincipal
  , Reserved(..)
  , FuncRef(..)
+ , AnnTrue
+ , AnnFalse
  , ServiceRef(..)
 
 -- ** Generics
@@ -106,6 +108,7 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 -- ** Types and values
 
  , Type(..)
+ , MethodType(..)
  , Fields
  , FieldName
  , labledField

@@ -36,8 +36,8 @@ data Type a
     | RecT (Fields a)
     | VariantT (Fields a)
     -- reference
-    | FuncT [Type a] [Type a]
-    | ServiceT [DidMethod a]
+    | FuncT (MethodType a)
+    | ServiceT [(T.Text, MethodType a)]
     | PrincipalT
     -- short-hands
     | BlobT
@@ -78,10 +78,14 @@ instance Monad Type where
     VecT t >>= f = VecT (t >>= f)
     RecT fs >>= f = RecT (map (second (>>= f)) fs)
     VariantT fs >>= f = VariantT (map (second (>>= f)) fs)
-    FuncT as bs >>= f = FuncT (map (>>= f) as) (map (>>= f) bs)
-    ServiceT ms >>= f = ServiceT (map f' ms)
-      where f' (DidMethod n as bs) = DidMethod n (map (>>= f) as) (map (>>= f) bs)
+    FuncT mt >>= f = FuncT (bindMethodType f mt)
+    ServiceT ms >>= f = ServiceT (map (second (bindMethodType f)) ms)
     RefT x >>= f = f x
+
+bindMethodType :: (a -> Type b) -> MethodType a -> MethodType b
+bindMethodType f (MethodType as bs q ow) =
+   MethodType (map (>>= f) as) (map (>>= f) bs) q ow
+
 
 type Fields a = [(FieldName, Type a)]
 
@@ -111,9 +115,9 @@ instance Pretty a => Pretty (Type a) where
     pretty (VariantT fs) = "variant" <+> prettyFields True fs
     pretty (RefT a) = pretty a
     pretty BlobT = "blob"
-    pretty (FuncT as bs) = "func" <+> pretty as <+> "->" <+> pretty bs
+    pretty (FuncT mt) = "func" <+> pretty mt
     pretty (ServiceT s) =
-        "service" <+> ":" <+> braces (group (align (vsep $ pretty <$> s)))
+        "service" <+> ":" <+> braces (group (align (vsep $ prettyMeth <$> s)))
     pretty PrincipalT = "principal"
 
     prettyList = encloseSep lparen rparen (comma <> space) . map pretty
@@ -251,14 +255,15 @@ primTyp _     = Nothing
 -- | A candid service, as a list of methods with argument and result types
 --
 -- (no support for annotations like query yet)
-data DidMethod a = DidMethod
-    { methodName :: T.Text
-    , methodParams :: [Type a]
-    , methodResults :: [Type a]
+data MethodType a = MethodType
+    { methParams :: [Type a]
+    , methResults :: [Type a]
+    , methQuery :: Bool
+    , methOneway :: Bool
     }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 type TypeName = T.Text
-type DidService a = [ DidMethod a ]
+type DidService a = [(T.Text, MethodType a)]
 type DidDef a = (a, Type a)
 data DidFile = DidFile
     { defs :: [ DidDef TypeName ]
@@ -266,15 +271,23 @@ data DidFile = DidFile
     }
   deriving (Eq, Show)
 
-instance Pretty a => Pretty (DidMethod a) where
-  pretty (DidMethod name params results) =
-    pretty name <+> colon <+> pretty params <+> "->" <+> pretty results <> semi
+instance Pretty a => Pretty (MethodType a) where
+  pretty (MethodType params results q o) = sep $
+      [ pretty params
+      , "->"
+      , pretty results
+      ] <>
+      [ "query" | q ] <>
+      [ "oneway" | o ]
 
 prettyDef :: Pretty a => DidDef a -> Doc ann
 prettyDef (tn, t) = "type" <+> pretty tn <+> "=" <+> pretty t <> semi
 
+prettyMeth :: Pretty a => (T.Text, MethodType a) -> Doc ann
+prettyMeth (n, t) = pretty n <+> colon <+> pretty t <> semi
+
 instance Pretty DidFile where
   pretty (DidFile defs s) = vsep $
     (prettyDef <$> defs) ++
-    [ "service" <+> ":" <+> braces (group (align (vsep $ pretty <$> s))) ]
+    [ "service" <+> ":" <+> braces (group (align (vsep $ prettyMeth <$> s))) ]
 

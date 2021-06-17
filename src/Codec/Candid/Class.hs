@@ -340,9 +340,9 @@ instance CandidMethodsRow r => CandidVal (ServiceRef r) where
     fromCandidVal' (ServiceV p) = return (ServiceRef p)
     fromCandidVal' v = cannotCoerce "service" v
 
-instance (CandidArg as, CandidArg rs) => Candid (FuncRef as rs)
-instance (CandidArg as, CandidArg rs) => CandidVal (FuncRef as rs) where
-    asType = FuncT (asTypes @(AsTuple as)) (asTypes @(AsTuple rs))
+instance (CandidMethodType mt) => Candid (FuncRef mt)
+instance (CandidMethodType mt) => CandidVal (FuncRef mt) where
+    asType = FuncT (asMethodType @mt)
     toCandidVal' (FuncRef p n) = FuncV p n
     fromCandidVal' (FuncV p n) = return (FuncRef p n)
     fromCandidVal' v = cannotCoerce "func" v
@@ -403,28 +403,30 @@ fieldsOfRow = getConst $ metamorph @_ @r @Candid @(Const ()) @(Const (Fields (Re
         doCons l Proxy (Const lst)
             = Const $ (unescapeFieldName (R.toKey l), asType' @t) : lst
 
-class CandidMethodType a where
-    asArgTypes :: [Type (Ref TypeRep Type)]
-    asResTypes :: [Type (Ref TypeRep Type)]
+class Typeable a => KnownAnnotation a where isTrue :: Bool
+data AnnTrue
+data AnnFalse
+instance KnownAnnotation AnnTrue where isTrue = True
+instance KnownAnnotation AnnFalse where isTrue = False
 
-instance (CandidArg a, CandidArg b) => CandidMethodType (a,b) where
-    asArgTypes = asTypes @(AsTuple a)
-    asResTypes = asTypes @(AsTuple b)
+class Typeable a => CandidMethodType a where
+    asMethodType :: MethodType (Ref TypeRep Type)
 
-methodsOfRow :: forall r. Forall r CandidMethodType => [DidMethod (Ref TypeRep Type)]
-methodsOfRow = getConst $ metamorph @_ @r @CandidMethodType @(Const ()) @(Const [DidMethod (Ref TypeRep Type)]) @Proxy Proxy doNil doUncons doCons (Const ())
+instance (CandidArg a, CandidArg b, KnownAnnotation q, KnownAnnotation o) => CandidMethodType (a, b, q, o) where
+    asMethodType = MethodType (asTypes @(AsTuple a)) (asTypes @(AsTuple b)) (isTrue @q) (isTrue @o)
+
+methodsOfRow :: forall r. Forall r CandidMethodType => [(T.Text, MethodType (Ref TypeRep Type))]
+methodsOfRow = getConst $ metamorph @_ @r @CandidMethodType @(Const ()) @(Const [(T.Text, MethodType (Ref TypeRep Type))]) @Proxy Proxy doNil doUncons doCons (Const ())
       where
-        doNil :: Const () Empty -> Const [DidMethod (Ref TypeRep Type)] Empty
+        doNil :: Const () Empty -> Const [(T.Text, MethodType (Ref TypeRep Type))] Empty
         doNil = const $ Const []
         doUncons :: forall l t r. (KnownSymbol l)
                  => Label l -> Const () ('R (l ':-> t ': r)) -> (Proxy t, Const () ('R r))
         doUncons _ _ = (Proxy, Const ())
         doCons :: forall l t r. (KnownSymbol l, CandidMethodType t)
-               => Label l -> Proxy t -> Const [DidMethod (Ref TypeRep Type)] ('R r) -> Const [DidMethod (Ref TypeRep Type)] ('R (l ':-> t ': r))
+               => Label l -> Proxy t -> Const [(T.Text, MethodType (Ref TypeRep Type))] ('R r) -> Const [(T.Text, MethodType (Ref TypeRep Type))] ('R (l ':-> t ': r))
         doCons l Proxy (Const lst)
-            = Const $ DidMethod (R.toKey l) (asArgTypes @t) (asResTypes @t) : lst
-
-
+            = Const $ (R.toKey l, asMethodType @t) : lst
 
 type CandidRow r = (Typeable r, AllUniqueLabels r, AllUniqueLabels (V.Map (Either String) r), Forall r Candid, Forall r R.Unconstrained1)
 type CandidMethodsRow r = (Typeable r, AllUniqueLabels r, AllUniqueLabels (V.Map (Either String) r), Forall r CandidMethodType, Forall r R.Unconstrained1)

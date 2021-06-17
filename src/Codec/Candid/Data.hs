@@ -46,6 +46,6 @@ parsePrincipal s = do
 newtype ServiceRef (r :: R.Row *) = ServiceRef { rawServiceRef :: Principal }
  deriving (Eq, Ord, Show)
 
-data FuncRef a r = FuncRef { service :: Principal, method :: T.Text }
+data FuncRef r = FuncRef { service :: Principal, method :: T.Text }
  deriving (Eq, Ord, Show)
 

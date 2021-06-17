@@ -92,7 +92,7 @@ encodeVal (VariantT fs) (VariantV f x) =
     fs' = sortOn fst fs
 encodeVal (ServiceT _) (ServiceV (Principal s))
     = B.int8 1 <> encodeBytes s
-encodeVal (FuncT _ _) (FuncV (Principal s) n)
+encodeVal (FuncT _) (FuncV (Principal s) n)
     = B.int8 1 <> B.int8 1 <> encodeBytes s <> encodeText n
 encodeVal PrincipalT (PrincipalV (Principal s))
     = B.int8 1 <> encodeBytes s
@@ -168,21 +168,11 @@ typTable (SeqDesc m (ts :: [Type k])) = mconcat
       VariantT fs -> addCon t $ recordLike (-21) fs
 
       -- References
-      FuncT as bs -> addCon t $ do
-        ais <- mapM go as
-        bis <- mapM go bs
-        return $ mconcat
-          [ buildSLEB128 @Integer (-22)
-          , leb128Len ais
-          , foldMap buildSLEB128 ais
-          , leb128Len bis
-          , foldMap buildSLEB128 bis
-          , buildLEB128 @Natural 0  -- NB: No anontations
-          ]
+      FuncT mt -> addCon t $ goMethod mt
 
       ServiceT ms -> addCon t $ do
-        ms' <- forM ms $ \(DidMethod n as bs) -> do
-          ti <- go (FuncT as bs)
+        ms' <- forM ms $ \(n, mt) -> do
+          ti <- go (FuncT mt)
           return (n, ti)
         return $ mconcat
           [ buildSLEB128 @Integer (-23)
@@ -198,6 +188,22 @@ typTable (SeqDesc m (ts :: [Type k])) = mconcat
         return $ buildSLEB128 @Integer (-19) <> buildSLEB128 @Integer (-5)
 
       RefT t -> go (m M.! t)
+
+    goMethod (MethodType as bs q o) = do
+        ais <- mapM go as
+        bis <- mapM go bs
+        return $ mconcat
+          [ buildSLEB128 @Integer (-22)
+          , leb128Len ais
+          , foldMap buildSLEB128 ais
+          , leb128Len bis
+          , foldMap buildSLEB128 bis
+          , leb128Len anns
+          , mconcat anns
+          ]
+      where
+        anns = [buildLEB128 @Natural 1 | q] ++
+               [buildLEB128 @Natural 2 | o]
 
     goField :: (FieldName, Type k) -> TypTableBuilder k (FieldName, Integer)
     goField (fn, t) = do

@@ -55,6 +55,7 @@ library
         hex-text >=0.1.0.0 && <0.2,
         crc >=0.1.0.0 && <0.2,
         megaparsec >=8 && <9.1,
+        parser-combinators >=1.2 && <1.4,
         scientific >=0.3.6.2 && <0.4,
         cereal >=0.5.8.1 && <0.6,
         leb128-cereal ==1.2.*,
