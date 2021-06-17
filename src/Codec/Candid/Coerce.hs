@@ -13,8 +13,6 @@ import Data.List
 import Control.Monad.State.Lazy
 import Control.Monad.Except
 
-import Debug.Trace
-
 import Codec.Candid.FieldName
 import Codec.Candid.Types
 import Codec.Candid.TypTable
@@ -84,21 +82,16 @@ memo, go ::
 -- Either the following recursive call will fail (but then this optimistic
 -- value was never used), or it will succeed, but then the guess was correct.
 memo t1 t2 = do
-  traceShowM $ "memo1" <+> pretty (t1, t2)
   gets (M.lookup (t1,t2)) >>= \case
     Just c -> pure c
     Nothing -> mdo
-        traceShowM (pretty (t1, t2))
         modify (M.insert (t1,t2) c)
         c <- go t1 t2
-        traceShowM (pretty (t1, t2))
         return c
 
 -- Look through refs
 go (RefT (Ref _ t1)) t2 = memo t1 t2
 go t1 (RefT (Ref _ t2)) = memo t1 t2
-
-go t1 t2 | traceShow ("go:" <+> pretty (t1, t2)) False = undefined
 
 -- Identity coercion for primitive values
 go NatT NatT = pure pure
@@ -146,11 +139,9 @@ go (OptT t1) (OptT t2) = lift (runExceptT (memo t1 t2)) >>= \case
     Left _ -> pure (const (pure (OptV Nothing)))
 
 -- Option: The constituent rule
-go t (OptT t2) | not (isOptLike t2) = do
-    traceShowM $ "t<:optt:" <+> pretty (t, t2)
-    lift (runExceptT (memo t t2)) >>= \case
-        Right c -> pure $ \v -> OptV . Just <$> c v
-        Left _ -> pure (const (pure (OptV Nothing)))
+go t (OptT t2) | not (isOptLike t2) = lift (runExceptT (memo t t2)) >>= \case
+    Right c -> pure $ \v -> OptV . Just <$> c v
+    Left _ -> pure (const (pure (OptV Nothing)))
 -- Option: The fallback rule
 go _ (OptT _) = pure (const (pure (OptV Nothing)))
 
