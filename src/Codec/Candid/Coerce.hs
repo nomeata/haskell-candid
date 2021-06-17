@@ -3,13 +3,21 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Codec.Candid.Coerce where
+module Codec.Candid.Coerce
+  ( coerceSeqDesc
+  , SeqCoercion
+  , coerce
+  , Coercion
+  )
+  where
 
 import Data.Text.Prettyprint.Doc
 import qualified Data.Vector as V
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map as M
+import Data.Bifunctor
 import Data.List
+import Data.Tuple
 import Control.Monad.State.Lazy
 import Control.Monad.Except
 
@@ -26,30 +34,12 @@ coerceSeqDesc sd1 sd2 =
     unrollTypeTable sd2 $ \ts2 ->
     coerceSeq ts1 ts2
 
-coerceSeq :: (Pretty k1, Pretty k2, Ord k1, Ord k2) =>
-    [Type (Ref k1 Type)] -> [Type (Ref k2 Type)] -> Either String SeqCoercion
-coerceSeq _ []  = pure (const (return []))
-coerceSeq ts1 (RefT (Ref _ t) : ts) = coerceSeq ts1 (t:ts)
-coerceSeq ts1@[] (NullT  : ts) = do
-    cs2 <- coerceSeq ts1 ts
-    pure $ \_vs -> (NullV :) <$> cs2 []
-coerceSeq ts1@[] (OptT _ : ts) = do
-    cs2 <- coerceSeq ts1 ts
-    pure $ \_vs -> (OptV Nothing :) <$> cs2 []
-coerceSeq ts1@[] (ReservedT : ts) = do
-    cs2 <- coerceSeq ts1 ts
-    pure $ \_vs -> (ReservedV :) <$> cs2 []
-coerceSeq [] ts =
-    Left $ show $ "Argument type list too short, expecting types" <+> pretty ts
-coerceSeq (t1:ts1) (t2:ts2) = do
-    c1 <- coerce t1 t2
-    cs2 <- coerceSeq ts1 ts2
-    pure $ \case
-        [] -> Left $ show $ "Expecting value of type:" <+> pretty t1
-        (v:vs) -> do
-            v' <- c1 v
-            vs' <- cs2 vs
-            return (v':vs')
+coerceSeq ::
+    (Pretty k1, Pretty k2, Ord k1, Ord k2) =>
+    [Type (Ref k1 Type)] ->
+    [Type (Ref k2 Type)] ->
+    Either String SeqCoercion
+coerceSeq t1 t2 = runM $ goSeq t1 t2
 
 -- | This function implements the `C[<t> <: <t>]` coercion function from the
 -- spec. It returns `Left` if no subtyping relation holds, or `Right c` if it
@@ -64,17 +54,35 @@ coerceSeq (t1:ts1) (t2:ts2) = do
 -- instead, and thus return a total function
 coerce ::
     (Pretty k1, Pretty k2, Ord k1, Ord k2) =>
-    Type (Ref k1 Type) -> Type (Ref k2 Type) -> Either String Coercion
+    Type (Ref k1 Type) ->
+    Type (Ref k2 Type) ->
+    Either String Coercion
+coerce t1 t2 = runM $ memo t1 t2
 
--- we do the memoization only for coerce, not coerceSeq. Might miss some
--- caching, but good enough.
-coerce t1 t2 = evalState (runExceptT (memo t1 t2)) mempty
+type Memo k1 k2 =
+    (M.Map (Type (Ref k1 Type), Type (Ref k2 Type)) Coercion,
+     M.Map (Type (Ref k2 Type), Type (Ref k1 Type)) Coercion)
+type M k1 k2 = ExceptT String (State (Memo k1 k2))
+
+runM :: (Ord k1, Ord k2) => M k1 k2 a -> Either String a
+runM act = evalState (runExceptT act) (mempty, mempty)
+
+flipM :: M k1 k2 a -> M k2 k1 a
+flipM (ExceptT (StateT f)) = ExceptT (StateT f')
+  where
+    f' (m1,m2) = second swap <$> f (m2,m1) -- f (m2,m1) >>= \case (r, (m2',m1')) -> pure (r, (m1', m2'))
 
 memo, go ::
     (Pretty k1, Pretty k2, Ord k1, Ord k2) =>
     Type (Ref k1 Type) ->
     Type (Ref k2 Type) ->
-    ExceptT String (State (M.Map (Type (Ref k1 Type), Type (Ref k2 Type)) Coercion)) Coercion
+    M k1 k2 Coercion
+
+goSeq ::
+    (Pretty k1, Pretty k2, Ord k1, Ord k2) =>
+    [Type (Ref k1 Type)] ->
+    [Type (Ref k2 Type)] ->
+    M k1 k2 SeqCoercion
 
 
 -- Memoization uses lazyiness: When we see a pair for the first time,
@@ -82,10 +90,10 @@ memo, go ::
 -- Either the following recursive call will fail (but then this optimistic
 -- value was never used), or it will succeed, but then the guess was correct.
 memo t1 t2 = do
-  gets (M.lookup (t1,t2)) >>= \case
+  gets (M.lookup (t1,t2) . fst) >>= \case
     Just c -> pure c
     Nothing -> mdo
-        modify (M.insert (t1,t2) c)
+        modify (first (M.insert (t1,t2) c))
         c <- go t1 t2
         return c
 
@@ -188,9 +196,20 @@ go (VariantT fs1) (VariantT fs2) = do
                       | otherwise -> throwError $ show $ "Unexpected variant field" <+> pretty fn
         v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing variant"
 
--- Reference types (TODO)
-go (FuncT _ta1 _tr1) (FuncT _ta2 _tr2) = pure pure
-go (ServiceT _m1) (ServiceT _m2) = pure pure
+-- Reference types
+go (FuncT ta1 tr1) (FuncT ta2 tr2) = do
+    void $ flipM $ goSeq ta2 ta1
+    void $ goSeq tr1 tr2
+    pure pure
+go (ServiceT meths1) (ServiceT meths2) = do
+    let m1 = M.fromList [(m, (ta, tr)) | DidMethod m ta tr <- meths1 ]
+    forM_ meths2 $ \(DidMethod m ta2 tr2) -> do
+        case M.lookup m m1 of
+            Just (ta1, tr1) -> do
+                void $ flipM $ goSeq ta2 ta1
+                void $ goSeq tr1 tr2
+            Nothing -> throwError $ show $ "Missing service method" <+> pretty m <+> "of type" <+> pretty (FuncT ta2 tr2)
+    pure pure
 
 -- BlobT
 go BlobT BlobT = pure pure
@@ -204,10 +223,31 @@ go BlobT (VecT t) | isNat8 t = pure $ \case
     BlobV b -> return $ VecV $ V.fromList $ map (Nat8V . fromIntegral) $ BS.unpack b
     v -> throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing blob to vec nat8"
 
-
-
 go t1 t2 = throwError $ show $ "Type" <+> pretty t1 <+> "is not a subtype of" <+> pretty t2
 
+
+goSeq _ []  = pure (const (return []))
+goSeq ts1 (RefT (Ref _ t) : ts) = goSeq ts1 (t:ts)
+goSeq ts1@[] (NullT  : ts) = do
+    cs2 <- goSeq ts1 ts
+    pure $ \_vs -> (NullV :) <$> cs2 []
+goSeq ts1@[] (OptT _ : ts) = do
+    cs2 <- goSeq ts1 ts
+    pure $ \_vs -> (OptV Nothing :) <$> cs2 []
+goSeq ts1@[] (ReservedT : ts) = do
+    cs2 <- goSeq ts1 ts
+    pure $ \_vs -> (ReservedV :) <$> cs2 []
+goSeq [] ts =
+    throwError $ show $ "Argument type list too short, expecting types" <+> pretty ts
+goSeq (t1:ts1) (t2:ts2) = do
+    c1 <- memo t1 t2
+    cs2 <- goSeq ts1 ts2
+    pure $ \case
+        [] -> throwError $ show $ "Expecting value of type:" <+> pretty t1
+        (v:vs) -> do
+            v' <- c1 v
+            vs' <- cs2 vs
+            return (v':vs')
 
 unRef :: Type (Ref a Type) -> Type (Ref a Type)
 unRef (RefT (Ref _ t)) = unRef t
