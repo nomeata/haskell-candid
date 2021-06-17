@@ -29,6 +29,7 @@ import Data.Row
 import Data.Row.Internal (Row(R), LT((:->)), metamorph)
 import qualified Data.Row.Records as R
 import qualified Data.Row.Internal as R
+import qualified Data.Row.Dictionaries as R
 import qualified Data.Row.Variants as V
 import Control.Monad.State.Lazy
 import Control.Monad.Trans.Error
