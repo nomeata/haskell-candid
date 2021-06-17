@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -11,7 +9,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS -Wno-orphans #-}
 module Codec.Candid.TypTable where
@@ -33,6 +30,26 @@ instance Pretty SeqDesc where
     pretty (SeqDesc m ts) = pretty (M.toList m, ts)
 
 data Ref k f  = Ref k (f (Ref k f))
+
+instance Pretty k => Pretty (Ref k f) where
+    pretty (Ref k _) = pretty k
+instance Eq k => Eq (Ref k f) where
+    (==) (Ref k1 _) (Ref k2 _) = (==) k1 k2
+instance Ord k => Ord (Ref k f) where
+    compare (Ref k1 _) (Ref k2 _) = compare k1 k2
+
+unrollTypeTable :: SeqDesc -> (forall k. (Pretty k, Ord k) => [Type (Ref k Type)] -> r) -> r
+unrollTypeTable (SeqDesc m t) k = k (unrollTypeTable' m t)
+
+unrollTypeTable' :: forall k. Ord k => M.Map k (Type k) -> [Type k] -> [Type (Ref k Type)]
+unrollTypeTable' m ts = ts'
+  where
+    f :: k -> Type (Ref k Type)
+    f k = RefT (Ref k (m' M.! k))
+    m' :: M.Map k (Type (Ref k Type))
+    m' = (>>= f) <$> m
+    ts' :: [Type (Ref k Type)]
+    ts' = (>>= f) <$> ts
 
 buildSeqDesc :: forall k. (Pretty k, Ord k) => [Type (Ref k Type)] -> SeqDesc
 buildSeqDesc ts = SeqDesc m ts'
@@ -62,6 +79,9 @@ underRec (RefT x) = singleton x
 underRec (RecT fs) = foldMap (underRec . snd) fs
 underRec _ = mempty
 
+-- | This takes a type description and replaces all named types with their definition.
+--
+-- This produces an infinite type! Only use this in sufficiently lazy contexts.
 tieKnot :: SeqDesc -> [Type Void]
 tieKnot (SeqDesc m (ts :: [Type k])) = ts'
   where

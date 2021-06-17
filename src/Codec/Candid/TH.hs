@@ -34,7 +34,7 @@ import Codec.Candid.Data
 import Codec.Candid.Tuples
 import Codec.Candid.Types
 import Codec.Candid.FieldName
-import Codec.Candid.Class (Candid)
+import Codec.Candid.Class (Candid, AnnTrue, AnnFalse)
 
 -- | This quasi-quoter turns a Candid description into a Haskell type. It assumes a type variable @m@ to be in scope.
 candid :: QuasiQuoter
@@ -70,7 +70,7 @@ generateCandidDefs defs = do
           dn <- newName ("Candid_" ++ T.unpack tn)
           newtypeD (cxt []) n [] Nothing
             (normalC dn [bangType (bang noSourceUnpackedness noSourceStrictness) (typ t')])
-            [derivClause Nothing [conT ''Candid, conT ''Eq]]
+            [derivClause Nothing [conT ''Candid, conT ''Eq, conT ''Show]]
     return (decls, resolve)
 
 -- | Inlines all candid type definitions, after checking for loops
@@ -98,13 +98,14 @@ quoteCandidService s = case parseDid s of
   Right DidFile{ defs = ds, service = s} -> do
     Just m <- lookupTypeName "m"
     (check, inline) <- inlineDefs ds
-    for_ s $ \m -> for_ m check
+    for_ s $ \m -> for_ m (mapM_ check)
     foldl1 (\a b -> [t|$(a) R..+ $(b)|])
-        [ [t|  $(litT (strTyLit (T.unpack methodName)))
+        [ [t|  $(litT (strTyLit (T.unpack methName)))
                R..== ($(candidTypeQ params) -> $(varT m) $(candidTypeQ results)) |]
-        | DidMethod{..} <- s
-        , let params = map ((absurd <$>) . (>>= inline)) methodParams
-        , let results = map ((absurd <$>) . (>>= inline)) methodResults
+        | (methName, MethodType{..}) <- s
+        , let params = map ((absurd <$>) . (>>= inline)) methParams
+        , let results = map ((absurd <$>) . (>>= inline)) methResults
+        -- TODO annotations
         ]
 
 quoteCandidType :: String -> TypeQ
@@ -126,12 +127,28 @@ row :: TypeQ -> TypeQ -> TypeQ -> Fields TH.Name -> TypeQ
 row eq add = foldr (\(fn, t) rest -> [t|
     $add ($eq $(fieldName fn) $(typ t)) $rest
   |])
+  where
+    fieldName :: FieldName -> TypeQ
+    fieldName f = litT (strTyLit (T.unpack (escapeFieldName f)))
+
+mrow :: TypeQ -> TypeQ -> TypeQ -> [(T.Text, MethodType TH.Name)] -> TypeQ
+mrow eq add = foldr (\(m, mt) rest -> [t|
+    $add ($eq $(methodName m) $(methodType mt)) $rest
+  |])
+  where
+    methodName :: T.Text -> TypeQ
+    methodName f = litT (strTyLit (T.unpack f))
+
+methodType :: MethodType TH.Name -> TypeQ
+methodType (MethodType a b q o) =
+    [t| ($(candidTypeQ a), $(candidTypeQ b), $(ann q), $(ann o)) |]
+  where
+    ann True = [t|AnnTrue|]
+    ann False = [t|AnnFalse|]
 
 mkTupleT :: [TypeQ] -> TypeQ
 mkTupleT ts = foldl appT (tupleT (length ts)) ts
 
-fieldName :: FieldName -> TypeQ
-fieldName f = litT (strTyLit (T.unpack (escapeFieldName f)))
 
 typ :: Type TH.Name -> TypeQ
 typ NatT = [t| Natural |]
@@ -159,8 +176,8 @@ typ (RecT fs)
  | isTuple fs = mkTupleT (map (typ . snd) fs)
  | otherwise = [t| R.Rec $(row [t| (R..==) |] [t| (R..+) |] [t| R.Empty |] fs) |]
 typ (VariantT fs) = [t| V.Var $(row [t| (V..==) |] [t| (V..+) |] [t| V.Empty |] fs) |]
-typ (FuncT _ _) = [t| FuncRef |]
-typ (ServiceT _) = [t| ServiceRef |]
+typ (FuncT mt) = [t| FuncRef $(methodType mt) |]
+typ (ServiceT ms) = [t| ServiceRef $(mrow [t| (R..==) |] [t| (R..+) |] [t| R.Empty |] ms) |]
 typ (RefT v) = conT v
 
 isTuple :: [(FieldName, b)] -> Bool

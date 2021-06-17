@@ -10,7 +10,6 @@ import Codec.Candid.Parse
   ( CandidTestFile(..)
   , CandidTest(..)
   , DidFile(..)
-  , DidMethod(..)
   , TestInput(..)
   , TestAssertion(..)
   , parseCandidTests

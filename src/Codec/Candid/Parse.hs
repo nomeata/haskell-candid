@@ -2,7 +2,6 @@
 module Codec.Candid.Parse
   ( DidFile(..)
   , DidDef
-  , DidMethod(..)
   , TypeName
   , parseDid
   , parseDidType
@@ -22,6 +21,7 @@ import qualified Data.Vector as V
 import qualified Data.Set as Set
 import Text.Megaparsec
 import Text.Megaparsec.Char
+import Control.Applicative.Permutations
 import Data.Bifunctor
 import Data.Char
 import Data.Functor
@@ -78,20 +78,20 @@ actorP :: Parser (DidService TypeName)
 actorP = k "service" *> optional idP *> s ":" *> actorTypeP -- TODO could be a type id
 
 actorTypeP :: Parser (DidService TypeName)
-actorTypeP = braceSemi methTypeP
+actorTypeP = braceSemi methP
 
-methTypeP :: Parser (DidMethod TypeName)
-methTypeP = do
-    n <- nameP
-    s ":"
-    (ts1, ts2) <- funcTypeP  -- TODO could be a type id
-    return $ DidMethod n ts1 ts2
+methP :: Parser (T.Text, MethodType TypeName)
+methP = (,) <$> nameP <* s ":" <*> funcTypeP
 
-funcTypeP :: Parser ([Type TypeName], [Type TypeName])
-funcTypeP = (,) <$> seqP <* s "->" <*> seqP <* many funcAnnP
-
-funcAnnP :: Parser () -- TODO: Annotations are dropped
-funcAnnP = s "oneway" <|> s "query"
+funcTypeP :: Parser (MethodType TypeName)
+funcTypeP = do
+    ts1 <- seqP
+    s "->"
+    ts2 <- seqP
+    (q,o) <- runPermutation $
+         (,) <$> toPermutationWithDefault False (True <$ s "query")
+             <*> toPermutationWithDefault False (True <$ s "oneway")
+    return $ MethodType ts1 ts2 q o
 
 nameP :: Parser T.Text
 nameP = textP <|> idP <?> "name"
@@ -178,7 +178,7 @@ constTypeP = choice
 
 refTypeP :: Parser (Type TypeName)
 refTypeP = choice
-    [ uncurry FuncT <$ k "func" <*> funcTypeP
+    [ FuncT <$ k "func" <*> funcTypeP
     , ServiceT <$ k "service" <*> actorTypeP
     ]
 

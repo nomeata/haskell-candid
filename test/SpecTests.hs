@@ -69,7 +69,7 @@ $(do
             ParseEq exp i1 i2 -> [|
                 case ($(parseInput i1), $(parseInput i2)) of
                     (Right v1, Right v2) ->
-                        if exp then assertBool "values differ" (v1 == v2)
+                        if exp then v1 @?= v2
                                else assertBool "values do not differ" (v1 /= v2)
                     (Left err, _) ->
                         assertFailure $ "unexpected decoding error (left arg):\n" ++ err

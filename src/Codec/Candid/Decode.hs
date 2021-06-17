@@ -22,8 +22,9 @@ import Codec.Candid.TypTable
 import Codec.Candid.Types
 import Codec.Candid.FieldName
 
--- | Decode to value representation
-decodeVals :: BS.ByteString -> Either String [Value]
+-- | Decode binay value into the type description and the untyped value
+-- representation.
+decodeVals :: BS.ByteString -> Either String (SeqDesc, [Value])
 decodeVals bytes = G.runGet go (BS.toStrict bytes)
   where
     go = do
@@ -31,7 +32,7 @@ decodeVals bytes = G.runGet go (BS.toStrict bytes)
         arg_tys <- decodeTypTable
         vs <- mapM decodeVal (tieKnot (voidEmptyTypes arg_tys))
         G.remaining >>= \case
-            0 -> return vs
+            0 -> return (arg_tys, vs)
             n -> fail $ "Unexpected " ++ show n ++ " left-over bytes"
 
 decodeVal :: Type Void -> G.Get Value
@@ -58,7 +59,7 @@ decodeVal (OptT t) = G.getWord8 >>= \case
     0 -> return $ OptV Nothing
     1 -> OptV . Just <$> decodeVal t
     _ -> fail "Invalid optional value"
-decodeVal (VecT Nat8T) = BlobV <$> decodeBytes
+decodeVal BlobT = BlobV <$> decodeBytes
 decodeVal (VecT t) = do
     n <- getLEB128Int
     VecV . V.fromList <$> replicateM n (decodeVal t)
@@ -75,7 +76,7 @@ decodeVal (VariantT fs) = do
     VariantV fn <$> decodeVal t
   where
     fs' = sortOn fst fs
-decodeVal (FuncT _ _) = do
+decodeVal (FuncT _) = do
     referenceByte
     referenceByte
     FuncV <$> decodePrincipal <*> decodeText
@@ -86,7 +87,6 @@ decodeVal PrincipalT = do
     referenceByte
     PrincipalV <$> decodePrincipal
 
-decodeVal BlobT = error "shorthand encountered while decoding"
 decodeVal EmptyT = fail "Empty value"
 decodeVal (RefT v) = absurd v
 
@@ -128,6 +128,15 @@ decodeSeq act = do
     checkOvershoot (fromIntegral len)
     replicateM len act
 
+decodeFoldSeq :: (a -> G.Get a) -> (a -> G.Get a)
+decodeFoldSeq act x = do
+    len <- getLEB128Int @Integer
+    checkOvershoot (fromIntegral len)
+    go len x
+  where
+    go 0 x = return x
+    go n x = act x >>= go (n-1)
+
 decodeTypTable :: G.Get SeqDesc
 decodeTypTable = do
     len <- getLEB128
@@ -143,13 +152,17 @@ type PreService = [(T.Text, Int)]
 decodeTypTableEntry :: Natural -> G.Get (Either (Type Int) PreService)
 decodeTypTableEntry max = getSLEB128 @Integer >>= \case
     -18 -> Left . OptT <$> decodeTypRef max
-    -19 -> Left . VecT <$> decodeTypRef max
+    -19 -> do
+        t <- decodeTypRef max
+        pure $ if t == Nat8T then Left BlobT
+                             else Left (VecT t)
     -20 -> Left . RecT <$> decodeTypFields max
     -21 -> Left . VariantT <$> decodeTypFields max
-    -22 -> Left <$> (FuncT <$>
-        decodeSeq (decodeTypRef max) <*>
-        decodeSeq (decodeTypRef max) <*
-        decodeSeq decodeFuncAnn)
+    -22 -> do
+        a <- decodeSeq (decodeTypRef max)
+        r <- decodeSeq (decodeTypRef max)
+        m <- decodeFoldSeq decodeFuncAnn (MethodType a r False False)
+        return $ Left (FuncT m)
     -23 -> do
         m <- decodeSeq ((,) <$> decodeText <*> decodeFuncTypRef max)
         unless (isOrdered (map fst m)) $
@@ -187,14 +200,18 @@ resolveServiceT table = mapM go table
     go (Right is) = ServiceT <$> mapM goMethod is
 
     goMethod (n, i) = case m M.! i of
-        Left (FuncT as bs) -> return $ DidMethod n as bs
+        Left (FuncT t) -> return (n,t)
         _ -> fail "Method type not a function type"
 
 
-decodeFuncAnn :: G.Get ()
-decodeFuncAnn = G.getWord8 >>= \case
-    1 -> return ()
-    2 -> return ()
+decodeFuncAnn :: MethodType t -> G.Get (MethodType t)
+decodeFuncAnn m = G.getWord8 >>= \case
+    1 -> do
+        when (methQuery m) $ fail "query annotation duplicated"
+        return (m { methQuery = True })
+    2 -> do
+        when (methOneway m) $ fail "oneway annotation duplicated"
+        return (m { methOneway = True })
     _ -> fail "invalid function annotation"
 
 
