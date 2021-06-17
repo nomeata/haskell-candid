@@ -252,9 +252,7 @@ primTyp (-17) = Just EmptyT
 primTyp (-24) = Just PrincipalT
 primTyp _     = Nothing
 
--- | A candid service, as a list of methods with argument and result types
---
--- (no support for annotations like query yet)
+-- | The type of a candid method
 data MethodType a = MethodType
     { methParams :: [Type a]
     , methResults :: [Type a]

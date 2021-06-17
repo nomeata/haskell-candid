@@ -22,7 +22,8 @@ import Codec.Candid.TypTable
 import Codec.Candid.Types
 import Codec.Candid.FieldName
 
--- | Decode to value representation
+-- | Decode binay value into the type description and the untyped value
+-- representation.
 decodeVals :: BS.ByteString -> Either String (SeqDesc, [Value])
 decodeVals bytes = G.runGet go (BS.toStrict bytes)
   where

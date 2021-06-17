@@ -77,10 +77,15 @@ decode b = do
     vs' <- c vs
     fromCandidVals vs'
 
--- | Decode values to Haskell type
+-- | Decode (dynamic) values to Haskell type
+--
+-- This applies some best-effort subtyping/coercion, suitable for liberal
+-- parsing of the textual representation, but not the coercion algorithm as
+-- specified in the specification, which requires a provided type.
 fromCandidVals :: CandidArg a => [Value] -> Either String a
 fromCandidVals = fromVals >=> return . fromTuple
 
+-- | Turn haskell types into a dynamic Candid value. This may lose type information.
 toCandidVals :: CandidArg a => a -> [Value]
 toCandidVals = seqVal . asTuple
 
@@ -96,6 +101,8 @@ class CandidSeq a where
     seqVal :: a -> [Value]
     fromVals :: [Value] -> Either String a
 
+-- | Calculate a Candid type description from a Haskell type. The 'SeqDesc'
+-- type is roughly @[Type]@, with extra bookkeeping for recursive types
 seqDesc :: forall a. CandidArg a => SeqDesc
 seqDesc = buildSeqDesc (asTypes @(AsTuple a))
 
@@ -402,7 +409,9 @@ fieldsOfRow = getConst $ metamorph @_ @r @Candid @(,) @(Const ()) @(Const (Field
         doCons l (Const lst, Proxy) = Const $ (unescapeFieldName (R.toKey l), asType' @t) : lst
 
 class Typeable a => KnownAnnotation a where isTrue :: Bool
+-- | Type-level 'True', to be used in method types annotations
 data AnnTrue
+-- | Type-level 'False', to be used in method types annotations
 data AnnFalse
 instance KnownAnnotation AnnTrue where isTrue = True
 instance KnownAnnotation AnnFalse where isTrue = False

@@ -79,6 +79,9 @@ underRec (RefT x) = singleton x
 underRec (RecT fs) = foldMap (underRec . snd) fs
 underRec _ = mempty
 
+-- | This takes a type description and replaces all named types with their definition.
+--
+-- This produces an infinite type! Only use this in sufficiently lazy contexts.
 tieKnot :: SeqDesc -> [Type Void]
 tieKnot (SeqDesc m (ts :: [Type k])) = ts'
   where

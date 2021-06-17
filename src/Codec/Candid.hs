@@ -49,10 +49,8 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 {- |
 
 * Generating interface descriptions (.did files) from Haskell functions
-* Service and function types
 * Future types
 * Parsing the textual representation dynamically against an expected type
-* Method annotations in service types
 
 -}
 
@@ -192,7 +190,7 @@ record {bar : opt int; foo : vec bool}
 
 {- $own_type
 
-If you want to use your own types directly, you have to declare an instance of the 'Candid' type class. In this instance, you indicate a canonical Haskel type to describe how your type should serialize, and provide conversion functions to the corresponding 'AsCandid'.
+If you want to use your own types directly, you have to declare an instance of the 'Candid' type class. In this instance, you indicate a canonical Haskell type to describe how your type should serialize, and provide conversion functions to the corresponding 'AsCandid'.
 
 >>> :set -XTypeFamilies
 >>> newtype Age = Age Integer
@@ -225,7 +223,7 @@ instance Candid Peano where
 
 {- $generic
 
-Especially for Haskell record types, you can use magic involving generic types to create the 'Candid' instance automatically. The best way is using the @DerivingVia@ langauge extension,using the 'AsRecord' new type to indicate that this strategy should be used:
+Especially for Haskell record types, you can use magic involving generic types to create the 'Candid' instance automatically. The best way is using the @DerivingVia@ langauge extension, using the 'AsRecord' newtype to indicate that this strategy should be used:
 
 >>> :set -XDerivingVia -XDeriveGeneric -XUndecidableInstances
 >>> import GHC.Generics (Generic)
@@ -374,7 +372,7 @@ This library allows the parsing and pretty-printing of candid values. The binary
 >>> pretty vs
 (record {bar = opt +100; foo = vec {true; false}})
 
-If you know Candid well you might be surprised to see the fieldnames here, becuase the Candid binary format does actually transmit the field name, but only a hash. This library tries to invert this hash, trying to find the shortest field name consisting of lower case letters and underscores that is equivalent to it. It does not work always:
+If you know Candid well you might be surprised to see the fieldnames here, because the Candid binary format does actually transmit the field name, but only a hash. This library tries to invert this hash, trying to find the shortest field name consisting of lower case letters and underscores that is equivalent to it. It does not work always:
 
 >>> let Right (_typs, vs) = decodeVals $ encode (#stopped .== True .+ #canister_id .== Principal (BS.pack []))
 >>> pretty vs

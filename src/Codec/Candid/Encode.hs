@@ -33,6 +33,9 @@ import Codec.Candid.Infer
 --
 -- This may fail if the values have inconsistent types. It does not use the
 -- @reserved@ supertype (unless explicitly told to).
+--
+-- Not all possible values are encodable this way. For example, all function
+-- references will be encoded at type @() - ()@.
 encodeDynValues :: [Value] -> Either String B.Builder
 encodeDynValues vs = do
     ts <- inferTypes vs
