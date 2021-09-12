@@ -37,7 +37,7 @@ fromRust = go
 decodeCandid :: BS.ByteString -> IO ()
 decodeCandid b = case decodeVals b of
   Left msg -> err msg
-  Right vs -> putDocW 80 (pretty vs) >> putStrLn ""
+  Right (_, vs) -> putDocW 80 (pretty vs) >> putStrLn ""
 
 encodeCandid :: String -> IO ()
 encodeCandid txt = case parseValues txt of
