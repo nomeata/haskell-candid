@@ -17,6 +17,7 @@ import Data.Maybe
 import Data.Char
 import Language.Haskell.TH.Syntax
 import Data.Word
+import Data.FileEmbed
 
 -- | The Candid field label hashing algorithm
 candidHash :: T.Text -> Word32
@@ -54,10 +55,7 @@ invertHash w32 = listToMaybe guesses
 
 -- Word list obtained from https://github.com/dwyl/english-words
 ws :: T.Text
-ws = $(
-  do addDependentFile "words.txt"
-     runIO (T.readFile "words.txt") >>= lift
-  )
+ws = $(embedStringFile "words.txt")
 
 m :: M.IntMap T.Text
 m = M.fromList [ (fromIntegral (candidHash w), w) | w <- T.lines ws]
