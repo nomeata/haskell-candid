@@ -412,6 +412,9 @@ tests = testGroup "tests"
         QC.forAll (T.pack <$> QC.vectorOf len (QC.elements ('_':['a'..'z']))) $ \s ->
         candidHash s >= 32 QC.==>
         invertHash (candidHash s) QC.=== Just s
+    , QC.testProperty "long dictionary name" $
+        let s = "precriticized" in
+        invertHash (candidHash s) QC.=== Just s
     , QC.testProperty "all hashes find something" $
         QC.forAll QC.arbitraryBoundedIntegral $ \w ->
         w >= 32 QC.==> case invertHash w of
