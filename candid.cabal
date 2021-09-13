@@ -35,6 +35,7 @@ library
         Codec.Candid.Data
         Codec.Candid.Types
         Codec.Candid.FieldName
+        Codec.Candid.Hash
         Codec.Candid.TypTable
         Codec.Candid.Decode
         Codec.Candid.EncodeTextual
