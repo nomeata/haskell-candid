@@ -16,7 +16,7 @@ module Codec.Candid.FieldName
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.ByteString.Lazy as BS
-import Data.Text.Prettyprint.Doc
+import Prettyprinter
 import Data.String
 import Data.Maybe
 import Data.Word

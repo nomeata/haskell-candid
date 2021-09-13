@@ -15,7 +15,7 @@ import Data.Scientific
 import Data.Char
 import Numeric
 
-import Data.Text.Prettyprint.Doc
+import Prettyprinter
 
 import Codec.Candid.Data
 import Codec.Candid.FieldName

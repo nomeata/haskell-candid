@@ -16,7 +16,7 @@ module Codec.Candid.TypTable where
 import qualified Data.Map as M
 import Control.Monad.State.Lazy
 import Data.Void
-import Data.Text.Prettyprint.Doc
+import Prettyprinter
 import Data.DList (singleton, DList)
 import Data.Graph
 import Data.Foldable

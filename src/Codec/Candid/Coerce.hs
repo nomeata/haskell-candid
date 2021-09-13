@@ -11,7 +11,7 @@ module Codec.Candid.Coerce
   )
   where
 
-import Data.Text.Prettyprint.Doc
+import Prettyprinter
 import qualified Data.Vector as V
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map as M

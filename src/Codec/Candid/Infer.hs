@@ -6,7 +6,7 @@ import qualified Data.Vector as V
 import Control.Monad
 import Data.Void
 import Data.List
-import Data.Text.Prettyprint.Doc
+import Prettyprinter
 
 import Codec.Candid.Types
 
