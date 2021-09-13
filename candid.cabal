@@ -63,7 +63,7 @@ library
         unordered-containers >=0.2.10.0 && <0.3,
         row-types > 1.0.0.0 && < 1.1,
         constraints >=0.12 && <0.14,
-        prettyprinter >=1.6.2 && <1.8,
+        prettyprinter >=1.7 && <1.8,
         template-haskell >=2.14.0.0 && <2.17,
         base32 >=0.1.1.2 && <0.3,
         split >=0.2.3.4 && <0.3

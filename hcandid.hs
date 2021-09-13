@@ -9,8 +9,8 @@ import Codec.Candid
 import Data.Char
 import System.IO
 import System.Exit
-import Data.Text.Prettyprint.Doc
-import Data.Text.Prettyprint.Doc.Util
+import Prettyprinter
+import Prettyprinter.Util
 
 err :: String -> IO b
 err s = hPutStr stderr s >> exitFailure

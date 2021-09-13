@@ -20,7 +20,7 @@ import Data.List
 import Data.Void
 import Control.Monad.RWS.Lazy
 import Data.Serialize.LEB128
-import Data.Text.Prettyprint.Doc
+import Prettyprinter
 
 import Codec.Candid.Data
 import Codec.Candid.TypTable

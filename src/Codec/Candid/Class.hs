@@ -42,7 +42,7 @@ import Data.Scientific
 import Data.Word
 import Data.Int
 import Data.Void
-import Data.Text.Prettyprint.Doc
+import Prettyprinter
 import Language.Haskell.TH (mkName, tupleDataName)
 import Language.Haskell.TH.Lib
   ( appT, tupleT, varT, litT, strTyLit

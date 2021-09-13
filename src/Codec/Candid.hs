@@ -154,7 +154,7 @@ import Codec.Candid.EncodeTextual
 -- >>> import Data.Text (Text)
 -- >>> import qualified Data.Text as T
 -- >>> import Data.Void (Void)
--- >>> import Data.Text.Prettyprint.Doc (pretty)
+-- >>> import Prettyprinter (pretty)
 -- >>> import qualified Data.ByteString.Lazy.Char8 as BS
 -- >>> :set -XScopedTypeVariables
 

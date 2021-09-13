@@ -36,7 +36,7 @@ import GHC.Int
 import GHC.Word
 import Numeric.Natural
 import GHC.Generics (Generic)
-import Data.Text.Prettyprint.Doc
+import Prettyprinter
 import Data.Row
 import Data.Proxy
 import qualified Data.Row.Records as R
