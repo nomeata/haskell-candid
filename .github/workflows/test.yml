@@ -6,62 +6,63 @@ jobs:
     strategy:
       matrix:
         ghc:
-        - '8.6.5'
-        - '8.8.3'
-        - '8.10.2'
+        - '8.6'
+        - '8.8'
+        - '8.10'
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v2
+
     - uses: actions/cache@v1
       name: Cache ~/.cabal/store
       with:
         path: ~/.cabal/store
-        key: ${{ runner.os }}-${{ matrix.ghc }}-cabal-store
-    - uses: actions/checkout@v2
+        key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project', 'candid.cabal') }}
+
     - uses: actions/checkout@v2
       with:
         repository: 'dfinity/candid'
         path: candid
         ref: 2021-06-03
-    - uses: actions/setup-haskell@v1
+
+    - uses: haskell/actions/setup@v1
       with:
         ghc-version: ${{ matrix.ghc }}
+
     - name: Build
       run: |
-        ls -l /opt/ghc/
-        export PATH=/opt/ghc/bin:$PATH
         cabal --version
         ghc --version
         cabal update
         # build first, so that the .ghc.environment file is written
-        cabal build -w ghc-${{ matrix.ghc }}
+        cabal build
         # then the doctest has a chance of succeeding
 
         export CANDID_TESTS=$PWD/candid/test
-        cabal v2-test -w ghc-${{ matrix.ghc }}
+        cabal v2-test
+
   docs:
     strategy:
       matrix:
         ghc:
-        - '8.8.3'
+        - '8.10'
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v2
     - uses: actions/cache@v1
       name: Cache ~/.cabal/store
       with:
         path: ~/.cabal/store
-        key: ${{ runner.os }}-${{ matrix.ghc }}-cabal-store
-    - uses: actions/checkout@v2
-    - uses: actions/setup-haskell@v1
+        key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project', 'candid.cabal') }}
+    - uses: haskell/actions/setup@v1
       with:
         ghc-version: ${{ matrix.ghc }}
     - name: Build
       run: |
-        ls -l /opt/ghc/
-        export PATH=/opt/ghc/bin:$PATH
         cabal --version
         ghc --version
         cabal update
-        cabal haddock -w ghc-${{ matrix.ghc }} --haddock-hyperlink-source --haddock-quickjump --haddock-html-location='https://hackage.haskell.org/package/$pkg-$version/docs'
+        cabal haddock --haddock-hyperlink-source --haddock-quickjump --haddock-html-location='https://hackage.haskell.org/package/$pkg-$version/docs'
         mv dist-newstyle/build/*/*/*/doc/html/candid gh-page
         touch gh-page/.nojekyll
     - name: Deploy to Github Pages
