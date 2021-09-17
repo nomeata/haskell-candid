@@ -62,7 +62,7 @@ jobs:
         cabal --version
         ghc --version
         cabal update
-        cabal haddock ---haddock-hyperlink-source --haddock-quickjump --haddock-html-location='https://hackage.haskell.org/package/$pkg-$version/docs'
+        cabal haddock --haddock-hyperlink-source --haddock-quickjump --haddock-html-location='https://hackage.haskell.org/package/$pkg-$version/docs'
         mv dist-newstyle/build/*/*/*/doc/html/candid gh-page
         touch gh-page/.nojekyll
     - name: Deploy to Github Pages
