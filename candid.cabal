@@ -17,7 +17,7 @@ description:
 
 category:           Codec
 build-type:         Simple
-extra-source-files: CHANGELOG.md
+extra-source-files: CHANGELOG.md words.txt
 
 library
     exposed-modules:
