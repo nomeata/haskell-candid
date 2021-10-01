@@ -1,11 +1,11 @@
 cabal-version:      >=1.10
 name:               candid
-version:            0.2
+version:            0.3
 license:            Apache
 license-file:       LICENSE
 maintainer:         mail@joachim-breitner.de
 author:             Joachim Breitner
-homepage:           https://github.com/dfinity/candid
+homepage:           https://github.com/nomeata/haskell-candid
 synopsis:           Candid integration
 description:
     This package brings the Candid interface definition language to Haskell,
