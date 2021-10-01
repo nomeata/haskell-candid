@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
+
 -- | A few extra data types
 module Codec.Candid.Data where
 
@@ -16,6 +17,7 @@ import Data.List
 import Data.List.Split (chunksOf)
 import Data.Bifunctor
 import Control.Monad
+import Data.Kind
 
 data Reserved = Reserved
  deriving (Eq, Ord, Show)
@@ -43,7 +45,7 @@ parsePrincipal s = do
         Left $ "Principal id " ++ show s ++ " malformed; did you mean " ++ show expected ++ "?"
     return p
 
-newtype ServiceRef (r :: R.Row *) = ServiceRef { rawServiceRef :: Principal }
+newtype ServiceRef (r :: R.Row Type) = ServiceRef { rawServiceRef :: Principal }
  deriving (Eq, Ord, Show)
 
 data FuncRef r = FuncRef { service :: Principal, method :: T.Text }
