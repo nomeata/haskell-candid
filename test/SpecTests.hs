@@ -83,9 +83,9 @@ $(do
                          Nothing -> ""
                          Just dsc -> " " ++ T.unpack dsc
           , let parseInput (FromBinary blob) =
-                  [| decode @ $(candidTypeQ testType) (BS.pack $(lift (BS.unpack blob))) |]
+                  [| decode @($(candidTypeQ testType)) (BS.pack $(lift (BS.unpack blob))) |]
                 parseInput (FromTextual txt) =
-                  [| parseValues $(liftString (T.unpack txt)) >>= fromCandidVals @ $(candidTypeQ testType) |]
+                  [| parseValues $(liftString (T.unpack txt)) >>= fromCandidVals @($(candidTypeQ testType)) |]
           ])
         |]
      return (decls, testGroup)
