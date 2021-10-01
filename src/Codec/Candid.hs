@@ -328,7 +328,17 @@ And you can even, using Template Haskell, turn this into a proper Haskell type. 
 
 -}
 
-#if MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+{- $import2
+>>> :set -XQuasiQuotes
+>>> import Data.Row.Internal
+>>> type Counter m = [candid| service : { get : () -> (int); inc : (int) -> (); } |]
+>>> :info Counter
+type Counter :: (* -> *) -> Row (*)
+type Counter m = ("get" .== (() -> m Integer)) .+ ("inc" .== (Integer -> m ())) :: Row (*)
+...
+-}
+#elif MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
 {- $import2
 >>> :set -XQuasiQuotes
 >>> import Data.Row.Internal

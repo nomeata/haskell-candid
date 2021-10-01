@@ -50,12 +50,12 @@ library
         text >=1.2.3.1 && <1.3,
         dlist >=0.8.0.8 && <1.1,
         vector >=0.12.1.2 && <0.13,
-        bytestring >=0.10.8.2 && <0.11,
+        bytestring >=0.10.8.2 && <0.12,
         mtl >=2.2.2 && <2.3,
         transformers >=0.5.6.2 && <0.6,
         hex-text >=0.1.0.0 && <0.2,
         crc >=0.1.0.0 && <0.2,
-        megaparsec >=8 && <9.1,
+        megaparsec >=8 && <9.3,
         parser-combinators >=1.2 && <1.4,
         scientific >=0.3.6.2 && <0.4,
         cereal >=0.5.8.1 && <0.6,
@@ -65,7 +65,7 @@ library
         row-types > 1.0.0.0 && < 1.1,
         constraints >=0.12 && <0.14,
         prettyprinter >=1.7 && <1.8,
-        template-haskell >=2.14.0.0 && <2.17,
+        template-haskell >=2.14.0.0 && <2.18,
         base32 >=0.1.1.2 && <0.3,
         split >=0.2.3.4 && <0.3,
         file-embed
@@ -79,7 +79,7 @@ executable hcandid
         candid -any,
         optparse-applicative >=0.15.1.0 && <0.17,
         text >=1.2.3.1 && <1.3,
-        bytestring >=0.10.8.2 && <0.11,
+        bytestring >=0.10.8.2 && <0.12,
         hex-text >=0.1.0.0 && <0.2,
         prettyprinter >=1.6.2 && <1.8
 
@@ -102,7 +102,7 @@ test-suite test
         tasty-rerun >=1.1.17 && <1.2,
         smallcheck >=1.2 && <1.3,
         candid -any,
-        bytestring >=0.10.8.2 && <0.11,
+        bytestring >=0.10.8.2 && <0.12,
         text >=1.2.3.1 && <1.3,
         vector >=0.12.1.2 && <0.13,
         prettyprinter >=1.6.2 && <1.8,
@@ -110,7 +110,7 @@ test-suite test
         row-types > 1.0.0.0 && < 1.1,
         directory >=1.3.3.0 && <1.4,
         filepath >=1.4.2.1 && <1.5,
-        template-haskell >=2.14.0.0 && <2.17
+        template-haskell >=2.14.0.0 && <2.18
 
 test-suite doctest
     type:             exitcode-stdio-1.0
@@ -118,9 +118,9 @@ test-suite doctest
     default-language: Haskell2010
     ghc-options:      -threaded
     build-depends:
-        base >=4.12.0.0 && <4.15,
+        base ==4.*,
         candid -any,
-        doctest >=0.8 && <0.18,
+        doctest >=0.8 && <0.19,
         row-types > 1.0.0.0 && < 1.1,
         leb128-cereal ==1.2.*,
         prettyprinter >=1.6.2 && <1.8

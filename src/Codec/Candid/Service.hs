@@ -19,6 +19,7 @@ import qualified Data.ByteString.Lazy as BS
 import Data.Row
 import Data.Row.Records
 import Data.Row.Internal
+import Data.Kind
 
 import Codec.Candid.Class
 
@@ -26,7 +27,7 @@ import Codec.Candid.Class
 type RawService m = T.Text -> BS.ByteString -> m BS.ByteString
 type RawMethod m = BS.ByteString -> m BS.ByteString
 
-class CandidMethod (m :: * -> *) f  | f -> m where
+class CandidMethod (m :: Type -> Type) f  | f -> m where
   fromMeth :: (forall a. String -> m a) -> f -> RawMethod m
   toMeth :: (forall a. String -> m a) -> RawMethod m -> f
 
@@ -52,7 +53,7 @@ toCandidService ::
   (forall a. String -> m a) ->
   RawService m ->
   Rec r
-toCandidService onErr f = fromLabels @ (CandidMethod m) $ \l ->
+toCandidService onErr f = fromLabels @(CandidMethod m) $ \l ->
   toMeth onErr (f (toKey l))
 
 -- | Turns a typed candid service into a raw service. Typically used in a framework warpping Candid services.

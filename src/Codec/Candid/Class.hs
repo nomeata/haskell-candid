@@ -522,7 +522,7 @@ $(
                   | (n,_) <- zip [0..] vs])
 
       instance  $(tupT [ [t|Candid $v |] | v <- tvs ]) => CandidSeq $(tupT tvs) where
-        asTypes = $(listE [ [| asType' @ $v |] | v <- tvs ])
+        asTypes = $(listE [ [| asType' @($v) |] | v <- tvs ])
         seqVal $(tupP pvs) = $(listE [ [| toCandidVal $v |] | v <- vs ])
         fromVals $(foldr (`infixP` '(:)) wildP pvs)
           = $( foldl (`uInfixE` varE '(<*>))
