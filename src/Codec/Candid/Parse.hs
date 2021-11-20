@@ -74,8 +74,11 @@ importP :: Parser [DidDef TypeName]
 importP = withPredicate (const (Left "imports not yet supported")) $
     [] <$ k "import"
 
+-- NOTE: This discards "init" arguments:
+-- https://github.com/dfinity/candid/blob/master/spec/Candid.md#core-grammar
+-- See also https://github.com/nomeata/haskell-candid/issues/16
 actorP :: Parser (DidService TypeName)
-actorP = k "service" *> optional idP *> s ":" *> actorTypeP -- TODO could be a type id
+actorP = k "service" *> optional idP *> s ":" *> optional (seqP *> s"->") *> actorTypeP -- TODO could be a type id
 
 actorTypeP :: Parser (DidService TypeName)
 actorTypeP = braceSemi methP

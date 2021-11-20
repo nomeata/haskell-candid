@@ -398,6 +398,8 @@ tests = testGroup "tests"
       DidFile [] [("foo", MethodType [TextT] [TextT] True True)]
     , parseTest "service : { foo : (text) -> (text) oneway query }" $
       DidFile [] [("foo", MethodType [TextT] [TextT] True True)]
+    , parseTest "service : (opt SomeInit) -> { foo : (text) -> (text) oneway query }" $
+      DidFile [] [("foo", MethodType [TextT] [TextT] True True)]
     , parseTest "type t = int; service : { foo : (t) -> (t) }" $
       DidFile [("t", IntT)] [("foo", MethodType [RefT "t"] [RefT "t"] False False)]
     ]
