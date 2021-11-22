@@ -4,7 +4,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Codec.Candid.TH
- ( candid, candidFile, candidType, candidTypeQ
+ ( candid, candidFile
+ , candidType, candidTypeQ
+ , candidDefs, candidDefsFile
  , generateCandidDefs
  ) where
 
@@ -36,7 +38,9 @@ import Codec.Candid.Types
 import Codec.Candid.FieldName
 import Codec.Candid.Class (Candid, AnnTrue, AnnFalse)
 
--- | This quasi-quoter turns a Candid description into a Haskell type. It assumes a type variable @m@ to be in scope.
+-- | This quasi-quoter turns a Candid service description into a Haskell type. It assumes a type variable @m@ to be in scope, and uses that as the monad for the service's methods.
+--
+-- Recursive types are not supported.
 candid :: QuasiQuoter
 candid = QuasiQuoter { quoteExp = err, quotePat = err, quoteDec = err, quoteType = quoteCandidService }
   where err _ = fail "[candid| … |] can only be used as a type"
@@ -44,6 +48,17 @@ candid = QuasiQuoter { quoteExp = err, quotePat = err, quoteDec = err, quoteType
 -- | As 'candid', but takes a filename
 candidFile :: QuasiQuoter
 candidFile = quoteFile candid
+
+-- | This quasi-quoter turns all type definitions of a Canddi file into Haskell types, as one 'Row'. The `service` of the candid file is ignored.
+--
+-- Recursive types are not supported.
+candidDefs :: QuasiQuoter
+candidDefs = QuasiQuoter { quoteExp = err, quotePat = err, quoteDec = err, quoteType = quoteCandidDefs }
+  where err _ = fail "[candidDefs| … |] can only be used as a type"
+
+-- | As 'candid', but takes a filename
+candidDefsFile :: QuasiQuoter
+candidDefsFile = quoteFile candidDefs
 
 -- | This quasi-quoter turns works on individual candid types, e.g.
 --
@@ -74,12 +89,13 @@ generateCandidDefs defs = do
     return (decls, resolve)
 
 -- | Inlines all candid type definitions, after checking for loops
-inlineDefs :: forall k.  (Show k, Ord k) => [DidDef k] -> Q (k -> Q (), k -> Type Void)
+inlineDefs :: forall k.  (Show k, Ord k) => [DidDef k] -> Q ([(k, Type Void)], k -> Q (), k -> Type Void)
 inlineDefs defs = do
     for_ sccs $ \scc ->
         fail $ "Cyclic type definitions not supported: " ++ intercalate ", " (map show scc)
     for_ defs $ \(_, t) -> for_ t checkKey
-    return (checkKey, f)
+    let defs' = [ (k, f k) | (k, _) <- defs ]
+    return (defs', checkKey, f)
   where
     sccs = [ tns | CyclicSCC tns <-
         stronglyConnComp [ (tn, tn, toList t) | (tn, t) <- defs ] ]
@@ -97,7 +113,7 @@ quoteCandidService s = case parseDid s of
   Right DidFile{ service = []} -> [t|R.Empty|]
   Right DidFile{ defs = ds, service = s} -> do
     Just m <- lookupTypeName "m"
-    (check, inline) <- inlineDefs ds
+    (_ds', check, inline) <- inlineDefs ds
     for_ s $ \m -> for_ m (mapM_ check)
     foldl1 (\a b -> [t|$(a) R..+ $(b)|])
         [ [t|  $(litT (strTyLit (T.unpack methName)))
@@ -106,6 +122,17 @@ quoteCandidService s = case parseDid s of
         , let params = map ((absurd <$>) . (>>= inline)) methParams
         , let results = map ((absurd <$>) . (>>= inline)) methResults
         -- TODO annotations
+        ]
+
+quoteCandidDefs :: String -> TypeQ
+quoteCandidDefs s = case parseDid s of
+  Left err -> fail err
+  Right DidFile{ defs = []} -> [t|R.Empty|]
+  Right DidFile{ defs = ds } -> do
+    (ds', _check, _inline) <- inlineDefs ds
+    foldl1 (\a b -> [t|$(a) R..+ $(b)|])
+        [ [t|  $(litT (strTyLit (T.unpack n))) R..== $(typ (absurd <$> t)) |]
+        | (n, t) <- ds'
         ]
 
 quoteCandidType :: String -> TypeQ
