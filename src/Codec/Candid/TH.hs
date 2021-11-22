@@ -94,8 +94,7 @@ inlineDefs defs = do
     for_ sccs $ \scc ->
         fail $ "Cyclic type definitions not supported: " ++ intercalate ", " (map show scc)
     for_ defs $ \(_, t) -> for_ t checkKey
-    let defs' = [ (k, f k) | (k, _) <- defs ]
-    return (defs', checkKey, f)
+    return (M.toList m, checkKey, f)
   where
     sccs = [ tns | CyclicSCC tns <-
         stronglyConnComp [ (tn, tn, toList t) | (tn, t) <- defs ] ]
