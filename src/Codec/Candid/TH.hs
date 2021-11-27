@@ -53,12 +53,23 @@ candidFile = quoteFile candid
 --
 -- Recursive types are not supported.
 -- 
--- This quasi-quoter works differently depending on context: As a _type_, it
--- expands to a row-types record with one entry per type defined in the Candid
--- file. As a _declaration_ (i.e. the module top level), it generates one type
--- synonym (@type Foo = ...@) per definition. The latter case only works
--- if the candid type name is a valid Haskell type name (in particular, upper
--- case). This may improve in the future.
+-- This quasi-quoter works differently depending on context:
+--
+-- As a _type_, it expands to a row-types record with one entry per type
+-- defined in the Candid file:
+--
+-- > type MyDefs = [candidDefs|type t = text; ... |]
+-- >
+-- > foo :: MyDefs .! "t"
+--
+-- As a _declaration_ (i.e. the module top level), it generates one type
+-- synonym (@type Foo = ...@) per definition. This only works if the candid
+-- type name is a valid Haskell type name (in particular, upper case). This may
+-- improve in the future.
+--
+-- > [candidDefs|type Foo = text; ... |]
+-- >
+-- > foo :: Foo
 --
 -- You can use `-ddump-splices` to see the generated code.
 candidDefs :: QuasiQuoter
