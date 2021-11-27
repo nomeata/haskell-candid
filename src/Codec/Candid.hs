@@ -102,6 +102,8 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
  , candid
  , candidFile
  , candidType
+ , candidDefs
+ , candidDefsFile
 
 -- ** Types and values
 
