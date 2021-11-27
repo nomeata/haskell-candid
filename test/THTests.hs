@@ -40,6 +40,8 @@ thTests = testGroup "TH"
       typeRep @(Defs1 .! "t") @?= typeRep @T.Text
     , testCase "with anonymous service" $ do
       typeRep @(Defs2 .! "t") @?= typeRep @T.Text
+    , testCase "as type definitions" $ do
+      typeRep @T @?= typeRep @T.Text
     ]
 
   ]
@@ -72,3 +74,4 @@ demo4 = #greet .== \(Unary (i,b, _)) -> return $ Unary (#_0_ .== (i + 1), not b)
 
 type Defs1 = [candidDefs|type t = text; service foo : {} |]
 type Defs2 = [candidDefs|type t = text; service : {} |]
+[candidDefs|type T = text; service : {} |]
