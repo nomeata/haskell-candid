@@ -30,7 +30,7 @@ invertHash w32 | Just t <- M.lookup (fromIntegral w32) m  = Just t
 invertHash w32 = listToMaybe guesses
   where
     x = fromIntegral w32 :: Word64
-    chars = ['a'..'z'] ++ ['_']
+    chars = ['a'..'z'] ++ [ 'A'..'Z' ] ++ ['_']
     ords = 0 : map (fromIntegral . ord) chars
     non_mod x = x - (x `mod` 2^(32::Int))
     guesses =
@@ -52,8 +52,10 @@ invertHash w32 = listToMaybe guesses
       where (a, b) = x `divMod` 223
 
 -- Word list obtained from https://github.com/dwyl/english-words
-ws :: T.Text
-ws = $(embedStringFile "words.txt")
+wordFile :: T.Text
+wordFile = $(embedStringFile "words.txt")
 
 m :: M.IntMap T.Text
-m = M.fromList [ (fromIntegral (candidHash w), w) | w <- T.lines ws]
+m = M.fromList [ (fromIntegral (candidHash w), w) | w <- word_list ]
+  where
+    word_list = T.lines wordFile ++ map T.toTitle (T.lines wordFile)
