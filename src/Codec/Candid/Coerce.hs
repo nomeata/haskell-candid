@@ -39,7 +39,12 @@ coerceSeq vs t1 t2 = runSubTypeM $ goSeq vs t1 t2
 --
 -- Because values in this library are untyped, we have to pass what we know about
 -- their type down, so that we can do the subtype check upon a reference.
--- The given type must match the value closely (as in the type description)
+-- The given type must match the value closely (as it is the case when decoding
+-- from the wire) and this function may behave oddly if `v` and `t1` are not related.
+--
+-- Morally, this function looks only at `v` and `t2`. It only needs `t1` for
+-- refences, and hence needs to take `t2` apart for the recursive calls.
+-- Practically, it's sometimes more concise to look at t2 instead of v.
 coerce ::
     (Pretty k1, Pretty k2, Ord k1, Ord k2) =>
     Value ->
