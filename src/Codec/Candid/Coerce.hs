@@ -41,7 +41,9 @@ coerceSeq ::
     Either String SeqCoercion
 coerceSeq t1 t2 = runM $ goSeq t1 t2
 
--- | This function implements the `C[<t> <: <t>]` coercion function from the
+-- | This function implements the `V : T ~> V' : T'` relation from the Candid spec.
+--
+-- `C[<t> <: <t>]` coercion function from the
 -- spec. It returns `Left` if no subtyping relation holds, or `Right c` if it
 -- holds, together with a coercion function.
 --

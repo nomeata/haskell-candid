@@ -48,7 +48,6 @@ $(do
           | basename <- files
           , let file = dir </> basename
           , Just name <- pure $ T.stripSuffix ".test.did" (T.pack basename)
-          -- , name /= "construct" -- for now
           ]
   (decls, testGroups) <- fmap unzip $ for candid_tests $ \(name, testfile) -> do
      (decls, resolve) <- generateCandidDefs (testDefs testfile)

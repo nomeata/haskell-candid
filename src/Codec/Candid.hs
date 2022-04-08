@@ -118,6 +118,7 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
  , unescapeFieldName
  , candidHash
  , Value(..)
+ , isSubtypeOf
 
 -- ** Dynamic use
 
@@ -150,6 +151,7 @@ import Codec.Candid.TypTable
 import Codec.Candid.Decode
 import Codec.Candid.Encode
 import Codec.Candid.EncodeTextual
+import Codec.Candid.Subtype
 
 -- $setup
 -- >>> :set -dppr-cols=200

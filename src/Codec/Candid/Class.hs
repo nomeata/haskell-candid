@@ -106,9 +106,12 @@ class CandidSeq a where
 seqDesc :: forall a. CandidArg a => SeqDesc
 seqDesc = buildSeqDesc (asTypes @(AsTuple a))
 
+typeGraph :: forall a. Candid a => Type (Ref TypeRep Type)
+typeGraph = asType @(AsCandid a)
+
 -- | NB: This will loop with recursive types!
 typeDesc :: forall a. Candid a => Type Void
-typeDesc = asType @(AsCandid a) >>= go
+typeDesc = typeGraph @a >>= go
   where go (Ref _ t) = t >>= go
 
 instance Pretty TypeRep where

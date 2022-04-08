@@ -113,29 +113,29 @@ roundTripTest v1 = do
     Right v -> return v
   assertEqual "values" v1 v2
 
-subTypProp :: forall a b.  (CandidArg a, Serial IO a, Show a, CandidArg b) => TestTree
-subTypProp = testProperty desc $ \v ->
+subTypeRoundTripProp :: forall a b.  (CandidArg a, Serial IO a, Show a, CandidArg b) => TestTree
+subTypeRoundTripProp = testProperty desc $ \v ->
     isRight $ decode @b (encode @a v)
   where
     desc = show $ pretty (tieKnot (seqDesc @a)) <+> "<:" <+> pretty (tieKnot (seqDesc @b))
 
-subTypeTest' :: forall a b.
+subTypeRoundTripTest' :: forall a b.
     (CandidArg a, Eq a, Show a) =>
     (CandidArg b, Eq b, Show b) =>
     a -> b -> Assertion
-subTypeTest' v1 v2 = do
+subTypeRoundTripTest' v1 v2 = do
   let bytes1 = encode v1
   v2' <- case decode @b bytes1 of
     Left err -> assertFailure err
     Right v -> return v
   v2 @=? v2'
 
-subTypeTest :: forall a b.
+subTypeRoundTripTest :: forall a b.
     (CandidArg a, Eq a, Show a) =>
     (CandidArg b, Eq b, Show b) =>
     a -> b -> Assertion
-subTypeTest v1 v2 = do
-  subTypeTest' v1 v2
+subTypeRoundTripTest v1 v2 = do
+  subTypeRoundTripTest' v1 v2
   -- now try the other direction
   let bytes2 = encode v2
   case decode @a bytes2 of
@@ -166,7 +166,7 @@ roundTripTestGroup :: String ->
     (forall a. (CandidArg a, Serial IO a, Show a, Eq a) => a -> Either String a) ->
     TestTree
 roundTripTestGroup group_desc roundtrip =
-    withSomeTypes ("roundtrip (" <> group_desc <> ")") $ \(Proxy :: Proxy a) ->
+    testGroup ("roundtrip (" <> group_desc <> ")") $ withSomeTypes $ \(Proxy :: Proxy a) ->
         let desc = show $ pretty (tieKnot (seqDesc @a)) in
         testProperty desc $ \v ->
             case roundtrip @a v of
@@ -177,11 +177,8 @@ roundTripTestGroup group_desc roundtrip =
                     show v ++ " failed to decode:\n" ++ err
 
 withSomeTypes ::
-    String ->
-    (forall a. (CandidArg a, Serial IO a, Show a, Eq a) => Proxy a -> TestTree) ->
-    TestTree
-withSomeTypes groupName mkTest =
-    testGroup groupName
+    (forall a. (CandidArg a, Serial IO a, Show a, Eq a) => Proxy a -> b) -> [b]
+withSomeTypes mkTest =
     [ mkTest (Proxy @Bool)
     , mkTest (Proxy @Natural)
     , mkTest (Proxy @Word8)
@@ -238,17 +235,17 @@ tests = testGroup "tests"
     , testCase "lists" $ roundTripTest (natList, stringList)
     , testCase "custom record" $ roundTripTest $ Unary (SimpleRecord True 42)
     ]
-  , testGroup "subtypes"
-    [ testCase "nat/int" $ subTypeTest (Unary (42 :: Natural)) (Unary (42 :: Integer))
-    , testCase "null/opt" $ subTypeTest (Unary ()) (Unary (Nothing @Integer))
-    , testCase "rec" $ subTypeTest (ARecord True, True) (EmptyRecord, True)
-    , testCase "tuple" $ subTypeTest ((42::Integer,-42::Integer), 100::Integer) (EmptyRecord, 100::Integer)
-    , testCase "variant" $ subTypeTest' (JustRight (42 :: Natural), True) (Right 42 :: Either Bool Natural, True)
-    , testCase "rec/any" $ subTypeTest (ARecord True, True) (Reserved, True)
-    , testCase "tuple/any" $ subTypeTest ((42::Integer, 42::Natural), True) (Reserved, True)
-    , testCase "tuple/tuple" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) ((42::Integer, -42::Integer), 100::Integer)
-    , testCase "tuple/middle" $ subTypeTest ((42::Integer,-42::Integer,True), 100::Integer) (MiddleField (-42) :: MiddleField Integer, 100::Integer)
-    , testCase "records" $ subTypeTest (Unary (SimpleRecord True 42)) (Unary (ARecord True))
+  , testGroup "subtype roundtrips"
+    [ testCase "nat/int" $ subTypeRoundTripTest (Unary (42 :: Natural)) (Unary (42 :: Integer))
+    , testCase "null/opt" $ subTypeRoundTripTest (Unary ()) (Unary (Nothing @Integer))
+    , testCase "rec" $ subTypeRoundTripTest (ARecord True, True) (EmptyRecord, True)
+    , testCase "tuple" $ subTypeRoundTripTest ((42::Integer,-42::Integer), 100::Integer) (EmptyRecord, 100::Integer)
+    , testCase "variant" $ subTypeRoundTripTest' (JustRight (42 :: Natural), True) (Right 42 :: Either Bool Natural, True)
+    , testCase "rec/any" $ subTypeRoundTripTest (ARecord True, True) (Reserved, True)
+    , testCase "tuple/any" $ subTypeRoundTripTest ((42::Integer, 42::Natural), True) (Reserved, True)
+    , testCase "tuple/tuple" $ subTypeRoundTripTest ((42::Integer,-42::Integer,True), 100::Integer) ((42::Integer, -42::Integer), 100::Integer)
+    , testCase "tuple/middle" $ subTypeRoundTripTest ((42::Integer,-42::Integer,True), 100::Integer) (MiddleField (-42) :: MiddleField Integer, 100::Integer)
+    , testCase "records" $ subTypeRoundTripTest (Unary (SimpleRecord True 42)) (Unary (ARecord True))
     ]
 
   , roundTripTestGroup "Haskell → Candid → Haskell" $ \(v :: a) ->
@@ -258,21 +255,34 @@ tests = testGroup "tests"
   , roundTripTestGroup "Haskell → [Value] → Textual → [Value] → Haskell" $ \(v :: a) ->
         parseValues (show (pretty (toCandidVals @a v))) >>= fromCandidVals @a
 
-  , testGroup "subtype smallchecks"
-    [ subTypProp @Natural @Natural
-    , subTypProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @Reserved
-    , subTypProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @(Rec ("Hi" .== Reserved))
-    , subTypProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @(Rec ("Hi" .== Word8))
-    , subTypProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @(Rec ("_1_" .== Word8))
-    , subTypProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8 .+ "_2_" .== Bool)) @(Rec ("_1_" .== Word8))
-    , subTypProp @(Maybe (Rec ("Hi" .== Word8 .+ "_1_" .== Word8 .+ "_0_" .== Bool))) @(Maybe (Bool,Word8))
-    , subTypProp @(Var ("Hi" .== Word8)) @(Var ("Hi" .== Word8 .+ "Ho" .== T.Text))
-    , subTypProp @(Var ("Ho" .== T.Text)) @(Var ("Hi" .== Word8 .+ "Ho" .== T.Text))
-    , subTypProp @Natural @Reserved
-    , subTypProp @BS.ByteString @Reserved
-    , subTypProp @BS.ByteString @(V.Vector Word8)
-    , subTypProp @(V.Vector Word8) @BS.ByteString
-    , subTypProp @Principal @Reserved
+  , testGroup "subtype round trip smallchecks"
+    [ subTypeRoundTripProp @Natural @Natural
+    , subTypeRoundTripProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @Reserved
+    , subTypeRoundTripProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @(Rec ("Hi" .== Reserved))
+    , subTypeRoundTripProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @(Rec ("Hi" .== Word8))
+    , subTypeRoundTripProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8)) @(Rec ("_1_" .== Word8))
+    , subTypeRoundTripProp @(Rec ("Hi" .== Word8 .+ "_1_" .== Word8 .+ "_2_" .== Bool)) @(Rec ("_1_" .== Word8))
+    , subTypeRoundTripProp @(Maybe (Rec ("Hi" .== Word8 .+ "_1_" .== Word8 .+ "_0_" .== Bool))) @(Maybe (Bool,Word8))
+    , subTypeRoundTripProp @(Var ("Hi" .== Word8)) @(Var ("Hi" .== Word8 .+ "Ho" .== T.Text))
+    , subTypeRoundTripProp @(Var ("Ho" .== T.Text)) @(Var ("Hi" .== Word8 .+ "Ho" .== T.Text))
+    , subTypeRoundTripProp @Natural @Reserved
+    , subTypeRoundTripProp @BS.ByteString @Reserved
+    , subTypeRoundTripProp @BS.ByteString @(V.Vector Word8)
+    , subTypeRoundTripProp @(V.Vector Word8) @BS.ByteString
+    , subTypeRoundTripProp @Principal @Reserved
+    ]
+
+  , testGroup "subtype test" $
+    [ testGroup "reflexivity" $ concat $ withSomeTypes $ \(Proxy :: Proxy a) ->
+        let td = seqDesc @a in
+        unrollTypeTable td $ \ts ->
+           [ testCase (show (pretty t)) $ assertRight $ t `isSubtypeOf` t | t <- ts ]
+    , testGroup "negative tests"
+      [ let t1 = typeGraph @Integer
+            t2 = typeGraph @Natural
+        in testCase (show (pretty t1) ++ " </: " ++ show (pretty t2)) $
+           assertLeft $ t1 `isSubtypeOf` t2
+      ]
     ]
   , testGroup "candid type printing" $
     [ printTestType @Bool "bool"
@@ -317,7 +327,7 @@ tests = testGroup "tests"
     let t :: forall a. (HasCallStack, CandidArg a) => a -> String -> TestTree
         t v e = testCase e $ do
           let bytes = encode v
-          (_, vs) <- either assertFailure return $ decodeVals bytes
+          (_, vs) <- assertRight $ decodeVals bytes
           show (pretty vs) @?= e
     in
     [ t True "(true)"
@@ -424,6 +434,12 @@ tests = testGroup "tests"
             Just s -> candidHash s == w
     ]
   ]
+
+assertRight :: Either String a -> IO a
+assertRight = either assertFailure pure
+
+assertLeft :: Either String () -> Assertion
+assertLeft = either (const (pure ())) (\() -> assertFailure "unexpected success")
 
 instance Monad m => Serial m BS.ByteString where
     series = BS.pack <$> series

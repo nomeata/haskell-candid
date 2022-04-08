@@ -4,6 +4,8 @@ module Codec.Candid.TestExports
     ( module Codec.Candid.Parse
     , module Codec.Candid.TH
     , module Codec.Candid.FieldName
+    , module Codec.Candid.TypTable
+    , module Codec.Candid.Class
     ) where
 
 import Codec.Candid.Parse
@@ -23,4 +25,12 @@ import Codec.Candid.TH
 
 import Codec.Candid.FieldName
   ( invertHash
+  )
+
+import Codec.Candid.TypTable
+  ( unrollTypeTable
+  )
+
+import Codec.Candid.Class
+  ( typeGraph
   )
