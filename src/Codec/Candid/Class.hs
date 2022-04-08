@@ -73,8 +73,7 @@ decode b = do
     -- Decode
     (ts, vs) <- decodeVals b
     -- Coerce to expected type
-    c <- coerceSeqDesc ts (buildSeqDesc (asTypes @(AsTuple a)))
-    vs' <- c vs
+    vs' <- coerceSeqDesc vs ts (buildSeqDesc (asTypes @(AsTuple a)))
     fromCandidVals vs'
 
 -- | Decode (dynamic) values to Haskell type

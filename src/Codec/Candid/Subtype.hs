@@ -61,7 +61,6 @@ goSeq ::
     [Type (Ref k2 Type)] ->
     SubTypeM k1 k2 ()
 
-
 -- Memoization: When we see a pair for the first time,
 -- we optimistically put 'True' into the map.
 -- Either the following recursive call will fail (but then this optimistic
