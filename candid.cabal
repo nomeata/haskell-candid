@@ -90,6 +90,7 @@ test-suite test
     hs-source-dirs:   test
     other-modules:
         SpecTests
+        Tests
         THTests
 
     default-language: Haskell2010

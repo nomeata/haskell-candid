@@ -53,7 +53,7 @@ $(do
      (decls, resolve) <- generateCandidDefs (testDefs testfile)
      tests <- traverse (traverse resolve) (testTests testfile)
      testGroup <-
-        [| testGroup ("File " ++ $(liftString (T.unpack name))) $(listE
+        [| testGroup ("Candid spec test file " ++ $(liftString (T.unpack name))) $(listE
           [ [| testCase name $( case testAssertion of
             CanParse i1 -> [|
                 case $(parseInput i1) of

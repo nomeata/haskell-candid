@@ -158,7 +158,6 @@ go v t1 t2 = throwError $ show $ "Cannot coerce " <+> pretty v <+> ":" <+> prett
 
 goSeq _ _ []  = pure []
 goSeq vs ts1 (RefT (Ref _ t) : ts) = goSeq vs ts1 (t:ts)
-goSeq vs@[] ts1@[] (NullT     : ts) = (NullV :)        <$> goSeq vs ts1 ts
 goSeq vs@[] ts1@[] (OptT _    : ts) = (OptV Nothing :) <$> goSeq vs ts1 ts
 goSeq vs@[] ts1@[] (ReservedT : ts) = (ReservedV :)    <$> goSeq vs ts1 ts
 goSeq [] [] ts = throwError $ show $ "Argument type list too short, expecting types" <+> pretty ts
