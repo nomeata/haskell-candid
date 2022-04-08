@@ -24,7 +24,7 @@ jobs:
       with:
         repository: 'dfinity/candid'
         path: candid
-        ref: 734b796a7c2ffc8f4bb317c99ee3281d54bb36d5
+        ref: 135a26ec49a6d0801c22eb450c80ed2869d1b71f
 
     - uses: haskell/actions/setup@v1
       with:

@@ -50,7 +50,7 @@ $(do
           , Just name <- pure $ T.stripSuffix ".test.did" (T.pack basename)
           ]
   (decls, testGroups) <- fmap unzip $ for candid_tests $ \(name, testfile) -> do
-     (decls, resolve) <- generateCandidDefs (testDefs testfile)
+     (decls, resolve) <- generateCandidDefs name (testDefs testfile)
      tests <- traverse (traverse resolve) (testTests testfile)
      testGroup <-
         [| testGroup ("Candid spec test file " ++ $(liftString (T.unpack name))) $(listE

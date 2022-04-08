@@ -89,10 +89,10 @@ candidType = QuasiQuoter { quoteExp = err, quotePat = err, quoteDec = err, quote
 
 -- | Turns all candid type definitions into newtypes
 -- Used, so far, only in the Candid test suite runner
-generateCandidDefs :: [DidDef TypeName] -> Q ([Dec], TypeName -> Q TH.Name)
-generateCandidDefs defs = do
+generateCandidDefs :: T.Text -> [DidDef TypeName] -> Q ([Dec], TypeName -> Q TH.Name)
+generateCandidDefs prefix defs = do
     assocs <- for defs $ \(tn, _) -> do
-        thn <- newName ("Candid_" ++ T.unpack tn)
+        thn <- newName ("Candid_" ++ T.unpack prefix ++ T.unpack tn)
         return (tn, thn)
 
     let m = M.fromList assocs
@@ -102,7 +102,7 @@ generateCandidDefs defs = do
     decls <- for defs $ \(tn, t) -> do
           t' <- traverse resolve t
           n <- resolve tn
-          dn <- newName ("Candid_" ++ T.unpack tn)
+          dn <- newName ("Candid_" ++ T.unpack prefix ++ T.unpack tn)
           newtypeD (cxt []) n [] Nothing
             (normalC dn [bangType (bang noSourceUnpackedness noSourceStrictness) (typ t')])
             [derivClause Nothing [conT ''Candid, conT ''Eq, conT ''Show]]
