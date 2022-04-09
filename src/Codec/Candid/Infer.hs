@@ -42,6 +42,7 @@ inferTyp (TupV vs) = tupT <$> mapM inferTyp vs
 inferTyp (FuncV _ _) = return (FuncT (MethodType [] [] False False)) -- no principal type
 inferTyp (ServiceV _) = return (ServiceT []) -- no principal type
 inferTyp (PrincipalV _) = return PrincipalT
+inferTyp FutureV = return FutureT
 inferTyp (BlobV _) = return BlobT
 inferTyp (AnnV _ t) = return t -- Maybe do type checking?
 

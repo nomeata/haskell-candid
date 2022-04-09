@@ -42,6 +42,8 @@ data Type a
     -- short-hands
     | BlobT
       -- ^ a short-hand for 'VecT' 'Nat8T'
+    -- future types
+    | FutureT
     -- for recursive types
     | RefT a -- ^ A reference to a named type
   deriving (Show, Eq, Ord, Functor, Foldable, Traversable)
@@ -73,6 +75,7 @@ instance Monad Type where
     ReservedT >>= _ = ReservedT
     EmptyT >>= _ = EmptyT
     BlobT >>= _ = BlobT
+    FutureT >>= _ = FutureT
     PrincipalT >>= _ = PrincipalT
     OptT t >>= f = OptT (t >>= f)
     VecT t >>= f = VecT (t >>= f)
@@ -119,6 +122,7 @@ instance Pretty a => Pretty (Type a) where
     pretty (ServiceT s) =
         "service" <+> ":" <+> braces (group (align (vsep $ prettyMeth <$> s)))
     pretty PrincipalT = "principal"
+    pretty FutureT = "future"
 
     prettyList = encloseSep lparen rparen (comma <> space) . map pretty
 
@@ -160,6 +164,7 @@ data Value
   | PrincipalV Principal
   | BlobV BS.ByteString
   | AnnV Value (Type Void)
+  | FutureV -- ^ An opaque value of a future type
   deriving (Eq, Ord, Show)
 
 instance Pretty Value where
@@ -195,6 +200,7 @@ instance Pretty Value where
   pretty (VariantV f NullV) = "variant" <+> braces (pretty f)
   pretty (VariantV f v) = "variant" <+> braces (pretty f <+> "=" <+> pretty v)
   pretty (AnnV v t) = prettyAnn v t
+  pretty FutureV = "future"
 
   prettyList = encloseSep lparen rparen (comma <> space) . map pretty
 

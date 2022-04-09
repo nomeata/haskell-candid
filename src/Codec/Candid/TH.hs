@@ -233,6 +233,7 @@ typ (RecT fs)
 typ (VariantT fs) = [t| V.Var $(row [t| (V..==) |] [t| (V..+) |] [t| V.Empty |] fs) |]
 typ (FuncT mt) = [t| FuncRef $(methodType mt) |]
 typ (ServiceT ms) = [t| ServiceRef $(mrow [t| (R..==) |] [t| (R..+) |] [t| R.Empty |] ms) |]
+typ FutureT = fail "Cannot represent a future Candid type as a Haskell type"
 typ (RefT v) = conT v
 
 isTuple :: [(FieldName, b)] -> Bool
