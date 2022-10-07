@@ -1,5 +1,11 @@
 # Revision history for haskell-candid
 
+## 0.3.1 -- 2022-01-10
+
+* GHC-9.0 compatibility
+* Import type definitions, not just service types from `.did` files
+* The Candid file parser ignores init arguments
+
 ## 0.3 -- 2021-10-01
 
 * Candid pretty-printing: Try to invert field names using word list
