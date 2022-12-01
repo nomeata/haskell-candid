@@ -1,5 +1,9 @@
 # Revision history for haskell-candid
 
+## 0.3.2.1 -- 2022-12-01
+
+* GHC-9.2 compatibility
+
 ## 0.3.2 -- 2022-10-07
 
 * Candid hash reversal: Also try upper case
