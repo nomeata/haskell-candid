@@ -326,8 +326,8 @@ tests =
     in
     [ t True "(true)"
     , t (SimpleRecord False 42) "(record {bar = (42 : nat8); foo = false})"
-    , t (JustRight (Just (3 :: Natural))) "(variant {gp_jocd = opt 3})"
-    , t (JustRight (3 :: Word8)) "(variant {gp_jocd = (3 : nat8)})"
+    , t (JustRight (Just (3 :: Natural))) "(variant {Right = opt 3})"
+    , t (JustRight (3 :: Word8)) "(variant {Right = (3 : nat8)})"
     , t () "()"
     , t (Unary ()) "(null)"
     , t (Unary (True, False)) "(record {true; false})"
@@ -412,13 +412,11 @@ tests =
       let f' = unescapeFieldName (escapeFieldName f) in
       f' == f
   , testGroup "candid hash inversion"
-    [ QC.testProperty "small names invert" $
-        QC.forAll (QC.choose (0,4)) $ \len ->
-        QC.forAll (T.pack <$> QC.vectorOf len (QC.elements ('_':['a'..'z']))) $ \s ->
-        candidHash s >= 32 QC.==>
-        invertHash (candidHash s) QC.=== Just s
-    , QC.testProperty "long dictionary name" $
+    [ QC.testProperty "long dictionary name" $
         let s = "precriticized" in
+        invertHash (candidHash s) QC.=== Just s
+    , QC.testProperty "long capitalized dictionary name" $
+        let s = "Precriticized" in
         invertHash (candidHash s) QC.=== Just s
     , QC.testProperty "all hashes find something" $
         QC.forAll QC.arbitraryBoundedIntegral $ \w ->

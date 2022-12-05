@@ -30,18 +30,23 @@ invertHash w32 | Just t <- M.lookup (fromIntegral w32) m  = Just t
 invertHash w32 = listToMaybe guesses
   where
     x = fromIntegral w32 :: Word64
+
     chars = ['a'..'z'] ++ ['_']
     ords = 0 : map (fromIntegral . ord) chars
+    init_chars = chars ++ [ 'A'..'Z' ]
+    init_ords = 0 : map (fromIntegral . ord) init_chars
+
     non_mod x = x - (x `mod` 2^(32::Int))
     guesses =
         [ T.pack $ reverse guess
-        | c8 <- ords, c7 <- ords, c6 <- ords, c5 <- ords
+        | c8 <- init_ords, c7 <- ords, c6 <- ords, c5 <- ords
         -- It seems that 8 characters are enough to invert anything
         -- (based on quickchecking)
         -- Set up so that short guesses come first
         , let high_chars = c5 * 223^(4::Int) + c6 * 223^(5::Int) + c7 * 223^(6::Int) + c8 * 223^(7::Int)
         , let guess = simple $ x + non_mod high_chars
-        , all (`elem` chars) guess
+        , all (`elem` init_chars) (take 1 guess)
+        , all (`elem` chars) (drop 1 guess)
         ]
 
     -- inverts the Hash if the hash was created without modulos
@@ -52,8 +57,10 @@ invertHash w32 = listToMaybe guesses
       where (a, b) = x `divMod` 223
 
 -- Word list obtained from https://github.com/dwyl/english-words
-ws :: T.Text
-ws = $(embedStringFile "words.txt")
+wordFile :: T.Text
+wordFile = $(embedStringFile "words.txt")
 
 m :: M.IntMap T.Text
-m = M.fromList [ (fromIntegral (candidHash w), w) | w <- T.lines ws]
+m = M.fromList [ (fromIntegral (candidHash w), w) | w <- word_list ]
+  where
+    word_list = T.lines wordFile ++ map T.toTitle (T.lines wordFile)
