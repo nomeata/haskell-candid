@@ -30,6 +30,8 @@ type SubTypeM k1 k2 = ExceptT String (State (Memo k1 k2))
 runSubTypeM :: (Ord k1, Ord k2) => SubTypeM k1 k2 a -> Either String a
 runSubTypeM act = evalState (runExceptT act) (mempty, mempty)
 
+-- | Returns 'Right' if the first argument is a subtype of the second, or
+-- returns 'Left' with an explanation if not
 isSubtypeOf ::
     (Pretty k1, Pretty k2, Ord k1, Ord k2) =>
     Type (Ref k1 Type) ->

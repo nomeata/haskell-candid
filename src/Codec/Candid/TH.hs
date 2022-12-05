@@ -49,7 +49,7 @@ candid = QuasiQuoter { quoteExp = err, quotePat = err, quoteDec = err, quoteType
 candidFile :: QuasiQuoter
 candidFile = quoteFile candid
 
--- | This quasi-quoter turns all type definitions of a Canddi file into Haskell types, as one 'Row'. The `service` of the candid file is ignored.
+-- | This quasi-quoter turns all type definitions of a Canddi file into Haskell types, as one 'Row'. The @service@ of the candid file is ignored.
 --
 -- Recursive types are not supported.
 -- 

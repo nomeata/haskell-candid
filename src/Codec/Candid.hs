@@ -1,8 +1,6 @@
 {-|
 
-This module provides preliminary Haskell supprot for decoding and encoding the __Candid__ data format. See <https://github.com/dfinity/candid/blob/master/spec/Candid.md> for the official Candid specification.
-
-__Warning:__ The interface of this library is still in flux, as we are yet learning the best idioms around Candid and Haskell.
+This module provides Haskell support for decoding and encoding the __Candid__ data format. See <https://github.com/dfinity/candid/blob/master/spec/Candid.md> for the official Candid specification.
 
 -}
 
@@ -49,7 +47,6 @@ Candid is inherently typed, so before encoding or decoding, you have to indicate
 {- |
 
 * Generating interface descriptions (.did files) from Haskell functions
-* Future types
 * Parsing the textual representation dynamically against an expected type
 
 -}
@@ -157,10 +154,12 @@ import Codec.Candid.Subtype
 -- >>> :set -dppr-cols=200
 -- >>> import Data.Text (Text)
 -- >>> import qualified Data.Text as T
--- >>> import Data.Void (Void)
+-- >>> import Data.Void (Void, vacuous)
 -- >>> import Prettyprinter (pretty)
 -- >>> import qualified Data.ByteString.Lazy.Char8 as BS
+-- >>> import Numeric.Natural
 -- >>> :set -XScopedTypeVariables
+-- >>> :set -XTypeApplications
 
 {- $haskell_types
 
@@ -171,7 +170,7 @@ The easiest way is to use this library is to use the canonical Haskell types. An
 >>> decode (encode ([True, False], Just 100)) == Right ([True, False], Just 100)
 True
 
-Here, no type annotations are needed, the library can infer them from the types of the Haskell values. You can see the Candid types used using `typeDesc` and `seqDesc`:
+Here, no type annotations are needed, the library can infer them from the types of the Haskell values. You can see the Candid types used using `seqDesc` (with `tieKnot`) for an argument sequence, or `typeDesc` for a single type:
 
 >>> :type +d ([True, False], Just 100)
 ([True, False], Just 100) :: ([Bool], Maybe Integer)
@@ -189,6 +188,8 @@ records directly:
 >>> :set -XDataKinds -XTypeOperators
 >>> pretty (typeDesc @(Rec ("bar" .== Maybe Integer .+ "foo" .== [Bool])))
 record {bar : opt int; foo : vec bool}
+
+NB: `typeDesc` cannot work with recursive types, but see `seqDesc` together with `tieKnot`.
 
 -}
 
@@ -377,7 +378,7 @@ If this encounters a Candid type definition, it will just inline them. This mean
 
 Sometimes one needs to interact with Candid in a dynamic way, without static type information.
 
-This library allows the parsing and pretty-printing of candid values. The binary value was copied from above:
+This library allows the parsing and pretty-printing of candid values:
 
 >>> import Data.Row
 >>> :set -XDataKinds -XTypeOperators
@@ -403,6 +404,19 @@ Conversely, you can encode from the textual representation:
 Right (#bar .== Just 100 .+ #foo .== [True,False])
 
 This function does not support the full textual format yet; in particular type annotations can only be used around number literals.
+
+Related to dynamic use is the ability to perform a subtype check, using 'isSubtypeOf' (but you have to set up the arguments correctly first):
+
+>>> isSubtypeOf (vacuous $ typeDesc @Natural) (vacuous $ typeDesc @Integer)
+Right ()
+>>> isSubtypeOf (vacuous $ typeDesc @Integer) (vacuous $ typeDesc @Natural)
+Left "Type int is not a subtype of nat"
+>>> isSubtypeOf (vacuous $ typeDesc @(Rec ("foo" .== [Bool]))) (vacuous $ typeDesc @(Rec ("bar" .== Maybe Integer .+ "foo" .== Maybe [Bool])))
+Right ()
+>>> isSubtypeOf (vacuous $ typeDesc @(Rec ("bar" .== Maybe Integer .+ "foo" .== Maybe [Bool]))) (vacuous $ typeDesc @(Rec ("foo" .== [Bool])))
+Left "Type opt vec bool is not a subtype of vec bool"
+>>> isSubtypeOf (vacuous $ typeDesc @(Rec ("bar" .== Integer))) (vacuous $ typeDesc @(Rec ("foo" .== Integer)))
+Left "Missing record field foo of type int"
 
 -}
 

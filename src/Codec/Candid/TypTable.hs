@@ -81,7 +81,8 @@ underRec _ = mempty
 
 -- | This takes a type description and replaces all named types with their definition.
 --
--- This produces an infinite type! Only use this in sufficiently lazy contexts.
+-- This can produce an infinite type! Only use this in sufficiently lazy contexts, or when the
+-- type is known to be not recursive.
 tieKnot :: SeqDesc -> [Type Void]
 tieKnot (SeqDesc m (ts :: [Type k])) = ts'
   where
