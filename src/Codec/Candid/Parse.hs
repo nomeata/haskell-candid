@@ -137,7 +137,7 @@ stringElem = (char '\\' *> go) <|> noneOf "\""
             _ -> fail $ "Invalid hex string " ++ show raw
 
 hexdigit :: Parser Char
-hexdigit = oneOf "0123456789ABCDEFabcdef"
+hexdigit = oneOf "0123456789ABCDEFabcdef" <|> char '_' *> hexdigit -- slightly too liberal: allows leading _
 
 seqP :: Parser [Type TypeName]
 seqP = parenComma argTypeP

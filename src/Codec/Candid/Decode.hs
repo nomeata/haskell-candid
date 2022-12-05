@@ -88,6 +88,12 @@ decodeVal PrincipalT = do
     PrincipalV <$> decodePrincipal
 
 decodeVal EmptyT = fail "Empty value"
+decodeVal FutureT = do
+    m <- getLEB128Int
+    _n <- getLEB128Int @Natural
+    _ <- G.getLazyByteString m
+    pure FutureV
+
 decodeVal (RefT v) = absurd v
 
 referenceByte :: G.Get ()
@@ -168,7 +174,9 @@ decodeTypTableEntry max = getSLEB128 @Integer >>= \case
         unless (isOrdered (map fst m)) $
             fail "Service methods not in strict order"
         return (Right m)
-    _ -> fail "Unknown structural type"
+    _ -> do
+        _ <- getLEB128Int >>= G.getLazyByteString
+        return (Left FutureT)
 
 decodeTypRef :: Natural -> G.Get (Type Int)
 decodeTypRef max = do

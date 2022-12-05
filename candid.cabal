@@ -1,6 +1,6 @@
 cabal-version:      >=1.10
 name:               candid
-version:            0.3.2.1
+version:            0.4
 license:            Apache
 license-file:       LICENSE
 maintainer:         mail@joachim-breitner.de
@@ -41,6 +41,7 @@ library
         Codec.Candid.EncodeTextual
         Codec.Candid.Encode
         Codec.Candid.Infer
+        Codec.Candid.Subtype
         Codec.Candid.Coerce
 
     default-language: Haskell2010
@@ -89,6 +90,7 @@ test-suite test
     hs-source-dirs:   test
     other-modules:
         SpecTests
+        Tests
         THTests
 
     default-language: Haskell2010

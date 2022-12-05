@@ -1,5 +1,11 @@
 # Revision history for haskell-candid
 
+## 0.4-- 2022-11-05
+
+* Fix did file parsing bug: Allow underscores in unicode escapes
+* Implement the new subtyping rules from spec version 0.1.4
+  https://github.com/dfinity/candid/pull/311
+
 ## 0.3.2.1 -- 2022-12-01
 
 * GHC-9.2 compatibility

@@ -185,6 +185,8 @@ typTable (SeqDesc m (ts :: [Type k])) = mconcat
 
       PrincipalT -> return $ -24
 
+      FutureT    -> error "Cannot encode a future type"
+
       -- Short-hands
       BlobT -> addCon t $
         -- blob = vec nat8
