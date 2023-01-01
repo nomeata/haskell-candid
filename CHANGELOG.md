@@ -1,6 +1,10 @@
 # Revision history for haskell-candid
 
-## 0.4-- 2022-11-05
+## 0.4.0.1 -- 2023-01-01
+
+* Bump dependencies
+
+## 0.4 -- 2022-11-05
 
 * Fix did file parsing bug: Allow underscores in unicode escapes
 * Implement the new subtyping rules from spec version 0.1.4
