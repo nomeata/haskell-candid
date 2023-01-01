@@ -37,7 +37,7 @@ jobs:
         ghc --version
         cabal update
         # build first, so that the .ghc.environment file is written
-        cabal build
+        cabal build -v
         # then the doctest has a chance of succeeding
 
         export CANDID_TESTS=$PWD/candid/test
