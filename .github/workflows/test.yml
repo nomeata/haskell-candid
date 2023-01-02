@@ -32,7 +32,7 @@ jobs:
         path: candid
         ref: 6edd82f928b6242c596003ced00ffc8e099ee04e
 
-    - uses: haskell/actions/setup@v1
+    - uses: haskell/actions/setup@v2
       with:
         ghc-version: ${{ matrix.ghc }}
 
