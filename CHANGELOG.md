@@ -3,6 +3,7 @@
 ## 0.4.0.1 -- 2023-01-01
 
 * Bump dependencies
+* GHC-9.4 and transformer-0.6 compat
 
 ## 0.4 -- 2022-11-05
 
