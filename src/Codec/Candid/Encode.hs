@@ -21,6 +21,7 @@ import Data.Void
 import Control.Monad.RWS.Lazy
 import Data.Serialize.LEB128
 import Prettyprinter
+import Control.Monad
 
 import Codec.Candid.Data
 import Codec.Candid.TypTable

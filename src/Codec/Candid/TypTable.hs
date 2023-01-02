@@ -20,6 +20,7 @@ import Prettyprinter
 import Data.DList (singleton, DList)
 import Data.Graph
 import Data.Foldable
+import Control.Monad
 
 import Codec.Candid.Types
 

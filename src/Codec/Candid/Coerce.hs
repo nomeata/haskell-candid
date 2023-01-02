@@ -15,6 +15,7 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map as M
 import Control.Monad.State.Lazy
 import Control.Monad.Except
+import Control.Monad
 
 import Codec.Candid.FieldName
 import Codec.Candid.Types

@@ -10,12 +10,12 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map as M
-import Control.Monad.State.Lazy
 import Data.List
 import Data.Void
 import Data.Serialize.LEB128.Lenient
 import qualified Data.Serialize.Get as G
 import qualified Data.Serialize.IEEE754 as G
+import Control.Monad
 
 import Codec.Candid.Data
 import Codec.Candid.TypTable

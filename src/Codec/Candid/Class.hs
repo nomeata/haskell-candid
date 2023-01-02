@@ -31,9 +31,7 @@ import qualified Data.Row.Records as R
 import qualified Data.Row.Internal as R
 import qualified Data.Row.Variants as V
 import Data.Row.Internal (metamorph)
-import Control.Monad.State.Lazy
-import Control.Monad.Trans.Error
-import Control.Applicative ((<|>))
+import Control.Monad
 import Data.Functor.Const
 import Data.Bifunctor
 import Data.Proxy
@@ -134,9 +132,6 @@ data DeserializeError
     | CoerceError String Value -- ^ can be recovered
     | MissingFieldError FieldName -- ^ can be recovered
     | UnexpectedTagError FieldName -- ^ can be recovered
-
--- TODO: Can we get rid of this?
-instance Error DeserializeError where strMsg = DecodeError
 
 isRecoverable :: DeserializeError -> Bool
 isRecoverable (DecodeError _) = False
@@ -467,11 +462,12 @@ instance CandidRow r => CandidVal (V.Var r) where
       where (t, val) = V.eraseWithLabels @Candid toCandidVal v
 
     fromCandidVal' (VariantV f v) = do
-        needle :: V.Var (V.Map (Either DeserializeError) r) <-
+        needle  <-
+            maybe (unexpectedTag f) return $
             (V.fromLabelsMap @Candid @_ @_ @r $ \l -> do
                 guard (f == unescapeFieldName (R.toKey l))
                 return $ fromCandidVal'' v
-            ) <|> unexpectedTag f
+            )
         V.sequence (needle :: V.Var (V.Map (Either DeserializeError) r))
     fromCandidVal' v = cannotCoerce "variant" v
 

@@ -17,6 +17,7 @@ import Data.Tuple
 import Control.Monad.State.Lazy
 import Control.Monad.Except
 import Control.Monad.Trans.Except
+import Control.Monad
 
 import Codec.Candid.Types
 import Codec.Candid.TypTable
