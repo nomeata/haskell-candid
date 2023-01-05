@@ -84,7 +84,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Fetch cabal-plan
+    - name: Fetch cabal-plan-bounds
       run: |
         curl -L https://github.com/nomeata/cabal-plan-bounds/releases/latest/download/cabal-plan-bounds.linux.gz | gunzip  > /usr/local/bin/cabal-plan-bounds
         chmod +x /usr/local/bin/cabal-plan-bounds
@@ -106,6 +106,7 @@ jobs:
       uses: stefanzweifel/git-auto-commit-action@v4
       with:
         commit_message: Update cabal bounds based on build plans
+        file_pattern: '*.cabal'
 
     - name: Fail if .cabal file was changed
       run: git diff-files --quiet candid.cabal|| exit 1
