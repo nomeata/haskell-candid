@@ -95,7 +95,7 @@ jobs:
 
     - run: find plans/
 
-    - run: cabal-plan-bounds.linux plans/*.json -c candid.cabal
+    - run: cabal-plan-bounds plans/*.json -c candid.cabal
 
     - run: git diff candid.cabal
     - name: Fail if .cabal file was changed
