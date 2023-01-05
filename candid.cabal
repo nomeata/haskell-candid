@@ -1,4 +1,4 @@
-cabal-version:      >=1.10
+cabal-version:      2.0
 name:               candid
 version:            0.4.0.1
 license:            Apache
@@ -126,3 +126,7 @@ test-suite doctest
         row-types > 1.0.0.0 && < 1.1,
         leb128-cereal ==1.2.*,
         prettyprinter >=1.6.2 && <1.8
+
+source-repository head
+  type:     git
+  location: https://github.com/nomeata/haskell-cabal
