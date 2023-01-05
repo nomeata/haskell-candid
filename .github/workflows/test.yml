@@ -6,15 +6,29 @@ on:
  pull_request:
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        ghc:
-        - '8.10'
-        - '9.0'
-        - '9.2'
-        - '9.4'
+
+  enumerate:
+    name: Enumerate CI configurations
     runs-on: ubuntu-latest
+    outputs:
+      configs: ${{ steps.enumerate.outputs.configs }}
+
+    steps:
+    - uses: actions/checkout@v3
+    - id: enumerate
+      run: |
+        ls -1 ci-configs/| grep -o -P '.*(?=.config)'| jq -n -R -c '[inputs]' | tee configs.json
+        echo "configs=$(cat configs.json)" >> $GITHUB_OUTPUT
+
+
+  build:
+    needs: enumerate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plan: ${{ fromJSON(needs.enumerate.outputs.configs) }}
+
     steps:
     - uses: actions/checkout@v2
 
@@ -22,7 +36,7 @@ jobs:
       name: Cache ~/.cabal/store
       with:
         path: ~/.cabal/store
-        key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project', 'candid.cabal') }}
+        key: cabal-store-${{ runner.os }}-${{ matrix.plan }}-${{ github.sha }}
 
     - uses: actions/checkout@v2
       with:
@@ -30,9 +44,15 @@ jobs:
         path: candid
         ref: 6edd82f928b6242c596003ced00ffc8e099ee04e
 
+    - name: Detect GHC version
+      run: |
+        ver=$(grep -o -P '(?<=with-compiler: ghc-).*' ci-configs/${{ matrix.plan }}.config)
+        echo "Detected compiler version $ver in ci-configs/${{ matrix.plan }}.config"
+        echo "ghc_version=$ver" >> $GITHUB_ENV
+
     - uses: haskell/actions/setup@v2
       with:
-        ghc-version: ${{ matrix.ghc }}
+        ghc-version: ${{ env.ghc_version }}
 
     - name: Build
       run: |
@@ -40,11 +60,47 @@ jobs:
         ghc --version
         cabal update
         # build first, so that the .ghc.environment file is written
-        cabal build -v
-        # then the doctest has a chance of succeeding
+        cabal build --project-file "ci-configs/${{ matrix.plan }}.config" -v
 
+        # then the doctest has a chance of succeeding
         export CANDID_TESTS=$PWD/candid/test
         cabal v2-test
+
+    - run: mv dist-newstyle/cache/plan.json plan-${{ matrix.plan }}.json
+
+    - name: Upload build plan as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: plans
+        path: plan-${{ matrix.plan }}.json
+
+  bounds:
+    runs-on: ubuntu-latest
+    name: Calculate cabal bounds
+    needs:
+    - build
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Fetch cabal-plan
+      run: |
+        curl https://github.com/nomeata/cabal-plan-bounds/releases/latest/download/cabal-plan-bounds.linux.gz | gunzip  > /usr/local/bin/cabal-plan-bounds
+        chmod +x /usr/local/bin/cabal-plan-bounds
+
+    - name: Load plans
+      uses: actions/download-artifact@v3
+      with:
+        name: plans
+        path: plans
+
+    - run: find plans/
+
+    - run: cabal-plan-bounds.linux plans/*.json -c candid.cabal
+
+    - run: git diff candid.cabal
+    - name: Fail if .cabal file was changed
+      run: git diff-files --quiet candid.cabal|| exit 1
+
 
   docs:
     strategy:
