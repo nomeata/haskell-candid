@@ -13,9 +13,9 @@ import Prettyprinter
 import qualified Data.Vector as V
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map as M
+import Control.Monad
 import Control.Monad.State.Lazy
 import Control.Monad.Except
-import Control.Monad
 
 import Codec.Candid.FieldName
 import Codec.Candid.Types

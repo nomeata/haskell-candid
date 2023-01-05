@@ -14,13 +14,13 @@
 module Codec.Candid.TypTable where
 
 import qualified Data.Map as M
+import Control.Monad
 import Control.Monad.State.Lazy
 import Data.Void
 import Prettyprinter
 import Data.DList (singleton, DList)
 import Data.Graph
 import Data.Foldable
-import Control.Monad
 
 import Codec.Candid.Types
 

@@ -14,14 +14,14 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Builder as B
 import qualified Data.Map as M
 import Data.Scientific
+import Control.Monad
 import Control.Monad.State.Lazy
+import Control.Monad.RWS.Lazy
 import Data.Bifunctor
 import Data.List
 import Data.Void
-import Control.Monad.RWS.Lazy
 import Data.Serialize.LEB128
 import Prettyprinter
-import Control.Monad
 
 import Codec.Candid.Data
 import Codec.Candid.TypTable
