@@ -84,7 +84,7 @@ jobs:
 
     - name: Fetch cabal-plan
       run: |
-        curl https://github.com/nomeata/cabal-plan-bounds/releases/latest/download/cabal-plan-bounds.linux.gz | gunzip  > /usr/local/bin/cabal-plan-bounds
+        curl -L https://github.com/nomeata/cabal-plan-bounds/releases/latest/download/cabal-plan-bounds.linux.gz | gunzip  > /usr/local/bin/cabal-plan-bounds
         chmod +x /usr/local/bin/cabal-plan-bounds
 
     - name: Load plans
