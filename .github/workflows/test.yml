@@ -64,7 +64,7 @@ jobs:
 
         # then the doctest has a chance of succeeding
         export CANDID_TESTS=$PWD/candid/test
-        cabal v2-test
+        cabal v2-test --project-file "ci-configs/${{ matrix.plan }}.config"
 
     - run: mv dist-newstyle/cache/plan.json plan-${{ matrix.plan }}.json
 
