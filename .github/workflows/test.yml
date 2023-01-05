@@ -1,9 +1,10 @@
 ---
 name: Haskell CI
 on:
- push:
-   branches: [master]
- pull_request:
+  push:
+    branches: [master]
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
 
 jobs:
 
@@ -99,6 +100,13 @@ jobs:
     - run: cabal-plan-bounds plans/*.json -c candid.cabal
 
     - run: git diff candid.cabal
+
+    - name: Push updated .cabal file if labeled update-bounds
+      if: contains(github.event.pull_request.labels.*.name, 'update-bounds')
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: Update cabal bounds based on build plans
+
     - name: Fail if .cabal file was changed
       run: git diff-files --quiet candid.cabal|| exit 1
 
