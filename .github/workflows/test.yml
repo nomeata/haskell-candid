@@ -32,11 +32,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - uses: actions/cache@v1
-      name: Cache ~/.cabal/store
+    - name: cache cabal store
+      uses: actions/cache@v3
       with:
-        path: ~/.cabal/store
         key: cabal-store-${{ runner.os }}-${{ matrix.plan }}-${{ github.sha }}
+        path: ~/.cabal/store
+        restore-keys: cabal-store-${{ runner.os }}-${{ matrix.plan }}-
 
     - uses: actions/checkout@v2
       with:
@@ -110,11 +111,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/cache@v1
-      name: Cache ~/.cabal/store
+
+    - name: cache cabal store
+      uses: actions/cache@v3
       with:
+        key: cabal-store-docs-${{ runner.os }}-${{ github.sha }}
         path: ~/.cabal/store
-        key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project', 'candid.cabal') }}
+        restore-keys: cabal-store-docs-${{ runner.os }}-
+
     - uses: haskell/actions/setup@v1
       with:
         ghc-version: ${{ matrix.ghc }}
