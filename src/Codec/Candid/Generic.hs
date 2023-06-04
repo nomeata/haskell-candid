@@ -51,6 +51,7 @@ type CanBeCandidVariant a =
     -- Superclass constraints that need to be explicit since GHC 9.6
     , Typeable (V.NativeRow a)
     , V.AllUniqueLabels (V.NativeRow a)
+    , V.AllUniqueLabels (V.Map (Either String) (V.NativeRow a))
     , V.Forall (V.NativeRow a) R.Unconstrained1
     , V.Forall (V.NativeRow a) Candid
     )
