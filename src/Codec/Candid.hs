@@ -282,10 +282,17 @@ Let us create a simple service:
 
 For convenience, we name its type
 
+#if MIN_VERSION_GLASGOW_HASKELL(9,6,0,0)
+>>> :t service
+service :: Rec (R ["get" :-> (() -> IO Integer), "inc" :-> (Integer -> IO ())])
+>>> :set -XTypeOperators -XDataKinds -XFlexibleContexts
+>>> type Interface = R ["get" :-> (() -> IO Integer), "inc" :-> (Integer -> IO ())]
+#else
 >>> :t service
 service :: Rec ('R '[ "get" ':-> (() -> IO Integer), "inc" ':-> (Integer -> IO ())])
 >>> :set -XTypeOperators -XDataKinds -XFlexibleContexts
 >>> type Interface = 'R '[ "get" ':-> (() -> IO Integer), "inc" ':-> (Integer -> IO ())]
+#endif
 
 Now we can turn this into a raw service operating on bytes:
 
