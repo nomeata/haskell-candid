@@ -96,7 +96,7 @@ test-suite test
     default-language: Haskell2010
     ghc-options:      -Wall -Wno-name-shadowing -rtsopts
     build-depends:
-        base ^>=4.14.3.0 || ^>=4.15.1.0 || ^>=4.16.3.0 || ^>=4.17.0.0,
+        base,
         tasty ^>=1.4.3,
         tasty-hunit ^>=0.10.0.3,
         tasty-smallcheck ^>=0.8.2,
@@ -120,7 +120,7 @@ test-suite doctest
     default-language: Haskell2010
     ghc-options:      -threaded
     build-depends:
-        base ^>=4.14.3.0 || ^>=4.15.1.0 || ^>=4.16.3.0 || ^>=4.17.0.0,
+        base,
         candid,
         doctest ^>=0.20.1,
         row-types ^>=1.0.1.2,
