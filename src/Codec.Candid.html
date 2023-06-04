@@ -1,0 +1,423 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">{-|
+
+This module provides Haskell support for decoding and encoding the __Candid__ data format. See &lt;https://github.com/dfinity/candid/blob/master/spec/Candid.md&gt; for the official Candid specification.
+
+-}</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Codec.Candid</span><span>
+</span><span id="line-10"></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-11"></span><span class="annot"><span class="hs-comment">-- * Tutorial</span></span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="annot"><span class="hs-comment">{- |
+
+Candid is inherently typed, so before encoding or decoding, you have to indicate the types to use. In most cases, you can use Haskell types for that:
+
+-}</span></span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="annot"><span class="hs-comment">-- ** Haskell types</span></span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="annot"><span class="hs-comment">-- $haskell_types</span></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="annot"><span class="hs-comment">-- ** Custom types</span></span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="annot"><span class="hs-comment">-- $own_type</span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="annot"><span class="hs-comment">-- ** Generic types</span></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="annot"><span class="hs-comment">-- $generic</span></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="annot"><span class="hs-comment">-- ** Candid services</span></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="annot"><span class="hs-comment">-- $services</span></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="annot"><span class="hs-comment">-- ** Importing Candid</span></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="annot"><span class="hs-comment">-- $import</span></span><span>
+</span><span id="line-38"></span><span class="annot"><span class="hs-comment">-- $import2</span></span><span>
+</span><span id="line-39"></span><span class="annot"><span class="hs-comment">-- $import3</span></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="annot"><span class="hs-comment">-- ** Dynamic use</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="annot"><span class="hs-comment">-- $dynamic</span></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="annot"><span class="hs-comment">-- ** Missing features</span></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="annot"><span class="hs-comment">{- |
+
+* Generating interface descriptions (.did files) from Haskell functions
+* Parsing the textual representation dynamically against an expected type
+
+-}</span></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="annot"><span class="hs-comment">-- * Reference</span></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="annot"><span class="hs-comment">-- ** Encoding and decoding</span></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span>   </span><span class="annot"><a href="Codec.Candid.Class.html#encode"><span class="hs-identifier">encode</span></a></span><span>
+</span><span id="line-59"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html#encodeBuilder"><span class="hs-identifier">encodeBuilder</span></a></span><span>
+</span><span id="line-60"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html#decode"><span class="hs-identifier">decode</span></a></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="annot"><span class="hs-comment">-- ** Type classes</span></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html#Candid"><span class="hs-identifier">Candid</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html#CandidRow"><span class="hs-identifier">CandidRow</span></a></span><span>
+</span><span id="line-66"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html#CandidArg"><span class="hs-identifier">CandidArg</span></a></span><span>
+</span><span id="line-67"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html#CandidVal"><span class="hs-identifier">CandidVal</span></a></span><span>
+</span><span id="line-68"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html#seqDesc"><span class="hs-identifier">seqDesc</span></a></span><span>
+</span><span id="line-69"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.TypTable.html#SeqDesc"><span class="hs-identifier">SeqDesc</span></a></span><span>
+</span><span id="line-70"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.TypTable.html#tieKnot"><span class="hs-identifier">tieKnot</span></a></span><span>
+</span><span id="line-71"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html#typeDesc"><span class="hs-identifier">typeDesc</span></a></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span> </span><span class="annot"><span class="hs-comment">-- ** Special types</span></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Tuples.html#Unary"><span class="hs-identifier">Unary</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Data.html#Principal"><span class="hs-identifier">Principal</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Data.html#prettyPrincipal"><span class="hs-identifier">prettyPrincipal</span></a></span><span>
+</span><span id="line-78"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Data.html#parsePrincipal"><span class="hs-identifier">parsePrincipal</span></a></span><span>
+</span><span id="line-79"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Data.html#Reserved"><span class="hs-identifier">Reserved</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Data.html#FuncRef"><span class="hs-identifier">FuncRef</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html#AnnTrue"><span class="hs-identifier">AnnTrue</span></a></span><span>
+</span><span id="line-82"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html#AnnFalse"><span class="hs-identifier">AnnFalse</span></a></span><span>
+</span><span id="line-83"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Data.html#ServiceRef"><span class="hs-identifier">ServiceRef</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span class="annot"><span class="hs-comment">-- ** Generics</span></span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Generic.html#AsRecord"><span class="hs-identifier">AsRecord</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Generic.html#AsVariant"><span class="hs-identifier">AsVariant</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span class="annot"><span class="hs-comment">-- ** Candid services</span></span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Service.html#CandidService"><span class="hs-identifier">CandidService</span></a></span><span>
+</span><span id="line-93"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Service.html#RawService"><span class="hs-identifier">RawService</span></a></span><span>
+</span><span id="line-94"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Service.html#toCandidService"><span class="hs-identifier">toCandidService</span></a></span><span>
+</span><span id="line-95"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Service.html#fromCandidService"><span class="hs-identifier">fromCandidService</span></a></span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="annot"><span class="hs-comment">-- ** Meta-programming</span></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.TH.html#candid"><span class="hs-identifier">candid</span></a></span><span>
+</span><span id="line-100"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.TH.html#candidFile"><span class="hs-identifier">candidFile</span></a></span><span>
+</span><span id="line-101"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.TH.html#candidType"><span class="hs-identifier">candidType</span></a></span><span>
+</span><span id="line-102"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.TH.html#candidDefs"><span class="hs-identifier">candidDefs</span></a></span><span>
+</span><span id="line-103"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.TH.html#candidDefsFile"><span class="hs-identifier">candidDefsFile</span></a></span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="annot"><span class="hs-comment">-- ** Types and values</span></span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Types.html#Type"><span class="hs-identifier">Type</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Types.html#MethodType"><span class="hs-identifier">MethodType</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Types.html#Fields"><span class="hs-identifier">Fields</span></a></span><span>
+</span><span id="line-110"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier">FieldName</span></a></span><span>
+</span><span id="line-111"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#labledField"><span class="hs-identifier">labledField</span></a></span><span>
+</span><span id="line-112"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#hashedField"><span class="hs-identifier">hashedField</span></a></span><span>
+</span><span id="line-113"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#fieldHash"><span class="hs-identifier">fieldHash</span></a></span><span>
+</span><span id="line-114"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#escapeFieldName"><span class="hs-identifier">escapeFieldName</span></a></span><span>
+</span><span id="line-115"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#unescapeFieldName"><span class="hs-identifier">unescapeFieldName</span></a></span><span>
+</span><span id="line-116"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Hash.html#candidHash"><span class="hs-identifier">candidHash</span></a></span><span>
+</span><span id="line-117"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Types.html#Value"><span class="hs-identifier">Value</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Subtype.html#isSubtypeOf"><span class="hs-identifier">isSubtypeOf</span></a></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="annot"><span class="hs-comment">-- ** Dynamic use</span></span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Decode.html#decodeVals"><span class="hs-identifier">decodeVals</span></a></span><span>
+</span><span id="line-123"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html#fromCandidVals"><span class="hs-identifier">fromCandidVals</span></a></span><span>
+</span><span id="line-124"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html#toCandidVals"><span class="hs-identifier">toCandidVals</span></a></span><span>
+</span><span id="line-125"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Encode.html#encodeDynValues"><span class="hs-identifier">encodeDynValues</span></a></span><span>
+</span><span id="line-126"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.EncodeTextual.html#encodeTextual"><span class="hs-identifier">encodeTextual</span></a></span><span>
+</span><span id="line-127"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Types.html#DidFile"><span class="hs-identifier">DidFile</span></a></span><span>
+</span><span id="line-128"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Parse.html#parseDid"><span class="hs-identifier">parseDid</span></a></span><span>
+</span><span id="line-129"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Parse.html#parseValue"><span class="hs-identifier">parseValue</span></a></span><span>
+</span><span id="line-130"></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Parse.html#parseValues"><span class="hs-identifier">parseValues</span></a></span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span class="hs-comment">-- Convenience re-exports</span><span>
+</span><span id="line-133"></span><span class="hs-comment">-- not useful due to https://github.com/haskell/haddock/issues/698#issuecomment-632328837</span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- , Generic</span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span> </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-137"></span><span>
+</span><span id="line-138"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.Data.html"><span class="hs-identifier">Codec.Candid.Data</span></a></span><span>
+</span><span id="line-139"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.Types.html"><span class="hs-identifier">Codec.Candid.Types</span></a></span><span>
+</span><span id="line-140"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html"><span class="hs-identifier">Codec.Candid.FieldName</span></a></span><span>
+</span><span id="line-141"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.Tuples.html"><span class="hs-identifier">Codec.Candid.Tuples</span></a></span><span>
+</span><span id="line-142"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.Class.html"><span class="hs-identifier">Codec.Candid.Class</span></a></span><span>
+</span><span id="line-143"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.Generic.html"><span class="hs-identifier">Codec.Candid.Generic</span></a></span><span>
+</span><span id="line-144"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.Service.html"><span class="hs-identifier">Codec.Candid.Service</span></a></span><span>
+</span><span id="line-145"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.Parse.html"><span class="hs-identifier">Codec.Candid.Parse</span></a></span><span>
+</span><span id="line-146"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.TH.html"><span class="hs-identifier">Codec.Candid.TH</span></a></span><span>
+</span><span id="line-147"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.TypTable.html"><span class="hs-identifier">Codec.Candid.TypTable</span></a></span><span>
+</span><span id="line-148"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.Decode.html"><span class="hs-identifier">Codec.Candid.Decode</span></a></span><span>
+</span><span id="line-149"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.Encode.html"><span class="hs-identifier">Codec.Candid.Encode</span></a></span><span>
+</span><span id="line-150"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.EncodeTextual.html"><span class="hs-identifier">Codec.Candid.EncodeTextual</span></a></span><span>
+</span><span id="line-151"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Codec.Candid.Subtype.html"><span class="hs-identifier">Codec.Candid.Subtype</span></a></span><span>
+</span><span id="line-152"></span><span>
+</span><span id="line-153"></span><span class="hs-comment">-- $setup</span><span>
+</span><span id="line-154"></span><span class="hs-comment">-- &gt;&gt;&gt; :set -dppr-cols=200</span><span>
+</span><span id="line-155"></span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Text (Text)</span><span>
+</span><span id="line-156"></span><span class="hs-comment">-- &gt;&gt;&gt; import qualified Data.Text as T</span><span>
+</span><span id="line-157"></span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Void (Void, vacuous)</span><span>
+</span><span id="line-158"></span><span class="hs-comment">-- &gt;&gt;&gt; import Prettyprinter (pretty)</span><span>
+</span><span id="line-159"></span><span class="hs-comment">-- &gt;&gt;&gt; import qualified Data.ByteString.Lazy.Char8 as BS</span><span>
+</span><span id="line-160"></span><span class="hs-comment">-- &gt;&gt;&gt; import Numeric.Natural</span><span>
+</span><span id="line-161"></span><span class="hs-comment">-- &gt;&gt;&gt; :set -XScopedTypeVariables</span><span>
+</span><span id="line-162"></span><span class="hs-comment">-- &gt;&gt;&gt; :set -XTypeApplications</span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span class="hs-comment">{- $haskell_types
+
+The easiest way is to use this library is to use the canonical Haskell types. Any type that is an instance of 'Candid' can be used:
+
+&gt;&gt;&gt; encode ([True, False], Just 100)
+&quot;DIDL\STXm~n|\STX\NUL\SOH\STX\SOH\NUL\SOH\228\NUL&quot;
+&gt;&gt;&gt; decode (encode ([True, False], Just 100)) == Right ([True, False], Just 100)
+True
+
+Here, no type annotations are needed, the library can infer them from the types of the Haskell values. You can see the Candid types used using `seqDesc` (with `tieKnot`) for an argument sequence, or `typeDesc` for a single type:
+
+&gt;&gt;&gt; :type +d ([True, False], Just 100)
+([True, False], Just 100) :: ([Bool], Maybe Integer)
+&gt;&gt;&gt; :set -XTypeApplications
+&gt;&gt;&gt; pretty (tieKnot (seqDesc @([Bool], Maybe Integer)))
+(vec bool, opt int)
+
+This library is integrated with the @row-types@ library, so you can use their
+records directly:
+
+&gt;&gt;&gt; :set -XOverloadedLabels
+&gt;&gt;&gt; import Data.Row
+&gt;&gt;&gt; encode (#foo .== [True, False] .+ #bar .== Just 100)
+&quot;DIDL\ETXl\STX\211\227\170\STX\SOH\134\142\183\STX\STXn|m~\SOH\NUL\SOH\228\NUL\STX\SOH\NUL&quot;
+&gt;&gt;&gt; :set -XDataKinds -XTypeOperators
+&gt;&gt;&gt; pretty (typeDesc @(Rec (&quot;bar&quot; .== Maybe Integer .+ &quot;foo&quot; .== [Bool])))
+record {bar : opt int; foo : vec bool}
+
+NB: `typeDesc` cannot work with recursive types, but see `seqDesc` together with `tieKnot`.
+
+-}</span><span>
+</span><span id="line-195"></span><span>
+</span><span id="line-196"></span><span class="hs-comment">{- $own_type
+
+If you want to use your own types directly, you have to declare an instance of the 'Candid' type class. In this instance, you indicate a canonical Haskell type to describe how your type should serialize, and provide conversion functions to the corresponding 'AsCandid'.
+
+&gt;&gt;&gt; :set -XTypeFamilies
+&gt;&gt;&gt; newtype Age = Age Integer
+&gt;&gt;&gt; :{
+instance Candid Age where
+    type AsCandid Age = Integer
+    toCandid (Age i) = i
+    fromCandid = Age
+:}
+
+&gt;&gt;&gt; encode (Age 42)
+&quot;DIDL\NUL\SOH|*&quot;
+
+This is more or less the only way to introduce recursive types:
+
+&gt;&gt;&gt; data Peano = N | S Peano deriving (Show, Eq)
+&gt;&gt;&gt; :{
+instance Candid Peano where
+    type AsCandid Peano = Maybe Peano
+    toCandid N = Nothing
+    toCandid (S p) = Just p
+    fromCandid Nothing = N
+    fromCandid (Just p) = S p
+:}
+
+&gt;&gt;&gt; peano = S (S (S N))
+&gt;&gt;&gt; encode peano
+&quot;DIDL\SOHn\NUL\SOH\NUL\SOH\SOH\SOH\NUL&quot;
+-}</span><span>
+</span><span id="line-228"></span><span>
+</span><span id="line-229"></span><span class="hs-comment">{- $generic
+
+Especially for Haskell record types, you can use magic involving generic types to create the 'Candid' instance automatically. The best way is using the @DerivingVia@ langauge extension, using the 'AsRecord' newtype to indicate that this strategy should be used:
+
+&gt;&gt;&gt; :set -XDerivingVia -XDeriveGeneric -XUndecidableInstances
+&gt;&gt;&gt; import GHC.Generics (Generic)
+&gt;&gt;&gt; :{
+data SimpleRecord = SimpleRecord { foo :: [Bool], bar :: Maybe Integer }
+    deriving Generic
+    deriving Candid via (AsRecord SimpleRecord)
+:}
+
+&gt;&gt;&gt; pretty (typeDesc @SimpleRecord)
+record {bar : opt int; foo : vec bool}
+&gt;&gt;&gt; encode (SimpleRecord { foo = [True, False], bar = Just 100 })
+&quot;DIDL\ETXl\STX\211\227\170\STX\SOH\134\142\183\STX\STXn|m~\SOH\NUL\SOH\228\NUL\STX\SOH\NUL&quot;
+
+Unfortunately, this feature requires @UndecidableInstances@.
+
+This works for variants too:
+
+&gt;&gt;&gt; :{
+data Shape = Point () | Sphere Double | Rectangle (Double, Double)
+    deriving Generic
+    deriving Candid via (AsVariant Shape)
+:}
+
+&gt;&gt;&gt; pretty (typeDesc @Shape)
+variant {Point; Rectangle : record {0 : float64; 1 : float64}; Sphere : float64}
+&gt;&gt;&gt; encode (Rectangle (100,100))
+&quot;DIDL\STXk\ETX\176\200\244\205\ENQ\DEL\143\232\190\218\v\SOH\173\198\172\140\SIrl\STX\NULr\SOHr\SOH\NUL\SOH\NUL\NUL\NUL\NUL\NUL\NULY@\NUL\NUL\NUL\NUL\NUL\NULY@&quot;
+
+Because data constructors are capitalized in Haskell, you cannot derive enums or variants with lower-case names. Also, nullary data constructors are not supported by @row-types@, and thus here, even though they would nicely map onto variants with arguments of type '@null@.
+
+-}</span><span>
+</span><span id="line-264"></span><span>
+</span><span id="line-265"></span><span class="hs-comment">{- $services
+
+Very likely you want to either implement or use whole Candid interfaces. In order to apply the encoding/decoding in one go, you can use 'fromCandidService' and 'toCandidService'. These convert between a raw service ('RawService', takes a method name and bytes, and return bytes), and a typed 'CandidService' (expressed as an 'Data.Row.Rec' record).
+
+Let us create a simple service:
+
+&gt;&gt;&gt; :set -XOverloadedLabels
+&gt;&gt;&gt; import Data.Row
+&gt;&gt;&gt; import Data.Row.Internal
+&gt;&gt;&gt; import Data.IORef
+&gt;&gt;&gt; c &lt;- newIORef 0
+&gt;&gt;&gt; let service = #get .== (\() -&gt; readIORef c) .+ #inc .== (\d -&gt; modifyIORef c (d +))
+&gt;&gt;&gt; service .! #get $ ()
+0
+&gt;&gt;&gt; service .! #inc $ 5
+&gt;&gt;&gt; service .! #get $ ()
+5
+
+For convenience, we name its type
+
+&gt;&gt;&gt; :t service
+service :: Rec ('R '[ &quot;get&quot; ':-&gt; (() -&gt; IO Integer), &quot;inc&quot; ':-&gt; (Integer -&gt; IO ())])
+&gt;&gt;&gt; :set -XTypeOperators -XDataKinds -XFlexibleContexts
+&gt;&gt;&gt; type Interface = 'R '[ &quot;get&quot; ':-&gt; (() -&gt; IO Integer), &quot;inc&quot; ':-&gt; (Integer -&gt; IO ())]
+
+Now we can turn this into a raw service operating on bytes:
+
+&gt;&gt;&gt; let raw = fromCandidService (error . show) error service
+&gt;&gt;&gt; raw (T.pack &quot;get&quot;) (BS.pack &quot;DUDE&quot;)
+*** Exception: Failed reading: Expected magic bytes &quot;DIDL&quot;, got &quot;DUDE&quot;
+...
+&gt;&gt;&gt; raw (T.pack &quot;get&quot;) (BS.pack &quot;DIDL\NUL\NUL&quot;)
+&quot;DIDL\NUL\SOH|\ENQ&quot;
+&gt;&gt;&gt; raw (T.pack &quot;inc&quot;) (BS.pack &quot;DIDL\NUL\SOH|\ENQ&quot;)
+&quot;DIDL\NUL\NUL&quot;
+&gt;&gt;&gt; service .! #get $ ()
+10
+
+And finally, we can turn this raw function  back into a typed interface:
+
+&gt;&gt;&gt; let service' :: Rec Interface = toCandidService error raw
+&gt;&gt;&gt; service .! #get $ ()
+10
+&gt;&gt;&gt; service .! #inc $ 5
+&gt;&gt;&gt; service .! #get $ ()
+15
+
+In a real application you would more likely pass some networking code to 'toCandidService'.
+
+-}</span><span>
+</span><span id="line-315"></span><span>
+</span><span id="line-316"></span><span class="hs-comment">{- $import
+
+In the example above, we wrote the type of the service in Haskell. But very
+likely you want to talk to a service whose is given to you in the form of a
+@.did@ files, like
+
+&gt; service : {
+&gt;   get : () -&gt; (int);
+&gt;   inc : (int) -&gt; ();
+&gt; }
+
+You can parse such a description:
+
+&gt;&gt;&gt; either error pretty $ parseDid &quot;service : { get : () -&gt; (int); inc : (int) -&gt; (); }&quot;
+service : {get : () -&gt; (int); inc : (int) -&gt; ();}
+
+And you can even, using Template Haskell, turn this into a proper Haskell type. The 'candid' antiquotation produces a type, and expects a free type variable @m@ for the monad you want to use.
+
+-}</span><span class="hs-cpp">
+
+#if MIN_VERSION_GLASGOW_HASKELL(9,0,0,0)
+</span><span class="hs-comment">{- $import2
+&gt;&gt;&gt; :set -XQuasiQuotes
+&gt;&gt;&gt; import Data.Row.Internal
+&gt;&gt;&gt; type Counter m = [candid| service : { get : () -&gt; (int); inc : (int) -&gt; (); } |]
+&gt;&gt;&gt; :info Counter
+type Counter :: (* -&gt; *) -&gt; Row (*)
+type Counter m = (&quot;get&quot; .== (() -&gt; m Integer)) .+ (&quot;inc&quot; .== (Integer -&gt; m ())) :: Row (*)
+...
+-}</span><span class="hs-cpp">
+#elif MIN_VERSION_GLASGOW_HASKELL(8,10,0,0)
+</span><span class="hs-comment">{- $import2
+&gt;&gt;&gt; :set -XQuasiQuotes
+&gt;&gt;&gt; import Data.Row.Internal
+&gt;&gt;&gt; type Counter m = [candid| service : { get : () -&gt; (int); inc : (int) -&gt; (); } |]
+&gt;&gt;&gt; :info Counter
+type Counter :: (* -&gt; *) -&gt; Row *
+type Counter m = (&quot;get&quot; .== (() -&gt; m Integer)) .+ (&quot;inc&quot; .== (Integer -&gt; m ())) :: Row *
+...
+-}</span><span class="hs-cpp">
+#else
+</span><span class="hs-comment">{- $import2
+&gt;&gt;&gt; :set -XQuasiQuotes
+&gt;&gt;&gt; import Data.Row.Internal
+&gt;&gt;&gt; type Counter m = [candid| service : { get : () -&gt; (int); inc : (int) -&gt; (); } |]
+&gt;&gt;&gt; :info Counter
+type Counter (m :: * -&gt; *) = (&quot;get&quot; .== (() -&gt; m Integer)) .+ (&quot;inc&quot; .== (Integer -&gt; m ())) :: Row *
+...
+-}</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-367"></span><span class="hs-comment">{- $import3
+You can then use this with 'toCandidService' to talk to a service.
+
+If you want to read the description from a @.did@ file, you can use 'candidFile'.
+
+If this encounters a Candid type definition, it will just inline them. This means that cyclic type definitions are not supported.
+
+
+-}</span><span>
+</span><span id="line-376"></span><span>
+</span><span id="line-377"></span><span class="hs-comment">{- $dynamic
+
+Sometimes one needs to interact with Candid in a dynamic way, without static type information.
+
+This library allows the parsing and pretty-printing of candid values:
+
+&gt;&gt;&gt; import Data.Row
+&gt;&gt;&gt; :set -XDataKinds -XTypeOperators
+&gt;&gt;&gt; let bytes = encode (#bar .== Just 100 .+ #foo .== [True,False])
+&gt;&gt;&gt; let Right (_typs, vs) = decodeVals bytes
+&gt;&gt;&gt; pretty vs
+(record {bar = opt +100; foo = vec {true; false}})
+
+If you know Candid well you might be surprised to see the fieldnames here, because the Candid binary format does actually transmit the field name, but only a hash. This library tries to invert this hash, trying to find the shortest field name consisting of lower case letters and underscores that is equivalent to it. It does not work always:
+
+&gt;&gt;&gt; let Right (_typs, vs) = decodeVals $ encode (#stopped .== True .+ #canister_id .== Principal (BS.pack []))
+&gt;&gt;&gt; pretty vs
+(record {stopped = true; hymijyo = principal &quot;aaaaa-aa&quot;})
+
+Future versions of this library will allow you to specify the (dynamic) 'Type' at which you want to decode these values, in which case the field name would be taken from there.
+
+Conversely, you can encode from the textual representation:
+
+&gt;&gt;&gt; let Right bytes = encodeTextual &quot;record { foo = vec { true; false }; bar = opt 100 }&quot;
+&gt;&gt;&gt; bytes
+&quot;DIDL\ETXl\STX\211\227\170\STX\STX\134\142\183\STX\SOHm~n}\SOH\NUL\SOHd\STX\SOH\NUL&quot;
+&gt;&gt;&gt; decode @(Rec (&quot;bar&quot; .== Maybe Integer .+ &quot;foo&quot; .== [Bool])) bytes
+Right (#bar .== Just 100 .+ #foo .== [True,False])
+
+This function does not support the full textual format yet; in particular type annotations can only be used around number literals.
+
+Related to dynamic use is the ability to perform a subtype check, using 'isSubtypeOf' (but you have to set up the arguments correctly first):
+
+&gt;&gt;&gt; isSubtypeOf (vacuous $ typeDesc @Natural) (vacuous $ typeDesc @Integer)
+Right ()
+&gt;&gt;&gt; isSubtypeOf (vacuous $ typeDesc @Integer) (vacuous $ typeDesc @Natural)
+Left &quot;Type int is not a subtype of nat&quot;
+&gt;&gt;&gt; isSubtypeOf (vacuous $ typeDesc @(Rec (&quot;foo&quot; .== [Bool]))) (vacuous $ typeDesc @(Rec (&quot;bar&quot; .== Maybe Integer .+ &quot;foo&quot; .== Maybe [Bool])))
+Right ()
+&gt;&gt;&gt; isSubtypeOf (vacuous $ typeDesc @(Rec (&quot;bar&quot; .== Maybe Integer .+ &quot;foo&quot; .== Maybe [Bool]))) (vacuous $ typeDesc @(Rec (&quot;foo&quot; .== [Bool])))
+Left &quot;Type opt vec bool is not a subtype of vec bool&quot;
+&gt;&gt;&gt; isSubtypeOf (vacuous $ typeDesc @(Rec (&quot;bar&quot; .== Integer))) (vacuous $ typeDesc @(Rec (&quot;foo&quot; .== Integer)))
+Left &quot;Missing record field foo of type int&quot;
+
+-}</span><span>
+</span><span id="line-422"></span><span>
+</span><span id="line-423"></span></pre></body></html>

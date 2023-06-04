@@ -1,0 +1,282 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- | The hash algorithm used for Candid field names</span><span>
+</span><span id="line-3"></span><span class="hs-comment">--</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Also includes a function that tries to reverse the hash, first using an</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- English word list, and then a brute force approach.</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Codec.Candid.Hash</span><span>
+</span><span id="line-7"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Codec.Candid.Hash.html#candidHash"><span class="hs-identifier">candidHash</span></a></span><span>
+</span><span id="line-8"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Codec.Candid.Hash.html#invertHash"><span class="hs-identifier">invertHash</span></a></span><span>
+</span><span id="line-9"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Lazy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.IntMap</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">M</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Char</span></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.FileEmbed</span></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- | The Candid field label hashing algorithm</span><span>
+</span><span id="line-21"></span><span class="annot"><a href="Codec.Candid.Hash.html#candidHash"><span class="hs-identifier hs-type">candidHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word32</span></span><span>
+</span><span id="line-22"></span><span id="candidHash"><span class="annot"><span class="annottext">candidHash :: Text -&gt; Word32
+</span><a href="Codec.Candid.Hash.html#candidHash"><span class="hs-identifier hs-var hs-var">candidHash</span></a></span></span><span> </span><span id="local-6989586621679396067"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679396067"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; Word8 -&gt; Word32) -&gt; Word32 -&gt; ByteString -&gt; Word32
+forall a. (a -&gt; Word8 -&gt; a) -&gt; a -&gt; ByteString -&gt; a
+</span><span class="hs-identifier hs-var">BS.foldl</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679396065"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679396065"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621679396064"><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679396064"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679396065"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Word32 -&gt; Word32
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><span class="hs-number">223</span></span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Word32 -&gt; Word32
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Word32
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679396064"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Word32
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Word32) -&gt; ByteString -&gt; Word32
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">BS.fromStrict</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString) -&gt; ByteString -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><span class="hs-identifier hs-var">T.encodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679396067"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- | Inversion of the Candid field label hash</span><span>
+</span><span id="line-25"></span><span class="annot"><a href="Codec.Candid.Hash.html#invertHash"><span class="hs-identifier hs-type">invertHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word32</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-26"></span><span id="invertHash"><span class="annot"><span class="annottext">invertHash :: Word32 -&gt; Maybe Text
+</span><a href="Codec.Candid.Hash.html#invertHash"><span class="hs-identifier hs-var hs-var">invertHash</span></a></span></span><span> </span><span id="local-6989586621679396059"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679396059"><span class="hs-identifier hs-var">w32</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679396059"><span class="hs-identifier hs-var">w32</span></a></span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Word32 -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><span class="hs-number">32</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe Text
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-27"></span><span>    </span><span class="hs-comment">-- leave small numbers alone, tend to be tuple indicies</span><span>
+</span><span id="line-28"></span><span class="annot"><a href="Codec.Candid.Hash.html#invertHash"><span class="hs-identifier hs-var">invertHash</span></a></span><span> </span><span id="local-6989586621679396057"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679396057"><span class="hs-identifier hs-var">w32</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679396056"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679396056"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Key -&gt; IntMap Text -&gt; Maybe Text
+forall a. Key -&gt; IntMap a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">M.lookup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; Key
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679396057"><span class="hs-identifier hs-var">w32</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IntMap Text
+</span><a href="Codec.Candid.Hash.html#m"><span class="hs-identifier hs-var">m</span></a></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe Text
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679396056"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-29"></span><span>    </span><span class="hs-comment">-- try the word list</span><span>
+</span><span id="line-30"></span><span class="annot"><a href="Codec.Candid.Hash.html#invertHash"><span class="hs-identifier hs-var">invertHash</span></a></span><span> </span><span id="local-6989586621679396053"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679396053"><span class="hs-identifier hs-var">w32</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; Maybe Text
+forall a. [a] -&gt; Maybe a
+</span><span class="hs-identifier hs-var">listToMaybe</span></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679396051"><span class="hs-identifier hs-var">guesses</span></a></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-32"></span><span>    </span><span id="local-6989586621679396050"><span class="annot"><span class="annottext">x :: Word64
+</span><a href="#local-6989586621679396050"><span class="hs-identifier hs-var hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Word64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679396053"><span class="hs-identifier hs-var">w32</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span>    </span><span id="local-6989586621679396049"><span class="annot"><span class="annottext">chars :: [Char]
+</span><a href="#local-6989586621679396049"><span class="hs-identifier hs-var hs-var">chars</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'a'</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'z'</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'_'</span></span><span class="hs-special">]</span><span>
+</span><span id="line-35"></span><span>    </span><span id="local-6989586621679396048"><span class="annot"><span class="annottext">ords :: [Word64]
+</span><a href="#local-6989586621679396048"><span class="hs-identifier hs-var hs-var">ords</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; [Word64] -&gt; [Word64]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">(Char -&gt; Word64) -&gt; [Char] -&gt; [Word64]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; Word64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">(Key -&gt; Word64) -&gt; (Char -&gt; Key) -&gt; Char -&gt; Word64
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Key
+</span><span class="hs-identifier hs-var">ord</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679396049"><span class="hs-identifier hs-var">chars</span></a></span><span>
+</span><span id="line-36"></span><span>    </span><span id="local-6989586621679396045"><span class="annot"><span class="annottext">init_chars :: [Char]
+</span><a href="#local-6989586621679396045"><span class="hs-identifier hs-var hs-var">init_chars</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679396049"><span class="hs-identifier hs-var">chars</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'A'</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'Z'</span></span><span> </span><span class="hs-special">]</span><span>
+</span><span id="line-37"></span><span>    </span><span id="local-6989586621679396044"><span class="annot"><span class="annottext">init_ords :: [Word64]
+</span><a href="#local-6989586621679396044"><span class="hs-identifier hs-var hs-var">init_ords</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; [Word64] -&gt; [Word64]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">(Char -&gt; Word64) -&gt; [Char] -&gt; [Word64]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; Word64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">(Key -&gt; Word64) -&gt; (Char -&gt; Key) -&gt; Char -&gt; Word64
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Key
+</span><span class="hs-identifier hs-var">ord</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679396045"><span class="hs-identifier hs-var">init_chars</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span>    </span><span id="local-6989586621679396043"><span class="annot"><span class="annottext">non_mod :: a -&gt; a
+</span><a href="#local-6989586621679396043"><span class="hs-identifier hs-var hs-var">non_mod</span></a></span></span><span> </span><span id="local-6989586621679396042"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679396042"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679396042"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679396042"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`mod`</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">2</span></span><span class="annot"><span class="annottext">a -&gt; Key -&gt; a
+forall a b. (Num a, Integral b) =&gt; a -&gt; b -&gt; a
+</span><span class="hs-operator hs-var">^</span></span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key
+</span><span class="hs-number">32</span></span><span class="hs-glyph">::</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>    </span><span id="local-6989586621679396051"><span class="annot"><span class="annottext">guesses :: [Text]
+</span><a href="#local-6989586621679396051"><span class="hs-identifier hs-var hs-var">guesses</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-41"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">([Char] -&gt; Text) -&gt; [Char] -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char]
+forall a. [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">reverse</span></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679396037"><span class="hs-identifier hs-var">guess</span></a></span><span>
+</span><span id="line-42"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679396036"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396036"><span class="hs-identifier hs-var">c8</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Word64]
+</span><a href="#local-6989586621679396044"><span class="hs-identifier hs-var">init_ords</span></a></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679396035"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396035"><span class="hs-identifier hs-var">c7</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Word64]
+</span><a href="#local-6989586621679396048"><span class="hs-identifier hs-var">ords</span></a></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679396034"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396034"><span class="hs-identifier hs-var">c6</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Word64]
+</span><a href="#local-6989586621679396048"><span class="hs-identifier hs-var">ords</span></a></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679396033"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396033"><span class="hs-identifier hs-var">c5</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Word64]
+</span><a href="#local-6989586621679396048"><span class="hs-identifier hs-var">ords</span></a></span><span>
+</span><span id="line-43"></span><span>        </span><span class="hs-comment">-- It seems that 8 characters are enough to invert anything</span><span>
+</span><span id="line-44"></span><span>        </span><span class="hs-comment">-- (based on quickchecking)</span><span>
+</span><span id="line-45"></span><span>        </span><span class="hs-comment">-- Set up so that short guesses come first</span><span>
+</span><span id="line-46"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679396032"><span class="annot"><span class="annottext">high_chars :: Word64
+</span><a href="#local-6989586621679396032"><span class="hs-identifier hs-var hs-var">high_chars</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396033"><span class="hs-identifier hs-var">c5</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">223</span></span><span class="annot"><span class="annottext">Word64 -&gt; Key -&gt; Word64
+forall a b. (Num a, Integral b) =&gt; a -&gt; b -&gt; a
+</span><span class="hs-operator hs-var">^</span></span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key
+</span><span class="hs-number">4</span></span><span class="hs-glyph">::</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396034"><span class="hs-identifier hs-var">c6</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">223</span></span><span class="annot"><span class="annottext">Word64 -&gt; Key -&gt; Word64
+forall a b. (Num a, Integral b) =&gt; a -&gt; b -&gt; a
+</span><span class="hs-operator hs-var">^</span></span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key
+</span><span class="hs-number">5</span></span><span class="hs-glyph">::</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396035"><span class="hs-identifier hs-var">c7</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">223</span></span><span class="annot"><span class="annottext">Word64 -&gt; Key -&gt; Word64
+forall a b. (Num a, Integral b) =&gt; a -&gt; b -&gt; a
+</span><span class="hs-operator hs-var">^</span></span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key
+</span><span class="hs-number">6</span></span><span class="hs-glyph">::</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396036"><span class="hs-identifier hs-var">c8</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">223</span></span><span class="annot"><span class="annottext">Word64 -&gt; Key -&gt; Word64
+forall a b. (Num a, Integral b) =&gt; a -&gt; b -&gt; a
+</span><span class="hs-operator hs-var">^</span></span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key
+</span><span class="hs-number">7</span></span><span class="hs-glyph">::</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679396037"><span class="annot"><span class="annottext">guess :: [Char]
+</span><a href="#local-6989586621679396037"><span class="hs-identifier hs-var hs-var">guess</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; [Char]
+</span><a href="#local-6989586621679396031"><span class="hs-identifier hs-var">simple</span></a></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; [Char]) -&gt; Word64 -&gt; [Char]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396050"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64
+forall a. Integral a =&gt; a -&gt; a
+</span><a href="#local-6989586621679396043"><span class="hs-identifier hs-var">non_mod</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396032"><span class="hs-identifier hs-var">high_chars</span></a></span><span>
+</span><span id="line-48"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(Char -&gt; Bool) -&gt; [Char] -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
+</span><span class="hs-identifier hs-var">all</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char -&gt; [Char] -&gt; Bool
+forall (t :: * -&gt; *) a. (Foldable t, Eq a) =&gt; a -&gt; t a -&gt; Bool
+</span><span class="hs-operator hs-var">`elem`</span></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679396045"><span class="hs-identifier hs-var">init_chars</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; [Char] -&gt; [Char]
+forall a. Key -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">take</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679396037"><span class="hs-identifier hs-var">guess</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(Char -&gt; Bool) -&gt; [Char] -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
+</span><span class="hs-identifier hs-var">all</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char -&gt; [Char] -&gt; Bool
+forall (t :: * -&gt; *) a. (Foldable t, Eq a) =&gt; a -&gt; t a -&gt; Bool
+</span><span class="hs-operator hs-var">`elem`</span></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679396049"><span class="hs-identifier hs-var">chars</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; [Char] -&gt; [Char]
+forall a. Key -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">drop</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679396037"><span class="hs-identifier hs-var">guess</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-comment">-- inverts the Hash if the hash was created without modulos</span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-comment">-- returns string in reverse order</span><span>
+</span><span id="line-54"></span><span>    </span><span class="annot"><a href="#local-6989586621679396031"><span class="hs-identifier hs-type">simple</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-55"></span><span>    </span><span id="local-6989586621679396031"><span class="annot"><span class="annottext">simple :: Word64 -&gt; [Char]
+</span><a href="#local-6989586621679396031"><span class="hs-identifier hs-var hs-var">simple</span></a></span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><span class="hs-string">&quot;&quot;</span></span><span>
+</span><span id="line-56"></span><span>    </span><span class="annot"><a href="#local-6989586621679396031"><span class="hs-identifier hs-var">simple</span></a></span><span> </span><span id="local-6989586621679396025"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396025"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Key -&gt; Char
+</span><span class="hs-identifier hs-var">chr</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64 -&gt; Key
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396023"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Char -&gt; [Char] -&gt; [Char]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; [Char]
+</span><a href="#local-6989586621679396031"><span class="hs-identifier hs-var">simple</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396022"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-57"></span><span>      </span><span class="hs-keyword">where</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679396022"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396022"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679396023"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396023"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679396025"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; (Word64, Word64)
+forall a. Integral a =&gt; a -&gt; a -&gt; (a, a)
+</span><span class="hs-operator hs-var">`divMod`</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">223</span></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- Word list obtained from https://github.com/dwyl/english-words</span><span>
+</span><span id="line-60"></span><span class="annot"><a href="Codec.Candid.Hash.html#wordFile"><span class="hs-identifier hs-type">wordFile</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-61"></span><span id="wordFile"><span class="annot"><span class="annottext">wordFile :: Text
+</span><a href="Codec.Candid.Hash.html#wordFile"><span class="hs-identifier hs-var hs-var">wordFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">$(</span><span class="hs-identifier">embedStringFile</span><span> </span><span class="hs-string">&quot;words.txt&quot;</span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="annot"><a href="Codec.Candid.Hash.html#m"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">M.IntMap</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-64"></span><span id="m"><span class="annot"><span class="annottext">m :: IntMap Text
+</span><a href="Codec.Candid.Hash.html#m"><span class="hs-identifier hs-var hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(Key, Text)] -&gt; IntMap Text
+forall a. [(Key, a)] -&gt; IntMap a
+</span><span class="hs-identifier hs-var">M.fromList</span></span><span> </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; Key
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Word32
+</span><a href="Codec.Candid.Hash.html#candidHash"><span class="hs-identifier hs-var">candidHash</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679396018"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679396018"><span class="hs-identifier hs-var">w</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679396018"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679396018"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679396017"><span class="hs-identifier hs-var">word_list</span></a></span><span> </span><span class="hs-special">]</span><span>
+</span><span id="line-65"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-66"></span><span>    </span><span id="local-6989586621679396017"><span class="annot"><span class="annottext">word_list :: [Text]
+</span><a href="#local-6989586621679396017"><span class="hs-identifier hs-var hs-var">word_list</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Text]
+</span><span class="hs-identifier hs-var">T.lines</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="Codec.Candid.Hash.html#wordFile"><span class="hs-identifier hs-var">wordFile</span></a></span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; [Text] -&gt; [Text]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Text) -&gt; [Text] -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
+</span><span class="hs-identifier hs-var">T.toTitle</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; [Text]
+</span><span class="hs-identifier hs-var">T.lines</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="Codec.Candid.Hash.html#wordFile"><span class="hs-identifier hs-var">wordFile</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span></pre></body></html>
