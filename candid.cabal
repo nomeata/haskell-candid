@@ -67,7 +67,7 @@ library
         constraints ^>=0.13.4,
         prettyprinter ^>=1.7.1,
         template-haskell ^>=2.16.0.0 || ^>=2.17.0.0 || ^>=2.18.0.0 || ^>=2.19.0.0,
-        base32 ^>=0.2.2.0,
+        base32,
         split ^>=0.2.3.5,
         file-embed ^>=0.0.15.0
 
