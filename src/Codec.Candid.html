@@ -282,10 +282,17 @@ Let us create a simple service:
 
 For convenience, we name its type
 
+#if MIN_VERSION_GLASGOW_HASKELL(9,6,0,0)
+&gt;&gt;&gt; :t service
+service :: Rec (R [&quot;get&quot; :-&gt; (() -&gt; IO Integer), &quot;inc&quot; :-&gt; (Integer -&gt; IO ())])
+&gt;&gt;&gt; :set -XTypeOperators -XDataKinds -XFlexibleContexts
+&gt;&gt;&gt; type Interface = R [&quot;get&quot; :-&gt; (() -&gt; IO Integer), &quot;inc&quot; :-&gt; (Integer -&gt; IO ())]
+#else
 &gt;&gt;&gt; :t service
 service :: Rec ('R '[ &quot;get&quot; ':-&gt; (() -&gt; IO Integer), &quot;inc&quot; ':-&gt; (Integer -&gt; IO ())])
 &gt;&gt;&gt; :set -XTypeOperators -XDataKinds -XFlexibleContexts
 &gt;&gt;&gt; type Interface = 'R '[ &quot;get&quot; ':-&gt; (() -&gt; IO Integer), &quot;inc&quot; ':-&gt; (Integer -&gt; IO ())]
+#endif
 
 Now we can turn this into a raw service operating on bytes:
 
@@ -312,8 +319,8 @@ And finally, we can turn this raw function  back into a typed interface:
 In a real application you would more likely pass some networking code to 'toCandidService'.
 
 -}</span><span>
-</span><span id="line-315"></span><span>
-</span><span id="line-316"></span><span class="hs-comment">{- $import
+</span><span id="line-322"></span><span>
+</span><span id="line-323"></span><span class="hs-comment">{- $import
 
 In the example above, we wrote the type of the service in Haskell. But very
 likely you want to talk to a service whose is given to you in the form of a
@@ -364,7 +371,7 @@ type Counter (m :: * -&gt; *) = (&quot;get&quot; .== (() -&gt; m Integer)) .+ (&
 -}</span><span class="hs-cpp">
 #endif
 </span><span>
-</span><span id="line-367"></span><span class="hs-comment">{- $import3
+</span><span id="line-374"></span><span class="hs-comment">{- $import3
 You can then use this with 'toCandidService' to talk to a service.
 
 If you want to read the description from a @.did@ file, you can use 'candidFile'.
@@ -373,8 +380,8 @@ If this encounters a Candid type definition, it will just inline them. This mean
 
 
 -}</span><span>
-</span><span id="line-376"></span><span>
-</span><span id="line-377"></span><span class="hs-comment">{- $dynamic
+</span><span id="line-383"></span><span>
+</span><span id="line-384"></span><span class="hs-comment">{- $dynamic
 
 Sometimes one needs to interact with Candid in a dynamic way, without static type information.
 
@@ -419,5 +426,5 @@ Left &quot;Type opt vec bool is not a subtype of vec bool&quot;
 Left &quot;Missing record field foo of type int&quot;
 
 -}</span><span>
-</span><span id="line-422"></span><span>
-</span><span id="line-423"></span></pre></body></html>
+</span><span id="line-429"></span><span>
+</span><span id="line-430"></span></pre></body></html>
