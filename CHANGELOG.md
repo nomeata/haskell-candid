@@ -1,5 +1,10 @@
 # Revision history for haskell-candid
 
+## 0.4.0.2 -- 2023-06-03
+
+* Bump dependencies
+* GHC-9.t
+
 ## 0.4.0.1 -- 2023-01-01
 
 * Bump dependencies
