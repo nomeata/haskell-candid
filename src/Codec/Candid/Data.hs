@@ -10,7 +10,6 @@ import qualified Data.ByteString.Builder as BS
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Row.Internal as R
-import Data.Digest.CRC
 import Data.Digest.CRC32
 import Data.ByteString.Base32
 import Data.List
