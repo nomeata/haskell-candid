@@ -28,7 +28,7 @@ prettyPrincipal :: Principal -> T.Text
 prettyPrincipal (Principal blob) =
     T.pack $ intercalate "-" $ chunksOf 5 $ base32 $ checkbytes <> blob
   where
-    CRC32 checksum = digest (BS.toStrict blob)
+    checksum = crc32 (BS.toStrict blob)
     checkbytes = BS.toLazyByteString (BS.word32BE checksum)
     base32 = filter (/='=') . T.unpack . T.toLower . encodeBase32 . BS.toStrict
 
