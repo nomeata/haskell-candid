@@ -343,12 +343,14 @@ instance CandidMethodsRow r => CandidVal (ServiceRef r) where
     fromCandidVal' (ServiceV p) = return (ServiceRef p)
     fromCandidVal' v = cannotCoerce "service" v
 
+{-
 instance (CandidMethodType mt) => Candid (FuncRef mt)
 instance (CandidMethodType mt) => CandidVal (FuncRef mt) where
     asType = FuncT (asMethodType @mt)
     toCandidVal' (FuncRef p n) = FuncV p n
     fromCandidVal' (FuncV p n) = return (FuncRef p n)
     fromCandidVal' v = cannotCoerce "func" v
+-}
 
 instance Candid Reserved
 instance CandidVal Reserved where
