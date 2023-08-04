@@ -1,0 +1,107 @@
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
+
+http_archive(
+    name = "rules_cc",
+    urls = ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.8/rules_cc-0.0.8.tar.gz"],
+    sha256 = "ae46b722a8b8e9b62170f83bfb040cbf12adb732144e689985a66b26410a7d6f",
+    strip_prefix = "rules_cc-0.0.8",
+)
+
+
+http_archive(
+    name = "rules_python",
+    sha256 = "0a8003b044294d7840ac7d9d73eef05d6ceb682d7516781a4ec62eeb34702578",
+    strip_prefix = "rules_python-0.24.0",
+    url = "https://github.com/bazelbuild/rules_python/releases/download/0.24.0/rules_python-0.24.0.tar.gz",
+)
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
+
+http_archive(
+    name = "com_google_protobuf",
+    sha256 = "a79d19dcdf9139fa4b81206e318e33d245c4c9da1ffed21c87288ed4380426f9",
+    strip_prefix = "protobuf-3.11.4",
+    # latest, as of 2020-02-21
+    urls = [
+        "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.4.tar.gz",
+        "https://github.com/protocolbuffers/protobuf/archive/v3.11.4.tar.gz",
+    ],
+)
+
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+
+protobuf_deps()
+
+http_archive(
+    name = "bazel_skylib",
+    sha256 = "66ffd9315665bfaafc96b52278f57c7e2dd09f5ede279ea6d39b2be471e7e3aa",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.4.2/bazel-skylib-1.4.2.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.4.2/bazel-skylib-1.4.2.tar.gz",
+    ],
+)
+
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
+
+bazel_skylib_workspace()
+
+http_archive(
+    name = "rules_haskell",
+    sha256 = "7dad2a7c6b3a7bfebb7c7b9f9223d75c48c310f009356531e6fc95cfe731014d",
+    strip_prefix = "rules_haskell-7b907537830dca51634b25d2b122b883eab46680",
+    url = "https://github.com/tweag/rules_haskell/archive/7b907537830dca51634b25d2b122b883eab46680.tar.gz",
+)
+
+http_archive(
+    name = "rules_sh",
+    sha256 = "d4ad015a8e72e92a5c171efa760524502e098cd927ae800dfad03b02dad2299a",
+    strip_prefix = "rules_sh-06170f1fbff23f900bc04dfbdb75ed1acf2b8c42",
+    urls = ["https://github.com/tweag/rules_sh/archive/06170f1fbff23f900bc04dfbdb75ed1acf2b8c42.tar.gz"],
+)
+
+load(
+    "@rules_haskell//haskell:toolchain.bzl",
+    "rules_haskell_toolchains",
+)
+
+rules_haskell_toolchains(
+    version = "9.6.2",
+)
+
+load(
+    "@rules_haskell//haskell:cabal.bzl",
+    "stack_snapshot",
+)
+
+stack_snapshot(
+    name = "stackage",
+    snapshot = "nightly-2023-07-29",
+    packages = [
+        "base",
+        "digest",
+        "text",
+        "dlist",
+        "vector",
+        "bytestring",
+        "mtl",
+        "transformers",
+        "hex-text",
+        "megaparsec",
+        "parser-combinators",
+        "scientific",
+        "cereal",
+        "leb128-cereal",
+        "containers",
+        "unordered-containers",
+        "row-types",
+        "constraints",
+        "prettyprinter",
+        "template-haskell",
+        "base32",
+        "split",
+        "file-embed",
+    ]
+)

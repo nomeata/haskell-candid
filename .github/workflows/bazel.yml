@@ -1,0 +1,27 @@
+---
+name: Haskell CI using Bazel
+on:
+  push:
+    branches: [master]
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: install deps
+      run: |
+        sudo apt-get install -y build-essential libffi-dev libgmp-dev libtinfo5 libtinfo-dev python3
+        curl -L "https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-amd64" -o bazel
+        chmod +x bazel
+
+    - name: run bazel
+      run: |
+        ./bazel build :candid

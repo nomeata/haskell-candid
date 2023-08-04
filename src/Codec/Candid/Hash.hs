@@ -58,7 +58,7 @@ invertHash w32 = listToMaybe guesses
 
 -- Word list obtained from https://github.com/dwyl/english-words
 wordFile :: T.Text
-wordFile = $(embedStringFile "words.txt")
+wordFile = $(makeRelativeToProject "words.txt" >>= embedStringFile)
 
 m :: M.IntMap T.Text
 m = M.fromList [ (fromIntegral (candidHash w), w) | w <- word_list ]

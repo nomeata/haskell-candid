@@ -10,7 +10,6 @@ import qualified Data.ByteString.Builder as BS
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Row.Internal as R
-import Data.Digest.CRC
 import Data.Digest.CRC32
 import Data.ByteString.Base32
 import Data.List
@@ -29,7 +28,7 @@ prettyPrincipal :: Principal -> T.Text
 prettyPrincipal (Principal blob) =
     T.pack $ intercalate "-" $ chunksOf 5 $ base32 $ checkbytes <> blob
   where
-    CRC32 checksum = digest (BS.toStrict blob)
+    checksum = crc32 (BS.toStrict blob)
     checkbytes = BS.toLazyByteString (BS.word32BE checksum)
     base32 = filter (/='=') . T.unpack . T.toLower . encodeBase32 . BS.toStrict
 
@@ -48,6 +47,6 @@ parsePrincipal s = do
 newtype ServiceRef (r :: R.Row Type) = ServiceRef { rawServiceRef :: Principal }
  deriving (Eq, Ord, Show)
 
-data FuncRef r = FuncRef { service :: Principal, method :: T.Text }
+data FuncRef (r :: Type) = FuncRef { service :: Principal, method :: T.Text }
  deriving (Eq, Ord, Show)
 
