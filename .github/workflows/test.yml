@@ -53,7 +53,7 @@ jobs:
         echo "Detected compiler version $ver in ci-configs/${{ matrix.plan }}.config"
         echo "ghc_version=$ver" >> $GITHUB_ENV
 
-    - uses: haskell/actions/setup@v2
+    - uses: haskell-actions/setup@v2
       with:
         ghc-version: ${{ env.ghc_version }}
 
