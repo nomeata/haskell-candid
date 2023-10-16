@@ -33,6 +33,7 @@ inferTyp NullV = return NullT
 inferTyp ReservedV = return ReservedT
 inferTyp (OptV Nothing) = return $ OptT EmptyT
 inferTyp (OptV (Just v)) = OptT <$> inferTyp v
+inferTyp (RepeatV _ v) = VecT <$> inferTyp v
 inferTyp (VecV vs) = VecT <$> (mapM inferTyp (V.toList vs) >>= lubs)
 inferTyp (RecV fs) = RecT <$> sequence [ (fn,) <$> inferTyp t | (fn, t) <- fs ]
 inferTyp (VariantV f v) = do
