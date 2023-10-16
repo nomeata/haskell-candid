@@ -3,5 +3,10 @@ packages: .
 write-ghc-environment-files: always
 
 allow-newer:
+  base32-0.3.1.0:base,
   base32-0.3.1.0:deepseq,
-  base32-0.3.1.0:bytestring
+  base32-0.3.1.0:bytestring,
+  base32-0.3.1.0:text,
+  hex-text-0.1.0.9:base,
+  hex-text-0.1.0.9:bytestring,
+  hex-text-0.1.0.9:text
