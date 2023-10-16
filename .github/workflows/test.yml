@@ -47,7 +47,6 @@ jobs:
         ref: 6edd82f928b6242c596003ced00ffc8e099ee04e
 
     - name: Detect GHC version
-      if: matrix.plan != 'upper-bounds'
       run: |
         ver=$(grep -o -P '(?<=with-compiler: ghc-).*' ci-configs/${{ matrix.plan }}.config)
         echo "Detected compiler version $ver in ci-configs/${{ matrix.plan }}.config"
