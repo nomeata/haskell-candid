@@ -2,4 +2,6 @@ packages: .
 -- for doctest
 write-ghc-environment-files: always
 
-allow-newer: base32-0.3.1.0:deepseq
+allow-newer:
+  base32-0.3.1.0:deepseq,
+  base32-0.3.1.0:bytestring
