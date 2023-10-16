@@ -51,7 +51,7 @@ library
         text ^>=1.2.4 || ^>=2.0.1 || ^>=2.1,
         dlist ^>=1.0,
         vector ^>=0.12.3 || ^>=0.13.0,
-        bytestring ^>=0.10.12 || ^>=0.11.3,
+        bytestring ^>=0.10.12 || >=0.11.3
         mtl ^>=2.2.2 || ^>=2.3.1,
         transformers ^>=0.5.6 || ^>=0.6.1,
         hex-text ^>=0.1.0,
@@ -80,7 +80,7 @@ executable hcandid
         candid,
         optparse-applicative ^>=0.17.1 || ^>=0.18.1,
         text ^>=1.2.4 || ^>=2.0.1 || ^>=2.1,
-        bytestring ^>=0.10.12 || ^>=0.11.3,
+        bytestring ^>=0.10.12 || >=0.11.3,
         hex-text ^>=0.1.0,
         prettyprinter ^>=1.7.1
 
@@ -104,7 +104,7 @@ test-suite test
         tasty-rerun ^>=1.1.18,
         smallcheck ^>=1.2.1,
         candid,
-        bytestring ^>=0.10.12 || ^>=0.11.3,
+        bytestring ^>=0.10.12 || >=0.11.3,
         text ^>=1.2.4 || ^>=2.0.1 || ^>=2.1,
         vector ^>=0.12.3 || ^>=0.13.0,
         prettyprinter ^>=1.7.1,
