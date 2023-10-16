@@ -86,8 +86,8 @@ instance Monad Type where
     RefT x >>= f = f x
 
 bindMethodType :: (a -> Type b) -> MethodType a -> MethodType b
-bindMethodType f (MethodType as bs q ow) =
-   MethodType (map (>>= f) as) (map (>>= f) bs) q ow
+bindMethodType f (MethodType as bs q cq ow) =
+   MethodType (map (>>= f) as) (map (>>= f) bs) q cq ow
 
 
 type Fields a = [(FieldName, Type a)]
@@ -263,6 +263,7 @@ data MethodType a = MethodType
     { methParams :: [Type a]
     , methResults :: [Type a]
     , methQuery :: Bool
+    , methCompQuery :: Bool
     , methOneway :: Bool
     }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
@@ -276,12 +277,13 @@ data DidFile = DidFile
   deriving (Eq, Show)
 
 instance Pretty a => Pretty (MethodType a) where
-  pretty (MethodType params results q o) = sep $
+  pretty (MethodType params results q cq o) = sep $
       [ pretty params
       , "->"
       , pretty results
       ] <>
       [ "query" | q ] <>
+      [ "composite_query" | cq ] <>
       [ "oneway" | o ]
 
 prettyDef :: Pretty a => DidDef a -> Doc ann

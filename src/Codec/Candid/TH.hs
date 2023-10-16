@@ -195,8 +195,8 @@ mrow eq add = foldr (\(m, mt) rest -> [t|
     methodName f = litT (strTyLit (T.unpack f))
 
 methodType :: MethodType TH.Name -> TypeQ
-methodType (MethodType a b q o) =
-    [t| ($(candidTypeQ a), $(candidTypeQ b), $(ann q), $(ann o)) |]
+methodType (MethodType a b q cq o) =
+    [t| ($(candidTypeQ a), $(candidTypeQ b), $(ann q), $(ann cq), $(ann o)) |]
   where
     ann True = [t|AnnTrue|]
     ann False = [t|AnnFalse|]
