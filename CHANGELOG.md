@@ -1,5 +1,16 @@
 # Revision history for haskell-candid
 
+## 0.5 -- 2023-10-17
+
+* GHC-9.8 compatibility
+* Support spec version 0.1.6:
+  - `composite_query`
+    https://github.com/dfinity/candid/pull/420
+  - `record {} <: record {null}`
+    https://github.com/dfinity/candid/pull/462
+  - space bomb protection
+    https://github.com/dfinity/candid/pull/434
+
 ## 0.4.0.2 -- 2023-06-03
 
 * Bump dependencies
