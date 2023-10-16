@@ -416,8 +416,8 @@ instance KnownAnnotation AnnFalse where isTrue = False
 class Typeable a => CandidMethodType a where
     asMethodType :: MethodType (Ref TypeRep Type)
 
-instance (CandidArg a, CandidArg b, KnownAnnotation q, KnownAnnotation o) => CandidMethodType (a, b, q, o) where
-    asMethodType = MethodType (asTypes @(AsTuple a)) (asTypes @(AsTuple b)) (isTrue @q) (isTrue @o)
+instance (CandidArg a, CandidArg b, KnownAnnotation q, KnownAnnotation cq, KnownAnnotation o) => CandidMethodType (a, b, q, cq, o) where
+    asMethodType = MethodType (asTypes @(AsTuple a)) (asTypes @(AsTuple b)) (isTrue @q) (isTrue @cq) (isTrue @o)
 
 methodsOfRow :: forall r. Forall r CandidMethodType => [(T.Text, MethodType (Ref TypeRep Type))]
 methodsOfRow = getConst $ metamorph @_ @r @CandidMethodType @(,) @(Const ()) @(Const [(T.Text, MethodType (Ref TypeRep Type))]) @Proxy Proxy doNil doUncons doCons (Const ())

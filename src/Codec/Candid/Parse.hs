@@ -91,10 +91,11 @@ funcTypeP = do
     ts1 <- seqP
     s "->"
     ts2 <- seqP
-    (q,o) <- runPermutation $
-         (,) <$> toPermutationWithDefault False (True <$ s "query")
-             <*> toPermutationWithDefault False (True <$ s "oneway")
-    return $ MethodType ts1 ts2 q o
+    (q,cq,o) <- runPermutation $
+         (,,) <$> toPermutationWithDefault False (True <$ s "query")
+              <*> toPermutationWithDefault False (True <$ s "composite_query")
+              <*> toPermutationWithDefault False (True <$ s "oneway")
+    return $ MethodType ts1 ts2 q cq o
 
 nameP :: Parser T.Text
 nameP = textP <|> idP <?> "name"

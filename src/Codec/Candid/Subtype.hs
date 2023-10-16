@@ -162,9 +162,10 @@ goMethodType ::
     MethodType (Ref k1 Type) ->
     MethodType (Ref k2 Type) ->
     SubTypeM k1 k2 ()
-goMethodType (MethodType ta1 tr1 q1 o1) (MethodType ta2 tr2 q2 o2) = do
+goMethodType (MethodType ta1 tr1 q1 cq1 o1) (MethodType ta2 tr2 q2 cq2 o2) = do
     unless (q1 == q2) $ throwError "Methods differ in query annotation"
     unless (o1 == o2) $ throwError "Methods differ in oneway annotation"
+    unless (cq1 == cq2) $ throwError "Methods differ in oneway annotation"
     flipM $ goSeq ta2 ta1
     goSeq tr1 tr2
 

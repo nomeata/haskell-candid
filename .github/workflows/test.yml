@@ -44,7 +44,7 @@ jobs:
       with:
         repository: 'dfinity/candid'
         path: candid
-        ref: 6edd82f928b6242c596003ced00ffc8e099ee04e
+        ref: 51c00478eb2d85628f0a1b9163ed36f2c392a01e
 
     - name: Detect GHC version
       run: |

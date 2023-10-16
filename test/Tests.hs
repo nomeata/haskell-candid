@@ -200,9 +200,9 @@ withSomeTypes mkTest =
     , mkTest (Proxy @SimpleRecord)
     , mkTest (Proxy @(Rec ("a" .== Bool .+ "b" .== Bool .+ "c" .== Bool)))
     , mkTest (Proxy @(V.Var ("upgrade" .== () .+ "reinstall" .== () .+ "install" .== ())))
-    , mkTest (Proxy @(FuncRef (Bool, T.Text, AnnFalse, AnnFalse)))
-    , mkTest (Proxy @(FuncRef (Bool, T.Text, AnnTrue, AnnFalse)))
-    , mkTest (Proxy @(FuncRef (Bool, T.Text, AnnFalse, AnnTrue)))
+    , mkTest (Proxy @(FuncRef (Bool, T.Text, AnnFalse, AnnFalse, AnnFalse)))
+    , mkTest (Proxy @(FuncRef (Bool, T.Text, AnnTrue,  AnnFalse, AnnFalse)))
+    , mkTest (Proxy @(FuncRef (Bool, T.Text, AnnFalse, AnnFalse, AnnTrue)))
     , mkTest (Proxy @(ServiceRef Empty))
     ]
 
@@ -286,10 +286,11 @@ tests =
     , printTestType @Word8 "nat8"
     , printTestType @SimpleRecord "record {bar : nat8; foo : bool}"
     , printTestType @(JustRight T.Text) "variant {Right : text}"
-    , printTestType @(FuncRef (Bool, Unary (), AnnTrue, AnnFalse)) "func (bool) -> (null) query"
-    , printTestType @(FuncRef (Bool, T.Text, AnnFalse, AnnTrue)) "func (bool) -> (text) oneway"
+    , printTestType @(FuncRef (Bool, Unary (), AnnTrue, AnnFalse, AnnFalse)) "func (bool) -> (null) query"
+    , printTestType @(FuncRef (Bool, T.Text, AnnFalse, AnnFalse, AnnTrue)) "func (bool) -> (text) oneway"
+    , printTestType @(FuncRef (Bool, T.Text, AnnFalse, AnnTrue, AnnFalse)) "func (bool) -> (text) composite_query"
     , printTestType @(ServiceRef Empty) "service : {}"
-    , printTestType @(ServiceRef ("foo" .== (Bool, T.Text, AnnFalse, AnnTrue) .+ "bar" .== ((),(),AnnFalse, AnnFalse)))
+    , printTestType @(ServiceRef ("foo" .== (Bool, T.Text, AnnFalse, AnnFalse, AnnTrue) .+ "bar" .== ((),(),AnnFalse, AnnFalse, AnnFalse)))
         "service : {bar : () -> (); foo : (bool) -> (text) oneway;}"
     , printTestSeq @() "()"
     , printTestSeq @(Unary ()) "(null)"
@@ -364,11 +365,11 @@ tests =
     , t "blob \"hello\"" ("hello" :: BS.ByteString)
     , t "blob \"\\00\\ff\"" ("\x00\xff" :: BS.ByteString)
     , t "func \"psokg-ww6vw-7o6\".\"foo\""
-        (FuncRef @((), (), AnnFalse, AnnFalse) (Principal "\xde\xad\xbe\xef") "foo")
+        (FuncRef @((), (), AnnFalse, AnnFalse, AnnFalse) (Principal "\xde\xad\xbe\xef") "foo")
     , t "func \"psokg-ww6vw-7o6\".foo"
-        (FuncRef @((), (), AnnFalse, AnnFalse) (Principal "\xde\xad\xbe\xef") "foo")
+        (FuncRef @((), (), AnnFalse, AnnFalse, AnnFalse) (Principal "\xde\xad\xbe\xef") "foo")
     , t "func \"psokg-ww6vw-7o6\".\"\""
-        (FuncRef @((), (), AnnFalse, AnnFalse) (Principal "\xde\xad\xbe\xef") "")
+        (FuncRef @((), (), AnnFalse, AnnFalse, AnnFalse) (Principal "\xde\xad\xbe\xef") "")
     , t "service \"psokg-ww6vw-7o6\""
         (ServiceRef @Empty (Principal "\xde\xad\xbe\xef"))
     , t "principal \"psokg-ww6vw-7o6\""
@@ -381,31 +382,35 @@ tests =
     [ parseTest "service : {}" $
       DidFile [] []
     , parseTest "service : { foo : (text) -> (text) }" $
-      DidFile [] [("foo", MethodType [TextT] [TextT] False False)]
+      DidFile [] [("foo", MethodType [TextT] [TextT] False False False)]
     , parseTest "service : { foo : (text,) -> (text,); }" $
-      DidFile [] [("foo", MethodType [TextT] [TextT] False False)]
+      DidFile [] [("foo", MethodType [TextT] [TextT] False False False)]
     , parseTest "service : { foo : (x : text,) -> (y : text,); }" $
-      DidFile [] [("foo", MethodType [TextT] [TextT] False False)]
+      DidFile [] [("foo", MethodType [TextT] [TextT] False False False)]
     , parseTest "service : { foo : (opt text) -> () }" $
-      DidFile [] [("foo", MethodType [OptT TextT] [] False False) ]
+      DidFile [] [("foo", MethodType [OptT TextT] [] False False False) ]
     , parseTest "service : { foo : (record { text; blob }) -> () }" $
-      DidFile [] [("foo", MethodType [RecT [(hashedField 0, TextT), (hashedField 1, BlobT)]] [] False False) ]
+      DidFile [] [("foo", MethodType [RecT [(hashedField 0, TextT), (hashedField 1, BlobT)]] [] False False False) ]
     , parseTest "service : { foo : (record { x_ : null; 5 : nat8 }) -> () }" $
-      DidFile [] [("foo", MethodType [RecT [("x_", NullT), (hashedField 5, Nat8T)]] [] False False) ]
+      DidFile [] [("foo", MethodType [RecT [("x_", NullT), (hashedField 5, Nat8T)]] [] False False False) ]
     , parseTest "service : { foo : (record { x : null; 5 : nat8 }) -> () }" $
-      DidFile [] [("foo", MethodType [RecT [("x", NullT), (hashedField 5, Nat8T)]] [] False False) ]
+      DidFile [] [("foo", MethodType [RecT [("x", NullT), (hashedField 5, Nat8T)]] [] False False False) ]
     , parseTest "service : { foo : (text) -> (text) query }" $
-      DidFile [] [("foo", MethodType [TextT] [TextT] True False)]
+      DidFile [] [("foo", MethodType [TextT] [TextT] True False False)]
     , parseTest "service : { foo : (text) -> (text) oneway }" $
-      DidFile [] [("foo", MethodType [TextT] [TextT] False True)]
+      DidFile [] [("foo", MethodType [TextT] [TextT] False False True)]
+    , parseTest "service : { foo : (text) -> (text) composite_query }" $
+      DidFile [] [("foo", MethodType [TextT] [TextT] False True False)]
     , parseTest "service : { foo : (text) -> (text) query oneway }" $
-      DidFile [] [("foo", MethodType [TextT] [TextT] True True)]
+      DidFile [] [("foo", MethodType [TextT] [TextT] True False True)]
     , parseTest "service : { foo : (text) -> (text) oneway query }" $
-      DidFile [] [("foo", MethodType [TextT] [TextT] True True)]
+      DidFile [] [("foo", MethodType [TextT] [TextT] True False True)]
+    , parseTest "service : { foo : (text) -> (text) oneway composite_query }" $
+      DidFile [] [("foo", MethodType [TextT] [TextT] False True True)]
     , parseTest "service : (opt SomeInit) -> { foo : (text) -> (text) oneway query }" $
-      DidFile [] [("foo", MethodType [TextT] [TextT] True True)]
+      DidFile [] [("foo", MethodType [TextT] [TextT] True False True)]
     , parseTest "type t = int; service : { foo : (t) -> (t) }" $
-      DidFile [("t", IntT)] [("foo", MethodType [RefT "t"] [RefT "t"] False False)]
+      DidFile [("t", IntT)] [("foo", MethodType [RefT "t"] [RefT "t"] False False False)]
     ]
   , testProperty "field name escaping round-tripping" $ \e ->
       let f = either labledField hashedField e in

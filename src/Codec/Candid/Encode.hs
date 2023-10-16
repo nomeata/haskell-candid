@@ -195,7 +195,7 @@ typTable (SeqDesc m (ts :: [Type k])) = mconcat
 
       RefT t -> go (m M.! t)
 
-    goMethod (MethodType as bs q o) = do
+    goMethod (MethodType as bs q cq o) = do
         ais <- mapM go as
         bis <- mapM go bs
         return $ mconcat
@@ -209,7 +209,8 @@ typTable (SeqDesc m (ts :: [Type k])) = mconcat
           ]
       where
         anns = [buildLEB128 @Natural 1 | q] ++
-               [buildLEB128 @Natural 2 | o]
+               [buildLEB128 @Natural 2 | o] ++
+               [buildLEB128 @Natural 3 | cq]
 
     goField :: (FieldName, Type k) -> TypTableBuilder k (FieldName, Integer)
     goField (fn, t) = do

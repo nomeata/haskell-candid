@@ -167,7 +167,7 @@ decodeTypTableEntry max = getSLEB128 @Integer >>= \case
     -22 -> do
         a <- decodeSeq (decodeTypRef max)
         r <- decodeSeq (decodeTypRef max)
-        m <- decodeFoldSeq decodeFuncAnn (MethodType a r False False)
+        m <- decodeFoldSeq decodeFuncAnn (MethodType a r False False False)
         return $ Left (FuncT m)
     -23 -> do
         m <- decodeSeq ((,) <$> decodeText <*> decodeFuncTypRef max)
@@ -220,6 +220,9 @@ decodeFuncAnn m = G.getWord8 >>= \case
     2 -> do
         when (methOneway m) $ fail "oneway annotation duplicated"
         return (m { methOneway = True })
+    3 -> do
+        when (methCompQuery m) $ fail "composite_query annotation duplicated"
+        return (m { methCompQuery = True })
     _ -> fail "invalid function annotation"
 
 
