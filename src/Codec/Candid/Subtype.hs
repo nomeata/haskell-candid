@@ -122,7 +122,8 @@ go (RecT fs1) (RecT fs2) = do
     -- Check missing fields
     sequence_
       [ case unRef t of
-          OptT _ -> pure ()
+          NullT     -> pure ()
+          OptT _    -> pure ()
           ReservedT -> pure ()
           t -> throwError $ show $ "Missing record field" <+> pretty fn <+> "of type" <+> pretty t
       | (fn, t) <- M.toList $ m2 M.\\ m1
@@ -172,7 +173,8 @@ goMethodType (MethodType ta1 tr1 q1 cq1 o1) (MethodType ta2 tr2 q2 cq2 o2) = do
 goSeq _ []  = pure ()
 goSeq ts1 (RefT (Ref _ t) : ts) = goSeq ts1 (t:ts)
 -- Missing optional arguments are ok
-goSeq ts1@[] (OptT _ : ts) = goSeq ts1 ts
+goSeq ts1@[] (NullT : ts)     = goSeq ts1 ts
+goSeq ts1@[] (OptT _ : ts)    = goSeq ts1 ts
 goSeq ts1@[] (ReservedT : ts) = goSeq ts1 ts
 goSeq [] ts = throwError $ show $ "Argument type list too short, expecting types" <+> pretty ts
 goSeq (t1:ts1) (t2:ts2) = memo t1 t2 >> goSeq ts1 ts2

@@ -131,7 +131,8 @@ go rv (RecT fs1) (RecT fs2) = do
       case (M.lookup fn vm, M.lookup fn m1) of
         (Just v, Just t1) -> go v t1 t2
         _ -> case unRef t2 of
-            OptT _ -> pure (OptV Nothing)
+            NullT     -> pure NullV
+            OptT _    -> pure (OptV Nothing)
             ReservedT -> pure ReservedV
             t -> throwError $ show $ "Missing record field" <+> pretty fn <+> "of type" <+> pretty t
 
@@ -160,6 +161,7 @@ go v t1 t2 = throwError $ show $ "Cannot coerce " <+> pretty v <+> ":" <+> prett
 
 goSeq _ _ []  = pure []
 goSeq vs ts1 (RefT (Ref _ t) : ts) = goSeq vs ts1 (t:ts)
+goSeq vs@[] ts1@[] (NullT     : ts) = (NullV :)        <$> goSeq vs ts1 ts
 goSeq vs@[] ts1@[] (OptT _    : ts) = (OptV Nothing :) <$> goSeq vs ts1 ts
 goSeq vs@[] ts1@[] (ReservedT : ts) = (ReservedV :)    <$> goSeq vs ts1 ts
 goSeq [] [] ts = throwError $ show $ "Argument type list too short, expecting types" <+> pretty ts
