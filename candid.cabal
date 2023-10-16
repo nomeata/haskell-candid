@@ -61,7 +61,7 @@ library
         scientific ^>=0.3.7,
         cereal ^>=0.5.8,
         leb128-cereal ^>=1.2,
-        containers ^>=0.6.4 || ^>=0.7,
+        containers ^>=0.6.4,
         unordered-containers ^>=0.2.19,
         row-types ^>=1.0.1,
         constraints ^>=0.13.4 || ^>=0.14,
