@@ -47,7 +47,6 @@ jobs:
         ref: 6edd82f928b6242c596003ced00ffc8e099ee04e
 
     - name: Detect GHC version
-      if: matrix.plan != 'upper-bounds'
       run: |
         ver=$(grep -o -P '(?<=with-compiler: ghc-).*' ci-configs/${{ matrix.plan }}.config)
         echo "Detected compiler version $ver in ci-configs/${{ matrix.plan }}.config"
@@ -75,7 +74,7 @@ jobs:
         ghc --version
         cabal update
         # build first, so that the .ghc.environment file is written
-        cabal build --project-file "ci-configs/${{ matrix.plan }}.config" ${{ env.extra_flags }}
+        cabal build --enable-tests --project-file "ci-configs/${{ matrix.plan }}.config" ${{ env.extra_flags }}
 
         # then the doctest has a chance of succeeding
         export CANDID_TESTS=$PWD/candid/test
