@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE NumericUnderscores #-}
 
 module Codec.Candid.Decode where
 
@@ -31,6 +32,9 @@ decodeVals bytes = G.runGet go (BS.toStrict bytes)
         decodeMagic
         arg_tys <- decodeTypTable
         vs <- mapM decodeVal (tieKnot (voidEmptyTypes arg_tys))
+        let n = sum (countZeroSizeVectors <$> vs)
+        when (n > 2_000_000) $ do
+            fail $ "Message contains " ++ show n ++ " zero sized values in a vector, exceeding the limit of 2_000_000"
         G.remaining >>= \case
             0 -> return (arg_tys, vs)
             n -> fail $ "Unexpected " ++ show n ++ " left-over bytes"
@@ -62,7 +66,9 @@ decodeVal (OptT t) = G.getWord8 >>= \case
 decodeVal BlobT = BlobV <$> decodeBytes
 decodeVal (VecT t) = do
     n <- getLEB128Int
-    VecV . V.fromList <$> replicateM n (decodeVal t)
+    case decodeZeroBytes t of
+        Just v ->pure $ RepeatV n v
+        Nothing -> VecV . V.fromList <$> replicateM n (decodeVal t)
 decodeVal (RecT fs)
     | isTuple   = TupV <$> mapM (\(_,t) -> decodeVal t) fs'
     | otherwise = RecV <$> mapM (\(fn, t) -> (fn,) <$> decodeVal t) fs'
@@ -243,3 +249,31 @@ decodeTypField max = do
     h <- getLEB128
     t <- decodeTypRef max
     return (hashedField h, t)
+
+decodeZeroBytes :: Type a -> Maybe Value
+decodeZeroBytes ReservedT = Just ReservedV
+decodeZeroBytes NullT = Just NullV
+decodeZeroBytes (RecT fs) = RecV <$> mapM (\(fn, t) -> (fn,) <$> decodeZeroBytes t) fs'
+  where
+    fs' = sortOn fst fs
+decodeZeroBytes _ = Nothing
+
+{-
+isZeroSizedValue :: Value -> Bool
+isZeroSizedValue ReservedV = True
+isZeroSizedValue NullV = True
+isZeroSizedValue (RecV fs) = all (isZeroSizedValue . snd) fs
+isZeroSizedValue (TupV vs) = all isZeroSizedValue vs
+isZeroSizedValue _ = False
+-}
+
+countZeroSizeVectors :: Value -> Int
+countZeroSizeVectors (RepeatV n _) = n
+countZeroSizeVectors (VecV vs) = sum (countZeroSizeVectors <$> vs)
+countZeroSizeVectors (RecV fs) = sum (countZeroSizeVectors . snd <$> fs)
+countZeroSizeVectors (TupV vs) = sum (countZeroSizeVectors <$> vs)
+countZeroSizeVectors (VariantV _ v) = countZeroSizeVectors v
+countZeroSizeVectors (OptV (Just v)) = countZeroSizeVectors v
+countZeroSizeVectors (AnnV v _) = countZeroSizeVectors v
+countZeroSizeVectors _ = 0
+

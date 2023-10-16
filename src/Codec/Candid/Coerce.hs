@@ -100,6 +100,7 @@ go _ _ ReservedT = pure ReservedV
 go v EmptyT _ = throwError $ show $ "Unexpected value" <+> pretty v <+> "while coercing empty"
 
 -- vec t1 <: vec t2
+go (RepeatV n v) (VecT t1) (VecT t2) = RepeatV n <$> go v t1 t2
 go (VecV vs) (VecT t1) (VecT t2) = VecV <$> mapM (\v -> go v t1 t2) vs
 
 -- Option: The normal rule

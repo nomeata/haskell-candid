@@ -379,6 +379,7 @@ instance Candid a => Candid (Vec.Vector a)
 instance Candid a => CandidVal (Vec.Vector a) where
     asType = VecT (asType' @a)
     toCandidVal' = VecV . fmap toCandidVal
+    fromCandidVal' (RepeatV n x) = Vec.replicate n <$> fromCandidVal'' x
     fromCandidVal' (VecV x) = traverse fromCandidVal'' x
     fromCandidVal' (BlobV b) = traverse (fromCandidVal'' . Nat8V) $ Vec.fromList $ BS.unpack b
     fromCandidVal' v = cannotCoerce "vec" v

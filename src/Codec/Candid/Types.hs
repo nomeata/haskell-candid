@@ -155,6 +155,7 @@ data Value
   | NullV
   | ReservedV
   | OptV (Maybe Value)
+  | RepeatV Int Value -- for space bomb protection
   | VecV (V.Vector Value)
   | RecV [(FieldName, Value)]
   | TupV [Value]
@@ -193,6 +194,9 @@ instance Pretty Value where
   pretty (BlobV b) = "blob" <+> prettyBlob b
   pretty (OptV Nothing) = pretty NullV
   pretty (OptV (Just v)) = "opt" <+> pretty v
+  pretty (RepeatV n v)
+    | n < 20 = pretty (VecV (V.replicate n v))
+    | otherwise = "vec" <+> prettyBraceSemi [pretty v, "…"]
   pretty (VecV vs) = "vec" <+> prettyBraceSemi (map pretty (V.toList vs))
   pretty (TupV vs) = "record" <+> prettyBraceSemi (map pretty vs)
   pretty (RecV vs) = "record" <+> prettyBraceSemi (map go vs)
