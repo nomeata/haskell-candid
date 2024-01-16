@@ -30,7 +30,7 @@
 </span><span id="line-29"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="fieldName"><span class="annot"><span class="annottext">FieldName -&gt; Maybe Text
 </span><a href="Codec.Candid.FieldName.html#fieldName"><span class="hs-identifier hs-var hs-var">fieldName</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">T.Text</span></a></span><span>
 </span><span id="line-30"></span><span>    </span><span class="hs-special">}</span><span>
-</span><span id="line-31"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679400949"><span id="local-6989586621679400951"><span id="local-6989586621679400953"><span class="annot"><span class="annottext">Int -&gt; FieldName -&gt; ShowS
+</span><span id="line-31"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679400981"><span id="local-6989586621679400983"><span id="local-6989586621679400985"><span class="annot"><span class="annottext">Int -&gt; FieldName -&gt; ShowS
 [FieldName] -&gt; ShowS
 FieldName -&gt; String
 (Int -&gt; FieldName -&gt; ShowS)
@@ -50,27 +50,27 @@ $cshowsPrec :: Int -&gt; FieldName -&gt; ShowS
 </span><span id="line-33"></span><span class="hs-comment">-- | Create a 'FieldName' from a label</span><span>
 </span><span id="line-34"></span><span class="annot"><a href="Codec.Candid.FieldName.html#labledField"><span class="hs-identifier hs-type">labledField</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">T.Text</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span><span>
 </span><span id="line-35"></span><span id="labledField"><span class="annot"><span class="annottext">labledField :: Text -&gt; FieldName
-</span><a href="Codec.Candid.FieldName.html#labledField"><span class="hs-identifier hs-var hs-var">labledField</span></a></span></span><span> </span><span id="local-6989586621679400947"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400947"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Maybe Text -&gt; FieldName
+</span><a href="Codec.Candid.FieldName.html#labledField"><span class="hs-identifier hs-var hs-var">labledField</span></a></span></span><span> </span><span id="local-6989586621679400979"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679400979"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Maybe Text -&gt; FieldName
 </span><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-var">FieldName</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Word32
 </span><a href="Codec.Candid.Hash.html#candidHash"><span class="hs-identifier hs-var">candidHash</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400947"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Maybe Text
+</span><a href="#local-6989586621679400979"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Maybe Text
 forall a. a -&gt; Maybe a
 </span><a href=".."><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400947"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679400979"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-36"></span><span>
 </span><span id="line-37"></span><span class="hs-comment">-- | Create a 'FieldName' from the raw hash</span><span>
 </span><span id="line-38"></span><span class="annot"><a href="Codec.Candid.FieldName.html#hashedField"><span class="hs-identifier hs-type">hashedField</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Word32</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span><span>
 </span><span id="line-39"></span><span id="hashedField"><span class="annot"><span class="annottext">hashedField :: Word32 -&gt; FieldName
-</span><a href="Codec.Candid.FieldName.html#hashedField"><span class="hs-identifier hs-var hs-var">hashedField</span></a></span></span><span> </span><span id="local-6989586621679400946"><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679400946"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Maybe Text -&gt; FieldName
+</span><a href="Codec.Candid.FieldName.html#hashedField"><span class="hs-identifier hs-var hs-var">hashedField</span></a></span></span><span> </span><span id="local-6989586621679400978"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679400978"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Maybe Text -&gt; FieldName
 </span><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-var">FieldName</span></a></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679400946"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Text
+</span><a href="#local-6989586621679400978"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Text
 forall a. Maybe a
 </span><a href=".."><span class="hs-identifier hs-var">Nothing</span></a></span><span>
 </span><span id="line-40"></span><span>
 </span><span id="line-41"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Eq</span></a></span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-42"></span><span>    </span><span id="local-6989586621679400942"><span class="annot"><span class="annottext">== :: FieldName -&gt; FieldName -&gt; Bool
+</span><span id="line-42"></span><span>    </span><span id="local-6989586621679400974"><span class="annot"><span class="annottext">== :: FieldName -&gt; FieldName -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var hs-var hs-var hs-var">(==)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Word32 -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">(==)</span></a></span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; Word32 -&gt; Bool)
@@ -78,7 +78,7 @@ forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
 </span><a href=".."><span class="hs-operator hs-var">`on`</span></a></span><span> </span><span class="annot"><span class="annottext">FieldName -&gt; Word32
 </span><a href="Codec.Candid.FieldName.html#fieldHash"><span class="hs-identifier hs-var hs-var">fieldHash</span></a></span><span>
-</span><span id="line-43"></span><span>    </span><span id="local-6989586621679400940"><span class="annot"><span class="annottext">/= :: FieldName -&gt; FieldName -&gt; Bool
+</span><span id="line-43"></span><span>    </span><span id="local-6989586621679400972"><span class="annot"><span class="annottext">/= :: FieldName -&gt; FieldName -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var hs-var hs-var hs-var">(/=)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Word32 -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">(/=)</span></a></span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; Word32 -&gt; Bool)
@@ -87,8 +87,8 @@ forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
 </span><a href=".."><span class="hs-operator hs-var">`on`</span></a></span><span> </span><span class="annot"><span class="annottext">FieldName -&gt; Word32
 </span><a href="Codec.Candid.FieldName.html#fieldHash"><span class="hs-identifier hs-var hs-var">fieldHash</span></a></span><span>
 </span><span id="line-44"></span><span>
-</span><span id="line-45"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679400929"><span id="local-6989586621679400931"><span class="annot"><a href=".."><span class="hs-identifier hs-type">Ord</span></a></span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-46"></span><span>    </span><span id="local-6989586621679400927"><span class="annot"><span class="annottext">compare :: FieldName -&gt; FieldName -&gt; Ordering
+</span><span id="line-45"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679400961"><span id="local-6989586621679400963"><span class="annot"><a href=".."><span class="hs-identifier hs-type">Ord</span></a></span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-46"></span><span>    </span><span id="local-6989586621679400959"><span class="annot"><span class="annottext">compare :: FieldName -&gt; FieldName -&gt; Ordering
 </span><a href=".."><span class="hs-identifier hs-var hs-var hs-var hs-var">compare</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Word32 -&gt; Ordering
 forall a. Ord a =&gt; a -&gt; a -&gt; Ordering
 </span><a href=".."><span class="hs-identifier hs-var">compare</span></a></span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; Word32 -&gt; Ordering)
@@ -96,7 +96,7 @@ forall a. Ord a =&gt; a -&gt; a -&gt; Ordering
 forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
 </span><a href=".."><span class="hs-operator hs-var">`on`</span></a></span><span> </span><span class="annot"><span class="annottext">FieldName -&gt; Word32
 </span><a href="Codec.Candid.FieldName.html#fieldHash"><span class="hs-identifier hs-var hs-var">fieldHash</span></a></span><span>
-</span><span id="line-47"></span><span>    </span><span id="local-6989586621679400925"><span class="annot"><span class="annottext">&lt; :: FieldName -&gt; FieldName -&gt; Bool
+</span><span id="line-47"></span><span>    </span><span id="local-6989586621679400957"><span class="annot"><span class="annottext">&lt; :: FieldName -&gt; FieldName -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var hs-var hs-var hs-var">(&lt;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Word32 -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">(&lt;)</span></a></span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; Word32 -&gt; Bool)
@@ -104,7 +104,7 @@ forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
 </span><a href=".."><span class="hs-operator hs-var">`on`</span></a></span><span> </span><span class="annot"><span class="annottext">FieldName -&gt; Word32
 </span><a href="Codec.Candid.FieldName.html#fieldHash"><span class="hs-identifier hs-var hs-var">fieldHash</span></a></span><span>
-</span><span id="line-48"></span><span>    </span><span id="local-6989586621679400923"><span class="annot"><span class="annottext">&gt; :: FieldName -&gt; FieldName -&gt; Bool
+</span><span id="line-48"></span><span>    </span><span id="local-6989586621679400955"><span class="annot"><span class="annottext">&gt; :: FieldName -&gt; FieldName -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var hs-var hs-var hs-var">(&gt;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Word32 -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">(&gt;)</span></a></span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; Word32 -&gt; Bool)
@@ -112,7 +112,7 @@ forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
 </span><a href=".."><span class="hs-operator hs-var">`on`</span></a></span><span> </span><span class="annot"><span class="annottext">FieldName -&gt; Word32
 </span><a href="Codec.Candid.FieldName.html#fieldHash"><span class="hs-identifier hs-var hs-var">fieldHash</span></a></span><span>
-</span><span id="line-49"></span><span>    </span><span id="local-6989586621679400921"><span class="annot"><span class="annottext">&lt;= :: FieldName -&gt; FieldName -&gt; Bool
+</span><span id="line-49"></span><span>    </span><span id="local-6989586621679400953"><span class="annot"><span class="annottext">&lt;= :: FieldName -&gt; FieldName -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var hs-var hs-var hs-var">(&lt;=)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Word32 -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">(&lt;=)</span></a></span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; Word32 -&gt; Bool)
@@ -120,7 +120,7 @@ forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
 </span><a href=".."><span class="hs-operator hs-var">`on`</span></a></span><span> </span><span class="annot"><span class="annottext">FieldName -&gt; Word32
 </span><a href="Codec.Candid.FieldName.html#fieldHash"><span class="hs-identifier hs-var hs-var">fieldHash</span></a></span><span>
-</span><span id="line-50"></span><span>    </span><span id="local-6989586621679400919"><span class="annot"><span class="annottext">&gt;= :: FieldName -&gt; FieldName -&gt; Bool
+</span><span id="line-50"></span><span>    </span><span id="local-6989586621679400951"><span class="annot"><span class="annottext">&gt;= :: FieldName -&gt; FieldName -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var hs-var hs-var hs-var">(&gt;=)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Word32 -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">(&gt;=)</span></a></span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; Word32 -&gt; Bool)
@@ -130,7 +130,7 @@ forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
 </span><a href="Codec.Candid.FieldName.html#fieldHash"><span class="hs-identifier hs-var hs-var">fieldHash</span></a></span><span>
 </span><span id="line-51"></span><span>
 </span><span id="line-52"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">IsString</span></a></span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-53"></span><span>    </span><span id="local-6989586621679400916"><span class="annot"><span class="annottext">fromString :: String -&gt; FieldName
+</span><span id="line-53"></span><span>    </span><span id="local-6989586621679400948"><span class="annot"><span class="annottext">fromString :: String -&gt; FieldName
 </span><a href=".."><span class="hs-identifier hs-var hs-var hs-var hs-var">fromString</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; FieldName
 </span><a href="Codec.Candid.FieldName.html#labledField"><span class="hs-identifier hs-var">labledField</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; FieldName) -&gt; (String -&gt; Text) -&gt; String -&gt; FieldName
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
@@ -138,54 +138,54 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall a. IsString a =&gt; String -&gt; a
 </span><a href=".."><span class="hs-identifier hs-var">fromString</span></a></span><span>
 </span><span id="line-54"></span><span>
-</span><span id="line-55"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679400912"><span class="annot"><a href=".."><span class="hs-identifier hs-type">Pretty</span></a></span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-56"></span><span>    </span><span id="local-6989586621679400910"><span class="annot"><span class="annottext">pretty :: FieldName -&gt; Doc ann
+</span><span id="line-55"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679400944"><span class="annot"><a href=".."><span class="hs-identifier hs-type">Pretty</span></a></span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-56"></span><span>    </span><span id="local-6989586621679400942"><span class="annot"><span class="annottext">pretty :: FieldName -&gt; Doc ann
 </span><a href=".."><span class="hs-identifier hs-var hs-var hs-var hs-var">pretty</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679400908"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400908"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Doc ann
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679400940"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679400940"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Doc ann
 forall a ann. Pretty a =&gt; a -&gt; Doc ann
 </span><a href=".."><span class="hs-identifier hs-var">pretty</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400908"><span class="hs-identifier hs-var">x</span></a></span><span>
-</span><span id="line-57"></span><span>    </span><span class="annot"><a href=".."><span class="hs-identifier hs-var">pretty</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span><span> </span><span id="local-6989586621679400907"><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679400907"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="annot"><span class="annottext">Maybe Text
+</span><a href="#local-6989586621679400940"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-57"></span><span>    </span><span class="annot"><a href=".."><span class="hs-identifier hs-var">pretty</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span><span> </span><span id="local-6989586621679400939"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679400939"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="annot"><span class="annottext">Maybe Text
 </span><a href=".."><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-58"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679400906"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400906"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Maybe Text
+</span><span id="line-58"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679400938"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679400938"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Maybe Text
 </span><a href="Codec.Candid.Hash.html#invertHash"><span class="hs-identifier hs-var">invertHash</span></a></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679400907"><span class="hs-identifier hs-var">h</span></a></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Doc ann
+</span><a href="#local-6989586621679400939"><span class="hs-identifier hs-var">h</span></a></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Doc ann
 forall a ann. Pretty a =&gt; a -&gt; Doc ann
 </span><a href=".."><span class="hs-identifier hs-var">pretty</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400906"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><a href="#local-6989586621679400938"><span class="hs-identifier hs-var">x</span></a></span><span>
 </span><span id="line-59"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href=".."><span class="hs-identifier hs-var">otherwise</span></a></span><span>               </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Doc ann
 forall a ann. Pretty a =&gt; a -&gt; Doc ann
 </span><a href=".."><span class="hs-identifier hs-var">pretty</span></a></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679400907"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><a href="#local-6989586621679400939"><span class="hs-identifier hs-var">h</span></a></span><span>
 </span><span id="line-60"></span><span>
 </span><span id="line-61"></span><span>
 </span><span id="line-62"></span><span class="hs-comment">-- | The inverse of 'escapeFieldName'</span><span>
 </span><span id="line-63"></span><span class="annot"><a href="Codec.Candid.FieldName.html#unescapeFieldName"><span class="hs-identifier hs-type">unescapeFieldName</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">T.Text</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span><span>
 </span><span id="line-64"></span><span id="unescapeFieldName"><span class="annot"><span class="annottext">unescapeFieldName :: Text -&gt; FieldName
-</span><a href="Codec.Candid.FieldName.html#unescapeFieldName"><span class="hs-identifier hs-var hs-var">unescapeFieldName</span></a></span></span><span> </span><span id="local-6989586621679400905"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400905"><span class="hs-identifier hs-var">n</span></a></span></span><span>
+</span><a href="Codec.Candid.FieldName.html#unescapeFieldName"><span class="hs-identifier hs-var hs-var">unescapeFieldName</span></a></span></span><span> </span><span id="local-6989586621679400937"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679400937"><span class="hs-identifier hs-var">n</span></a></span></span><span>
 </span><span id="line-65"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char
-</span><span class="hs-char">'_'</span></span><span class="hs-special">,</span><span id="local-6989586621679400904"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400904"><span class="hs-identifier hs-var">r'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe (Char, Text)
+</span><span class="hs-char">'_'</span></span><span class="hs-special">,</span><span id="local-6989586621679400936"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679400936"><span class="hs-identifier hs-var">r'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe (Char, Text)
 </span><a href=".."><span class="hs-identifier hs-var">T.uncons</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400905"><span class="hs-identifier hs-var">n</span></a></span><span>
-</span><span id="line-66"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679400902"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400902"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679400937"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679400934"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679400934"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Char
 </span><span class="hs-char">'_'</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe (Text, Char)
 </span><a href=".."><span class="hs-identifier hs-var">T.unsnoc</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400904"><span class="hs-identifier hs-var">r'</span></a></span><span>
-</span><span id="line-67"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679400900"><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679400900"><span class="hs-identifier hs-var">n'</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Natural</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe Natural
+</span><a href="#local-6989586621679400936"><span class="hs-identifier hs-var">r'</span></a></span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679400932"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679400932"><span class="hs-identifier hs-var">n'</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Natural</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe Natural
 forall a. Read a =&gt; String -&gt; Maybe a
 </span><a href=".."><span class="hs-identifier hs-var">readMaybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; String
 </span><a href=".."><span class="hs-identifier hs-var">T.unpack</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400902"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679400934"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-68"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679400900"><span class="hs-identifier hs-var">n'</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
+</span><a href="#local-6989586621679400932"><span class="hs-identifier hs-var">n'</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Natural
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
@@ -196,20 +196,20 @@ forall a. Bounded a =&gt; a
 </span><a href="Codec.Candid.FieldName.html#hashedField"><span class="hs-identifier hs-var">hashedField</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Word32
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href=".."><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679400900"><span class="hs-identifier hs-var">n'</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-70"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679400897"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400897"><span class="hs-identifier hs-var">n'</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679400932"><span class="hs-identifier hs-var">n'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679400929"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679400929"><span class="hs-identifier hs-var">n'</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Char
 </span><span class="hs-char">'_'</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe (Text, Char)
 </span><a href=".."><span class="hs-identifier hs-var">T.unsnoc</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400905"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><a href="#local-6989586621679400937"><span class="hs-identifier hs-var">n</span></a></span><span>
 </span><span id="line-71"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; FieldName
 </span><a href="Codec.Candid.FieldName.html#labledField"><span class="hs-identifier hs-var">labledField</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400897"><span class="hs-identifier hs-var">n'</span></a></span><span>
+</span><a href="#local-6989586621679400929"><span class="hs-identifier hs-var">n'</span></a></span><span>
 </span><span id="line-72"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href=".."><span class="hs-identifier hs-var">otherwise</span></a></span><span>
 </span><span id="line-73"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; FieldName
 </span><a href="Codec.Candid.FieldName.html#labledField"><span class="hs-identifier hs-var">labledField</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400905"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><a href="#local-6989586621679400937"><span class="hs-identifier hs-var">n</span></a></span><span>
 </span><span id="line-74"></span><span>
 </span><span id="line-75"></span><span class="hs-comment">-- | Represent a 'FieldName' (which may be numeric) in contexts where only text</span><span>
 </span><span id="line-76"></span><span class="hs-comment">-- is allowed, using the same encoding/decoding algorithm as Motoko.</span><span>
@@ -223,23 +223,23 @@ forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><span class="hs-string">&quot;&quot;</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;&quot;</span></span><span>
 </span><span id="line-82"></span><span class="annot"><a href="Codec.Candid.FieldName.html#escapeFieldName"><span class="hs-identifier hs-var">escapeFieldName</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679400896"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400896"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Char
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679400928"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679400928"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Char
 </span><a href=".."><span class="hs-identifier hs-var">T.last</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400896"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+</span><a href="#local-6989586621679400928"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Char
 </span><span class="hs-char">'_'</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400896"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+</span><a href="#local-6989586621679400928"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href=".."><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;_&quot;</span></span><span>
 </span><span id="line-83"></span><span class="annot"><a href="Codec.Candid.FieldName.html#escapeFieldName"><span class="hs-identifier hs-var">escapeFieldName</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679400894"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400894"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679400894"><span class="hs-identifier hs-var">n</span></a></span><span>
-</span><span id="line-84"></span><span class="annot"><a href="Codec.Candid.FieldName.html#escapeFieldName"><span class="hs-identifier hs-var">escapeFieldName</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span><span> </span><span id="local-6989586621679400893"><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679400893"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="annot"><span class="annottext">Maybe Text
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679400926"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679400926"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679400926"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-84"></span><span class="annot"><a href="Codec.Candid.FieldName.html#escapeFieldName"><span class="hs-identifier hs-var">escapeFieldName</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.FieldName.html#FieldName"><span class="hs-identifier hs-type">FieldName</span></a></span><span> </span><span id="local-6989586621679400925"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679400925"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="annot"><span class="annottext">Maybe Text
 </span><a href=".."><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Char -&gt; Text
 </span><a href=".."><span class="hs-identifier hs-var">T.singleton</span></a></span><span> </span><span class="annot"><span class="annottext">Char
 </span><span class="hs-char">'_'</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
@@ -248,7 +248,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href=".."><span class="hs-identifier hs-var">T.pack</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href=".."><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679400893"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+</span><a href="#local-6989586621679400925"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href=".."><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Text
 </span><a href=".."><span class="hs-identifier hs-var">T.singleton</span></a></span><span> </span><span class="annot"><span class="annottext">Char

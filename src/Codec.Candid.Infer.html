@@ -22,14 +22,14 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 </span><span id="line-15"></span><span>
 </span><span id="line-16"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-type">inferTyp</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Codec.Candid.Types.html#Value"><span class="hs-identifier hs-type">Value</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Void</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-17"></span><span id="inferTyp"><span class="annot"><span class="annottext">inferTyp :: Value -&gt; Either String (Type Void)
-</span><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var hs-var">inferTyp</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#NumV"><span class="hs-identifier hs-type">NumV</span></a></span><span> </span><span id="local-6989586621679402945"><span class="annot"><span class="annottext">Scientific
-</span><a href="#local-6989586621679402945"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
+</span><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var hs-var">inferTyp</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#NumV"><span class="hs-identifier hs-type">NumV</span></a></span><span> </span><span id="local-6989586621679402977"><span class="annot"><span class="annottext">Scientific
+</span><a href="#local-6989586621679402977"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
 forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 </span><a href=".."><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; Either String (Type Void))
 -&gt; Type Void -&gt; Either String (Type Void)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href=".."><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Scientific
-</span><a href="#local-6989586621679402945"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; Scientific -&gt; Bool
+</span><a href="#local-6989586621679402977"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; Scientific -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Scientific
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Type Void
@@ -144,27 +144,27 @@ forall a. Type a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-var">OptT</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
 forall a. Type a
 </span><a href="Codec.Candid.Types.html#EmptyT"><span class="hs-identifier hs-var">EmptyT</span></a></span><span>
-</span><span id="line-35"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#OptV"><span class="hs-identifier hs-type">OptV</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679402909"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679402909"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
+</span><span id="line-35"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#OptV"><span class="hs-identifier hs-type">OptV</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679402941"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679402941"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
 forall a. Type a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-var">OptT</span></a></span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; Type Void)
 -&gt; Either String (Type Void) -&gt; Either String (Type Void)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Either String (Type Void)
 </span><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679402909"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><a href="#local-6989586621679402941"><span class="hs-identifier hs-var">v</span></a></span><span>
 </span><span id="line-36"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#RepeatV"><span class="hs-identifier hs-type">RepeatV</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679402906"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679402906"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679402938"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679402938"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
 forall a. Type a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-var">VecT</span></a></span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; Type Void)
 -&gt; Either String (Type Void) -&gt; Either String (Type Void)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Either String (Type Void)
 </span><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679402906"><span class="hs-identifier hs-var">v</span></a></span><span>
-</span><span id="line-37"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VecV"><span class="hs-identifier hs-type">VecV</span></a></span><span> </span><span id="local-6989586621679402903"><span class="annot"><span class="annottext">Vector Value
-</span><a href="#local-6989586621679402903"><span class="hs-identifier hs-var">vs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
+</span><a href="#local-6989586621679402938"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-37"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VecV"><span class="hs-identifier hs-type">VecV</span></a></span><span> </span><span id="local-6989586621679402935"><span class="annot"><span class="annottext">Vector Value
+</span><a href="#local-6989586621679402935"><span class="hs-identifier hs-var">vs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
 forall a. Type a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-var">VecT</span></a></span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; Type Void)
 -&gt; Either String (Type Void) -&gt; Either String (Type Void)
@@ -178,14 +178,14 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 </span><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vector Value -&gt; [Value]
 forall a. Vector a -&gt; [a]
 </span><a href=".."><span class="hs-identifier hs-var">V.toList</span></a></span><span> </span><span class="annot"><span class="annottext">Vector Value
-</span><a href="#local-6989586621679402903"><span class="hs-identifier hs-var">vs</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Either String [Type Void]
+</span><a href="#local-6989586621679402935"><span class="hs-identifier hs-var">vs</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Either String [Type Void]
 -&gt; ([Type Void] -&gt; Either String (Type Void))
 -&gt; Either String (Type Void)
 forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
 </span><a href=".."><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">[Type Void] -&gt; Either String (Type Void)
 </span><a href="Codec.Candid.Infer.html#lubs"><span class="hs-identifier hs-var">lubs</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-38"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#RecV"><span class="hs-identifier hs-type">RecV</span></a></span><span> </span><span id="local-6989586621679402899"><span class="annot"><span class="annottext">[(FieldName, Value)]
-</span><a href="#local-6989586621679402899"><span class="hs-identifier hs-var">fs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Fields Void -&gt; Type Void
+</span><span id="line-38"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#RecV"><span class="hs-identifier hs-type">RecV</span></a></span><span> </span><span id="local-6989586621679402931"><span class="annot"><span class="annottext">[(FieldName, Value)]
+</span><a href="#local-6989586621679402931"><span class="hs-identifier hs-var">fs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Fields Void -&gt; Type Void
 forall a. Fields a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#RecT"><span class="hs-identifier hs-var">RecT</span></a></span><span> </span><span class="annot"><span class="annottext">(Fields Void -&gt; Type Void)
 -&gt; Either String (Fields Void) -&gt; Either String (Type Void)
@@ -196,23 +196,23 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a.
 (Traversable t, Monad m) =&gt;
 t (m a) -&gt; m (t a)
 </span><a href=".."><span class="hs-identifier hs-var">sequence</span></a></span><span> </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FieldName
-</span><a href="#local-6989586621679402896"><span class="hs-identifier hs-var">fn</span></a></span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; (FieldName, Type Void))
+</span><a href="#local-6989586621679402928"><span class="hs-identifier hs-var">fn</span></a></span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; (FieldName, Type Void))
 -&gt; Either String (Type Void)
 -&gt; Either String (FieldName, Type Void)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Either String (Type Void)
 </span><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679402895"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679402896"><span class="annot"><span class="annottext">FieldName
-</span><a href="#local-6989586621679402896"><span class="hs-identifier hs-var">fn</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679402895"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679402895"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(FieldName, Value)]
-</span><a href="#local-6989586621679402899"><span class="hs-identifier hs-var">fs</span></a></span><span> </span><span class="hs-special">]</span><span>
-</span><span id="line-39"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VariantV"><span class="hs-identifier hs-type">VariantV</span></a></span><span> </span><span id="local-6989586621679402893"><span class="annot"><span class="annottext">FieldName
-</span><a href="#local-6989586621679402893"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679402892"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679402892"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-40"></span><span>    </span><span id="local-6989586621679402891"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402891"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Either String (Type Void)
+</span><a href="#local-6989586621679402927"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679402928"><span class="annot"><span class="annottext">FieldName
+</span><a href="#local-6989586621679402928"><span class="hs-identifier hs-var">fn</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679402927"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679402927"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(FieldName, Value)]
+</span><a href="#local-6989586621679402931"><span class="hs-identifier hs-var">fs</span></a></span><span> </span><span class="hs-special">]</span><span>
+</span><span id="line-39"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VariantV"><span class="hs-identifier hs-type">VariantV</span></a></span><span> </span><span id="local-6989586621679402925"><span class="annot"><span class="annottext">FieldName
+</span><a href="#local-6989586621679402925"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679402924"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679402924"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-40"></span><span>    </span><span id="local-6989586621679402923"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402923"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Either String (Type Void)
 </span><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679402892"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><a href="#local-6989586621679402924"><span class="hs-identifier hs-var">v</span></a></span><span>
 </span><span id="line-41"></span><span>    </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
 forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 </span><a href=".."><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; Either String (Type Void))
@@ -221,10 +221,10 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href=".."><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Fields Void -&gt; Type Void
 forall a. Fields a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#VariantT"><span class="hs-identifier hs-var">VariantT</span></a></span><span> </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FieldName
-</span><a href="#local-6989586621679402893"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402891"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">]</span><span>
-</span><span id="line-42"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#TupV"><span class="hs-identifier hs-type">TupV</span></a></span><span> </span><span id="local-6989586621679402888"><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679402888"><span class="hs-identifier hs-var">vs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Type Void] -&gt; Type Void
+</span><a href="#local-6989586621679402925"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402923"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">]</span><span>
+</span><span id="line-42"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#TupV"><span class="hs-identifier hs-type">TupV</span></a></span><span> </span><span id="local-6989586621679402920"><span class="annot"><span class="annottext">[Value]
+</span><a href="#local-6989586621679402920"><span class="hs-identifier hs-var">vs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Type Void] -&gt; Type Void
 forall a. [Type a] -&gt; Type a
 </span><a href="Codec.Candid.Types.html#tupT"><span class="hs-identifier hs-var">tupT</span></a></span><span> </span><span class="annot"><span class="annottext">([Type Void] -&gt; Type Void)
 -&gt; Either String [Type Void] -&gt; Either String (Type Void)
@@ -236,7 +236,7 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (a -&gt; m b) -&gt; t a -&gt; m (t b)
 </span><a href=".."><span class="hs-identifier hs-var">mapM</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Either String (Type Void)
 </span><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679402888"><span class="hs-identifier hs-var">vs</span></a></span><span>
+</span><a href="#local-6989586621679402920"><span class="hs-identifier hs-var">vs</span></a></span><span>
 </span><span id="line-43"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#FuncV"><span class="hs-identifier hs-type">FuncV</span></a></span><span> </span><span class="annot"><span class="annottext">Principal
 </span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
@@ -276,11 +276,11 @@ forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 forall a. Type a
 </span><a href="Codec.Candid.Types.html#BlobT"><span class="hs-identifier hs-var">BlobT</span></a></span><span>
 </span><span id="line-48"></span><span class="annot"><a href="Codec.Candid.Infer.html#inferTyp"><span class="hs-identifier hs-var">inferTyp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#AnnV"><span class="hs-identifier hs-type">AnnV</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679402874"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402874"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679402906"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402906"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
 forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 </span><a href=".."><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402874"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-comment">-- Maybe do type checking?</span><span>
+</span><a href="#local-6989586621679402906"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-comment">-- Maybe do type checking?</span><span>
 </span><span id="line-49"></span><span>
 </span><span id="line-50"></span><span class="annot"><a href="Codec.Candid.Infer.html#lubs"><span class="hs-identifier hs-type">lubs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Codec.Candid.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Void</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span> </span><span class="annot"><a href=".."><span class="hs-identifier hs-type">Void</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-51"></span><span id="lubs"><span class="annot"><span class="annottext">lubs :: [Type Void] -&gt; Either String (Type Void)
@@ -311,17 +311,17 @@ forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 forall a. Type a
 </span><a href="Codec.Candid.Types.html#ReservedT"><span class="hs-identifier hs-var">ReservedT</span></a></span><span>
 </span><span id="line-56"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="Codec.Candid.Types.html#EmptyT"><span class="hs-identifier hs-var">EmptyT</span></a></span><span> </span><span id="local-6989586621679402871"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402871"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
+</span><a href="Codec.Candid.Types.html#EmptyT"><span class="hs-identifier hs-var">EmptyT</span></a></span><span> </span><span id="local-6989586621679402903"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402903"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
 forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 </span><a href=".."><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402871"><span class="hs-identifier hs-var">t</span></a></span><span>
-</span><span id="line-57"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span id="local-6989586621679402870"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402870"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402903"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-57"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span id="local-6989586621679402902"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402902"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="annot"><span class="annottext">Type Void
 </span><a href="Codec.Candid.Types.html#EmptyT"><span class="hs-identifier hs-var">EmptyT</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
 forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 </span><a href=".."><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402870"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><a href="#local-6989586621679402902"><span class="hs-identifier hs-var">t</span></a></span><span>
 </span><span id="line-58"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
 </span><a href="Codec.Candid.Types.html#NatT"><span class="hs-identifier hs-var">NatT</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
 </span><a href="Codec.Candid.Types.html#IntT"><span class="hs-identifier hs-var">IntT</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
@@ -337,46 +337,46 @@ forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 forall a. Type a
 </span><a href="Codec.Candid.Types.html#IntT"><span class="hs-identifier hs-var">IntT</span></a></span><span>
 </span><span id="line-60"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="Codec.Candid.Types.html#NullT"><span class="hs-identifier hs-var">NullT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-type">OptT</span></a></span><span> </span><span id="local-6989586621679402869"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402869"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
+</span><a href="Codec.Candid.Types.html#NullT"><span class="hs-identifier hs-var">NullT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-type">OptT</span></a></span><span> </span><span id="local-6989586621679402901"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402901"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
 forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 </span><a href=".."><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
 forall a. Type a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-var">OptT</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402869"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-61"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-type">OptT</span></a></span><span> </span><span id="local-6989586621679402868"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402868"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402901"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-type">OptT</span></a></span><span> </span><span id="local-6989586621679402900"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402900"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Type Void
 </span><a href="Codec.Candid.Types.html#NullT"><span class="hs-identifier hs-var">NullT</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Either String (Type Void)
 forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 </span><a href=".."><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
 forall a. Type a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-var">OptT</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402868"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-62"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-type">OptT</span></a></span><span> </span><span id="local-6989586621679402867"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402867"><span class="hs-identifier hs-var">t1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-type">OptT</span></a></span><span> </span><span id="local-6989586621679402866"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402866"><span class="hs-identifier hs-var">t2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
+</span><a href="#local-6989586621679402900"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-type">OptT</span></a></span><span> </span><span id="local-6989586621679402899"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402899"><span class="hs-identifier hs-var">t1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-type">OptT</span></a></span><span> </span><span id="local-6989586621679402898"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402898"><span class="hs-identifier hs-var">t2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
 forall a. Type a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#OptT"><span class="hs-identifier hs-var">OptT</span></a></span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; Type Void)
 -&gt; Either String (Type Void) -&gt; Either String (Type Void)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void -&gt; Either String (Type Void)
 </span><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402867"><span class="hs-identifier hs-var">t1</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402866"><span class="hs-identifier hs-var">t2</span></a></span><span>
-</span><span id="line-63"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-type">VecT</span></a></span><span> </span><span id="local-6989586621679402865"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402865"><span class="hs-identifier hs-var">t1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-type">VecT</span></a></span><span> </span><span id="local-6989586621679402864"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402864"><span class="hs-identifier hs-var">t2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
+</span><a href="#local-6989586621679402899"><span class="hs-identifier hs-var">t1</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402898"><span class="hs-identifier hs-var">t2</span></a></span><span>
+</span><span id="line-63"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-type">VecT</span></a></span><span> </span><span id="local-6989586621679402897"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402897"><span class="hs-identifier hs-var">t1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-type">VecT</span></a></span><span> </span><span id="local-6989586621679402896"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402896"><span class="hs-identifier hs-var">t2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
 forall a. Type a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-var">VecT</span></a></span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; Type Void)
 -&gt; Either String (Type Void) -&gt; Either String (Type Void)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void -&gt; Either String (Type Void)
 </span><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402865"><span class="hs-identifier hs-var">t1</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402864"><span class="hs-identifier hs-var">t2</span></a></span><span>
-</span><span id="line-64"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#RecT"><span class="hs-identifier hs-type">RecT</span></a></span><span> </span><span id="local-6989586621679402863"><span class="annot"><span class="annottext">Fields Void
-</span><a href="#local-6989586621679402863"><span class="hs-identifier hs-var">fs1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#RecT"><span class="hs-identifier hs-type">RecT</span></a></span><span> </span><span id="local-6989586621679402862"><span class="annot"><span class="annottext">Fields Void
-</span><a href="#local-6989586621679402862"><span class="hs-identifier hs-var">fs2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Fields Void -&gt; Type Void
+</span><a href="#local-6989586621679402897"><span class="hs-identifier hs-var">t1</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402896"><span class="hs-identifier hs-var">t2</span></a></span><span>
+</span><span id="line-64"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#RecT"><span class="hs-identifier hs-type">RecT</span></a></span><span> </span><span id="local-6989586621679402895"><span class="annot"><span class="annottext">Fields Void
+</span><a href="#local-6989586621679402895"><span class="hs-identifier hs-var">fs1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#RecT"><span class="hs-identifier hs-type">RecT</span></a></span><span> </span><span id="local-6989586621679402894"><span class="annot"><span class="annottext">Fields Void
+</span><a href="#local-6989586621679402894"><span class="hs-identifier hs-var">fs2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Fields Void -&gt; Type Void
 forall a. Fields a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#RecT"><span class="hs-identifier hs-var">RecT</span></a></span><span> </span><span class="annot"><span class="annottext">(Fields Void -&gt; Type Void)
 -&gt; Either String (Fields Void) -&gt; Either String (Type Void)
@@ -386,84 +386,84 @@ forall t.
 Ord t =&gt;
 [(t, Type Void)]
 -&gt; [(t, Type Void)] -&gt; Either String [(t, Type Void)]
-</span><a href="#local-6989586621679402861"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((FieldName, Type Void) -&gt; FieldName) -&gt; Fields Void -&gt; Fields Void
+</span><a href="#local-6989586621679402893"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((FieldName, Type Void) -&gt; FieldName) -&gt; Fields Void -&gt; Fields Void
 forall b a. Ord b =&gt; (a -&gt; b) -&gt; [a] -&gt; [a]
 </span><a href=".."><span class="hs-identifier hs-var">sortOn</span></a></span><span> </span><span class="annot"><span class="annottext">(FieldName, Type Void) -&gt; FieldName
 forall a b. (a, b) -&gt; a
 </span><a href=".."><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">Fields Void
-</span><a href="#local-6989586621679402863"><span class="hs-identifier hs-var">fs1</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((FieldName, Type Void) -&gt; FieldName) -&gt; Fields Void -&gt; Fields Void
+</span><a href="#local-6989586621679402895"><span class="hs-identifier hs-var">fs1</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((FieldName, Type Void) -&gt; FieldName) -&gt; Fields Void -&gt; Fields Void
 forall b a. Ord b =&gt; (a -&gt; b) -&gt; [a] -&gt; [a]
 </span><a href=".."><span class="hs-identifier hs-var">sortOn</span></a></span><span> </span><span class="annot"><span class="annottext">(FieldName, Type Void) -&gt; FieldName
 forall a b. (a, b) -&gt; a
 </span><a href=".."><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">Fields Void
-</span><a href="#local-6989586621679402862"><span class="hs-identifier hs-var">fs2</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679402894"><span class="hs-identifier hs-var">fs2</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-65"></span><span>  </span><span class="hs-keyword">where</span><span>
-</span><span id="line-66"></span><span>    </span><span id="local-6989586621679402861"><span class="annot"><span class="annottext">go :: [(t, Type Void)]
+</span><span id="line-66"></span><span>    </span><span id="local-6989586621679402893"><span class="annot"><span class="annottext">go :: [(t, Type Void)]
 -&gt; [(t, Type Void)] -&gt; Either String [(t, Type Void)]
-</span><a href="#local-6989586621679402861"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402893"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)] -&gt; Either String [(t, Type Void)]
 forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 </span><a href=".."><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
-</span><span id="line-67"></span><span>    </span><span class="annot"><a href="#local-6989586621679402861"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><span id="line-67"></span><span>    </span><span class="annot"><a href="#local-6989586621679402893"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)] -&gt; Either String [(t, Type Void)]
 forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 </span><a href=".."><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
-</span><span id="line-68"></span><span>    </span><span class="annot"><a href="#local-6989586621679402861"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679402859"><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402859"><span class="hs-identifier hs-var">f1</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679402858"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402858"><span class="hs-identifier hs-var">v1</span></a></span></span><span class="hs-special">)</span><span class="annot"><a href=".."><span class="hs-glyph hs-type">:</span></a></span><span id="local-6989586621679402857"><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402857"><span class="hs-identifier hs-var">fs1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679402856"><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402856"><span class="hs-identifier hs-var">f2</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679402855"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402855"><span class="hs-identifier hs-var">v2</span></a></span></span><span class="hs-special">)</span><span class="annot"><a href=".."><span class="hs-glyph hs-type">:</span></a></span><span id="local-6989586621679402854"><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402854"><span class="hs-identifier hs-var">fs2</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span>    </span><span class="annot"><a href="#local-6989586621679402893"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679402891"><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679402891"><span class="hs-identifier hs-var">f1</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679402890"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402890"><span class="hs-identifier hs-var">v1</span></a></span></span><span class="hs-special">)</span><span class="annot"><a href=".."><span class="hs-glyph hs-type">:</span></a></span><span id="local-6989586621679402889"><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402889"><span class="hs-identifier hs-var">fs1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679402888"><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679402888"><span class="hs-identifier hs-var">f2</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679402887"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402887"><span class="hs-identifier hs-var">v2</span></a></span></span><span class="hs-special">)</span><span class="annot"><a href=".."><span class="hs-glyph hs-type">:</span></a></span><span id="local-6989586621679402886"><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402886"><span class="hs-identifier hs-var">fs2</span></a></span></span><span class="hs-special">)</span><span>
 </span><span id="line-69"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402859"><span class="hs-identifier hs-var">f1</span></a></span><span> </span><span class="annot"><span class="annottext">t -&gt; t -&gt; Bool
+</span><a href="#local-6989586621679402891"><span class="hs-identifier hs-var">f1</span></a></span><span> </span><span class="annot"><span class="annottext">t -&gt; t -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402856"><span class="hs-identifier hs-var">f2</span></a></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402888"><span class="hs-identifier hs-var">f2</span></a></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
 -&gt; [(t, Type Void)] -&gt; Either String [(t, Type Void)]
-</span><a href="#local-6989586621679402861"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402857"><span class="hs-identifier hs-var">fs1</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402856"><span class="hs-identifier hs-var">f2</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402855"><span class="hs-identifier hs-var">v2</span></a></span><span class="hs-special">)</span><span class="annot"><span class="annottext">(t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)]
+</span><a href="#local-6989586621679402893"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402889"><span class="hs-identifier hs-var">fs1</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679402888"><span class="hs-identifier hs-var">f2</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402887"><span class="hs-identifier hs-var">v2</span></a></span><span class="hs-special">)</span><span class="annot"><span class="annottext">(t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href=".."><span class="hs-glyph hs-var">:</span></a></span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402854"><span class="hs-identifier hs-var">fs2</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679402886"><span class="hs-identifier hs-var">fs2</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-70"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402859"><span class="hs-identifier hs-var">f1</span></a></span><span> </span><span class="annot"><span class="annottext">t -&gt; t -&gt; Bool
+</span><a href="#local-6989586621679402891"><span class="hs-identifier hs-var">f1</span></a></span><span> </span><span class="annot"><span class="annottext">t -&gt; t -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402856"><span class="hs-identifier hs-var">f2</span></a></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402888"><span class="hs-identifier hs-var">f2</span></a></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
 -&gt; [(t, Type Void)] -&gt; Either String [(t, Type Void)]
-</span><a href="#local-6989586621679402861"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402859"><span class="hs-identifier hs-var">f1</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402858"><span class="hs-identifier hs-var">v1</span></a></span><span class="hs-special">)</span><span class="annot"><span class="annottext">(t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)]
+</span><a href="#local-6989586621679402893"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679402891"><span class="hs-identifier hs-var">f1</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402890"><span class="hs-identifier hs-var">v1</span></a></span><span class="hs-special">)</span><span class="annot"><span class="annottext">(t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href=".."><span class="hs-glyph hs-var">:</span></a></span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402857"><span class="hs-identifier hs-var">fs1</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402854"><span class="hs-identifier hs-var">fs2</span></a></span><span>
+</span><a href="#local-6989586621679402889"><span class="hs-identifier hs-var">fs1</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402886"><span class="hs-identifier hs-var">fs2</span></a></span><span>
 </span><span id="line-71"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href=".."><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">:</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)])
 -&gt; Either String (t, Type Void)
 -&gt; Either String ([(t, Type Void)] -&gt; [(t, Type Void)])
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402859"><span class="hs-identifier hs-var">f1</span></a></span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; (t, Type Void))
+</span><a href="#local-6989586621679402891"><span class="hs-identifier hs-var">f1</span></a></span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; (t, Type Void))
 -&gt; Either String (Type Void) -&gt; Either String (t, Type Void)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void -&gt; Either String (Type Void)
 </span><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402858"><span class="hs-identifier hs-var">v1</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402855"><span class="hs-identifier hs-var">v2</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Either String ([(t, Type Void)] -&gt; [(t, Type Void)])
+</span><a href="#local-6989586621679402890"><span class="hs-identifier hs-var">v1</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402887"><span class="hs-identifier hs-var">v2</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Either String ([(t, Type Void)] -&gt; [(t, Type Void)])
 -&gt; Either String [(t, Type Void)] -&gt; Either String [(t, Type Void)]
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
 -&gt; [(t, Type Void)] -&gt; Either String [(t, Type Void)]
-</span><a href="#local-6989586621679402861"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402857"><span class="hs-identifier hs-var">fs1</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402854"><span class="hs-identifier hs-var">fs2</span></a></span><span>
-</span><span id="line-72"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VariantT"><span class="hs-identifier hs-type">VariantT</span></a></span><span> </span><span id="local-6989586621679402851"><span class="annot"><span class="annottext">Fields Void
-</span><a href="#local-6989586621679402851"><span class="hs-identifier hs-var">fs1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VariantT"><span class="hs-identifier hs-type">VariantT</span></a></span><span> </span><span id="local-6989586621679402850"><span class="annot"><span class="annottext">Fields Void
-</span><a href="#local-6989586621679402850"><span class="hs-identifier hs-var">fs2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Fields Void -&gt; Type Void
+</span><a href="#local-6989586621679402893"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402889"><span class="hs-identifier hs-var">fs1</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402886"><span class="hs-identifier hs-var">fs2</span></a></span><span>
+</span><span id="line-72"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VariantT"><span class="hs-identifier hs-type">VariantT</span></a></span><span> </span><span id="local-6989586621679402883"><span class="annot"><span class="annottext">Fields Void
+</span><a href="#local-6989586621679402883"><span class="hs-identifier hs-var">fs1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VariantT"><span class="hs-identifier hs-type">VariantT</span></a></span><span> </span><span id="local-6989586621679402882"><span class="annot"><span class="annottext">Fields Void
+</span><a href="#local-6989586621679402882"><span class="hs-identifier hs-var">fs2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Fields Void -&gt; Type Void
 forall a. Fields a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#VariantT"><span class="hs-identifier hs-var">VariantT</span></a></span><span> </span><span class="annot"><span class="annottext">(Fields Void -&gt; Type Void)
 -&gt; Either String (Fields Void) -&gt; Either String (Type Void)
@@ -473,97 +473,97 @@ forall t.
 Ord t =&gt;
 [(t, Type Void)]
 -&gt; [(t, Type Void)] -&gt; Either String [(t, Type Void)]
-</span><a href="#local-6989586621679402849"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((FieldName, Type Void) -&gt; FieldName) -&gt; Fields Void -&gt; Fields Void
+</span><a href="#local-6989586621679402881"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((FieldName, Type Void) -&gt; FieldName) -&gt; Fields Void -&gt; Fields Void
 forall b a. Ord b =&gt; (a -&gt; b) -&gt; [a] -&gt; [a]
 </span><a href=".."><span class="hs-identifier hs-var">sortOn</span></a></span><span> </span><span class="annot"><span class="annottext">(FieldName, Type Void) -&gt; FieldName
 forall a b. (a, b) -&gt; a
 </span><a href=".."><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">Fields Void
-</span><a href="#local-6989586621679402851"><span class="hs-identifier hs-var">fs1</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((FieldName, Type Void) -&gt; FieldName) -&gt; Fields Void -&gt; Fields Void
+</span><a href="#local-6989586621679402883"><span class="hs-identifier hs-var">fs1</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((FieldName, Type Void) -&gt; FieldName) -&gt; Fields Void -&gt; Fields Void
 forall b a. Ord b =&gt; (a -&gt; b) -&gt; [a] -&gt; [a]
 </span><a href=".."><span class="hs-identifier hs-var">sortOn</span></a></span><span> </span><span class="annot"><span class="annottext">(FieldName, Type Void) -&gt; FieldName
 forall a b. (a, b) -&gt; a
 </span><a href=".."><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">Fields Void
-</span><a href="#local-6989586621679402850"><span class="hs-identifier hs-var">fs2</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679402882"><span class="hs-identifier hs-var">fs2</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-73"></span><span>  </span><span class="hs-keyword">where</span><span>
-</span><span id="line-74"></span><span>    </span><span id="local-6989586621679402849"><span class="annot"><span class="annottext">go :: [(t, Type Void)]
+</span><span id="line-74"></span><span>    </span><span id="local-6989586621679402881"><span class="annot"><span class="annottext">go :: [(t, Type Void)]
 -&gt; [(t, Type Void)] -&gt; Either String [(t, Type Void)]
-</span><a href="#local-6989586621679402849"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span id="local-6989586621679402848"><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402848"><span class="hs-identifier hs-var">fs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)] -&gt; Either String [(t, Type Void)]
+</span><a href="#local-6989586621679402881"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span id="local-6989586621679402880"><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402880"><span class="hs-identifier hs-var">fs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)] -&gt; Either String [(t, Type Void)]
 forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 </span><a href=".."><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402848"><span class="hs-identifier hs-var">fs</span></a></span><span>
-</span><span id="line-75"></span><span>    </span><span class="annot"><a href="#local-6989586621679402849"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span id="local-6989586621679402847"><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402847"><span class="hs-identifier hs-var">fs</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)] -&gt; Either String [(t, Type Void)]
+</span><a href="#local-6989586621679402880"><span class="hs-identifier hs-var">fs</span></a></span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><a href="#local-6989586621679402881"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span id="local-6989586621679402879"><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402879"><span class="hs-identifier hs-var">fs</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)] -&gt; Either String [(t, Type Void)]
 forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
 </span><a href=".."><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402847"><span class="hs-identifier hs-var">fs</span></a></span><span>
-</span><span id="line-76"></span><span>    </span><span class="annot"><a href="#local-6989586621679402849"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679402846"><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402846"><span class="hs-identifier hs-var">f1</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679402845"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402845"><span class="hs-identifier hs-var">v1</span></a></span></span><span class="hs-special">)</span><span class="annot"><a href=".."><span class="hs-glyph hs-type">:</span></a></span><span id="local-6989586621679402844"><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402844"><span class="hs-identifier hs-var">fs1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679402843"><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402843"><span class="hs-identifier hs-var">f2</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679402842"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402842"><span class="hs-identifier hs-var">v2</span></a></span></span><span class="hs-special">)</span><span class="annot"><a href=".."><span class="hs-glyph hs-type">:</span></a></span><span id="local-6989586621679402841"><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402841"><span class="hs-identifier hs-var">fs2</span></a></span></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679402879"><span class="hs-identifier hs-var">fs</span></a></span><span>
+</span><span id="line-76"></span><span>    </span><span class="annot"><a href="#local-6989586621679402881"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679402878"><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679402878"><span class="hs-identifier hs-var">f1</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679402877"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402877"><span class="hs-identifier hs-var">v1</span></a></span></span><span class="hs-special">)</span><span class="annot"><a href=".."><span class="hs-glyph hs-type">:</span></a></span><span id="local-6989586621679402876"><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402876"><span class="hs-identifier hs-var">fs1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679402875"><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679402875"><span class="hs-identifier hs-var">f2</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679402874"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402874"><span class="hs-identifier hs-var">v2</span></a></span></span><span class="hs-special">)</span><span class="annot"><a href=".."><span class="hs-glyph hs-type">:</span></a></span><span id="local-6989586621679402873"><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402873"><span class="hs-identifier hs-var">fs2</span></a></span></span><span class="hs-special">)</span><span>
 </span><span id="line-77"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402846"><span class="hs-identifier hs-var">f1</span></a></span><span> </span><span class="annot"><span class="annottext">t -&gt; t -&gt; Bool
+</span><a href="#local-6989586621679402878"><span class="hs-identifier hs-var">f1</span></a></span><span> </span><span class="annot"><span class="annottext">t -&gt; t -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402843"><span class="hs-identifier hs-var">f2</span></a></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402846"><span class="hs-identifier hs-var">f1</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402845"><span class="hs-identifier hs-var">v1</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)]
+</span><a href="#local-6989586621679402875"><span class="hs-identifier hs-var">f2</span></a></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679402878"><span class="hs-identifier hs-var">f1</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402877"><span class="hs-identifier hs-var">v1</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href=".."><span class="hs-glyph hs-var">:</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">([(t, Type Void)] -&gt; [(t, Type Void)])
 -&gt; Either String [(t, Type Void)] -&gt; Either String [(t, Type Void)]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
 -&gt; [(t, Type Void)] -&gt; Either String [(t, Type Void)]
-</span><a href="#local-6989586621679402849"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402844"><span class="hs-identifier hs-var">fs1</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402843"><span class="hs-identifier hs-var">f2</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402842"><span class="hs-identifier hs-var">v2</span></a></span><span class="hs-special">)</span><span class="annot"><span class="annottext">(t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)]
+</span><a href="#local-6989586621679402881"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402876"><span class="hs-identifier hs-var">fs1</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679402875"><span class="hs-identifier hs-var">f2</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402874"><span class="hs-identifier hs-var">v2</span></a></span><span class="hs-special">)</span><span class="annot"><span class="annottext">(t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href=".."><span class="hs-glyph hs-var">:</span></a></span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402841"><span class="hs-identifier hs-var">fs2</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679402873"><span class="hs-identifier hs-var">fs2</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-78"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402846"><span class="hs-identifier hs-var">f1</span></a></span><span> </span><span class="annot"><span class="annottext">t -&gt; t -&gt; Bool
+</span><a href="#local-6989586621679402878"><span class="hs-identifier hs-var">f1</span></a></span><span> </span><span class="annot"><span class="annottext">t -&gt; t -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href=".."><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402843"><span class="hs-identifier hs-var">f2</span></a></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402843"><span class="hs-identifier hs-var">f2</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402842"><span class="hs-identifier hs-var">v2</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)]
+</span><a href="#local-6989586621679402875"><span class="hs-identifier hs-var">f2</span></a></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679402875"><span class="hs-identifier hs-var">f2</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402874"><span class="hs-identifier hs-var">v2</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href=".."><span class="hs-glyph hs-var">:</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">([(t, Type Void)] -&gt; [(t, Type Void)])
 -&gt; Either String [(t, Type Void)] -&gt; Either String [(t, Type Void)]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
 -&gt; [(t, Type Void)] -&gt; Either String [(t, Type Void)]
-</span><a href="#local-6989586621679402849"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402846"><span class="hs-identifier hs-var">f1</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402845"><span class="hs-identifier hs-var">v1</span></a></span><span class="hs-special">)</span><span class="annot"><span class="annottext">(t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)]
+</span><a href="#local-6989586621679402881"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621679402878"><span class="hs-identifier hs-var">f1</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402877"><span class="hs-identifier hs-var">v1</span></a></span><span class="hs-special">)</span><span class="annot"><span class="annottext">(t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href=".."><span class="hs-glyph hs-var">:</span></a></span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402844"><span class="hs-identifier hs-var">fs1</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402841"><span class="hs-identifier hs-var">fs2</span></a></span><span>
+</span><a href="#local-6989586621679402876"><span class="hs-identifier hs-var">fs1</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402873"><span class="hs-identifier hs-var">fs2</span></a></span><span>
 </span><span id="line-79"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href=".."><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">:</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((t, Type Void) -&gt; [(t, Type Void)] -&gt; [(t, Type Void)])
 -&gt; Either String (t, Type Void)
 -&gt; Either String ([(t, Type Void)] -&gt; [(t, Type Void)])
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">t
-</span><a href="#local-6989586621679402846"><span class="hs-identifier hs-var">f1</span></a></span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; (t, Type Void))
+</span><a href="#local-6989586621679402878"><span class="hs-identifier hs-var">f1</span></a></span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Type Void -&gt; (t, Type Void))
 -&gt; Either String (Type Void) -&gt; Either String (t, Type Void)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void -&gt; Either String (Type Void)
 </span><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402845"><span class="hs-identifier hs-var">v1</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402842"><span class="hs-identifier hs-var">v2</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Either String ([(t, Type Void)] -&gt; [(t, Type Void)])
+</span><a href="#local-6989586621679402877"><span class="hs-identifier hs-var">v1</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402874"><span class="hs-identifier hs-var">v2</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Either String ([(t, Type Void)] -&gt; [(t, Type Void)])
 -&gt; Either String [(t, Type Void)] -&gt; Either String [(t, Type Void)]
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href=".."><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
 -&gt; [(t, Type Void)] -&gt; Either String [(t, Type Void)]
-</span><a href="#local-6989586621679402849"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402844"><span class="hs-identifier hs-var">fs1</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
-</span><a href="#local-6989586621679402841"><span class="hs-identifier hs-var">fs2</span></a></span><span>
+</span><a href="#local-6989586621679402881"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402876"><span class="hs-identifier hs-var">fs1</span></a></span><span> </span><span class="annot"><span class="annottext">[(t, Type Void)]
+</span><a href="#local-6989586621679402873"><span class="hs-identifier hs-var">fs2</span></a></span><span>
 </span><span id="line-80"></span><span>
 </span><span id="line-81"></span><span class="hs-comment">-- the reflexive cases</span><span>
 </span><span id="line-82"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
@@ -688,17 +688,17 @@ forall a. Type a
 </span><span id="line-99"></span><span>
 </span><span id="line-100"></span><span class="hs-comment">-- The shorthands</span><span>
 </span><span id="line-101"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="Codec.Candid.Types.html#BlobT"><span class="hs-identifier hs-var">BlobT</span></a></span><span> </span><span id="local-6989586621679402840"><span class="annot"><span class="annottext">t :: Type Void
-</span><a href="#local-6989586621679402840"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-type">VecT</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
+</span><a href="Codec.Candid.Types.html#BlobT"><span class="hs-identifier hs-var">BlobT</span></a></span><span> </span><span id="local-6989586621679402872"><span class="annot"><span class="annottext">t :: Type Void
+</span><a href="#local-6989586621679402872"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-type">VecT</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void -&gt; Either String (Type Void)
 </span><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
 forall a. Type a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-var">VecT</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
 forall a. Type a
 </span><a href="Codec.Candid.Types.html#Nat8T"><span class="hs-identifier hs-var">Nat8T</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402840"><span class="hs-identifier hs-var">t</span></a></span><span>
-</span><span id="line-102"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span id="local-6989586621679402839"><span class="annot"><span class="annottext">t :: Type Void
-</span><a href="#local-6989586621679402839"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-type">VecT</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402872"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-102"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span id="local-6989586621679402871"><span class="annot"><span class="annottext">t :: Type Void
+</span><a href="#local-6989586621679402871"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-type">VecT</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Type Void
 </span><a href="Codec.Candid.Types.html#BlobT"><span class="hs-identifier hs-var">BlobT</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Type Void -&gt; Either String (Type Void)
 </span><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Type Void -&gt; Type Void
@@ -706,12 +706,12 @@ forall a. Type a -&gt; Type a
 </span><a href="Codec.Candid.Types.html#VecT"><span class="hs-identifier hs-var">VecT</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
 forall a. Type a
 </span><a href="Codec.Candid.Types.html#Nat8T"><span class="hs-identifier hs-var">Nat8T</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402839"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><a href="#local-6989586621679402871"><span class="hs-identifier hs-var">t</span></a></span><span>
 </span><span id="line-103"></span><span>
 </span><span id="line-104"></span><span class="hs-comment">-- failure</span><span>
-</span><span id="line-105"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span id="local-6989586621679402838"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402838"><span class="hs-identifier hs-var">t1</span></a></span></span><span> </span><span id="local-6989586621679402837"><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402837"><span class="hs-identifier hs-var">t2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Either String (Type Void)
+</span><span id="line-105"></span><span class="annot"><a href="Codec.Candid.Infer.html#lub"><span class="hs-identifier hs-var">lub</span></a></span><span> </span><span id="local-6989586621679402870"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402870"><span class="hs-identifier hs-var">t1</span></a></span></span><span> </span><span id="local-6989586621679402869"><span class="annot"><span class="annottext">Type Void
+</span><a href="#local-6989586621679402869"><span class="hs-identifier hs-var">t2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Either String (Type Void)
 forall a b. a -&gt; Either a b
 </span><a href=".."><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Either String (Type Void))
 -&gt; String -&gt; Either String (Type Void)
@@ -726,7 +726,7 @@ forall ann. Doc ann -&gt; Doc ann -&gt; Doc ann
 </span><a href=".."><span class="hs-operator hs-var">&lt;+&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Doc Any
 forall a ann. Pretty a =&gt; a -&gt; Doc ann
 </span><a href=".."><span class="hs-identifier hs-var">pretty</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402838"><span class="hs-identifier hs-var">t1</span></a></span><span> </span><span class="annot"><span class="annottext">Doc Any -&gt; Doc Any -&gt; Doc Any
+</span><a href="#local-6989586621679402870"><span class="hs-identifier hs-var">t1</span></a></span><span> </span><span class="annot"><span class="annottext">Doc Any -&gt; Doc Any -&gt; Doc Any
 forall ann. Doc ann -&gt; Doc ann -&gt; Doc ann
 </span><a href=".."><span class="hs-operator hs-var">&lt;+&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Doc Any
 </span><span class="hs-string">&quot; and &quot;</span></span><span> </span><span class="annot"><span class="annottext">Doc Any -&gt; Doc Any -&gt; Doc Any
@@ -734,5 +734,5 @@ forall ann. Doc ann -&gt; Doc ann -&gt; Doc ann
 </span><a href=".."><span class="hs-operator hs-var">&lt;+&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void -&gt; Doc Any
 forall a ann. Pretty a =&gt; a -&gt; Doc ann
 </span><a href=".."><span class="hs-identifier hs-var">pretty</span></a></span><span> </span><span class="annot"><span class="annottext">Type Void
-</span><a href="#local-6989586621679402837"><span class="hs-identifier hs-var">t2</span></a></span><span>
+</span><a href="#local-6989586621679402869"><span class="hs-identifier hs-var">t2</span></a></span><span>
 </span><span id="line-106"></span></pre></body></html>
