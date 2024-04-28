@@ -55,6 +55,7 @@ jobs:
     - uses: haskell-actions/setup@v2
       with:
         ghc-version: ${{ env.ghc_version }}
+        ghcup-release-channel: https://raw.githubusercontent.com/haskell/ghcup-metadata/master/ghcup-prereleases-0.0.8.yaml
 
     - name: Fetch cabal-force-upper-bounds
       if: matrix.plan == 'upper-bounds'
