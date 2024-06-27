@@ -100,7 +100,7 @@ test-suite test
         tasty ^>=1.4.3 || ^>=1.5,
         tasty-hunit ^>=0.10.0,
         tasty-smallcheck ^>=0.8.2,
-        tasty-quickcheck ^>=0.10.2,
+        tasty-quickcheck ^>=0.10.2 || ^>=0.11,
         tasty-rerun ^>=1.1.18,
         smallcheck ^>=1.2.1,
         candid,
