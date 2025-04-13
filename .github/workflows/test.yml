@@ -86,7 +86,7 @@ jobs:
     - name: Upload build plan as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: plans
+        name: plan-${{ matrix.plan }}
         path: plan-${{ matrix.plan }}.json
 
   bounds:
@@ -105,8 +105,9 @@ jobs:
     - name: Load plans
       uses: actions/download-artifact@v4
       with:
-        name: plans
+        pattern: plan-*
         path: plans
+        merge-multiple: true
 
     - run: find plans/
 
