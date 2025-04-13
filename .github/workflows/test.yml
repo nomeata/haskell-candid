@@ -84,7 +84,7 @@ jobs:
     - run: mv dist-newstyle/cache/plan.json plan-${{ matrix.plan }}.json
 
     - name: Upload build plan as artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: plans
         path: plan-${{ matrix.plan }}.json
@@ -103,7 +103,7 @@ jobs:
         chmod +x /usr/local/bin/cabal-plan-bounds
 
     - name: Load plans
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: plans
         path: plans
