@@ -1,5 +1,9 @@
 # Revision history for haskell-candid
 
+## 0.5.0.3 -- 2025-04-13
+
+* GHC-9.12
+
 ## 0.5.0.2 -- 2024-04-28
 
 * GHC-9.10
